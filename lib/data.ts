@@ -295,27 +295,39 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
       creators: creatorIds.size,
       engagementRate: engagementRate(totals),
     },
-    series: buildSeries(snapshots, new Set(posts.map((p) => p.id))),
+    series: buildSeries(snapshots, posts),
     topCreators: buildCreatorPerformance(posts),
     lastRefreshed,
   };
 }
 
-/** Total campaign views per day, carrying each post's latest known count forward. */
-function buildSeries(snapshots: Snapshot[], livePostIds: Set<string>): SeriesPoint[] {
-  const byDay = new Map<string, Snapshot[]>();
-  for (const s of snapshots) {
-    if (!livePostIds.has(s.postId)) continue;
-    const day = s.capturedAt.slice(0, 10);
-    byDay.set(day, [...(byDay.get(day) ?? []), s]);
-  }
+/**
+ * Total campaign views per day, carrying each post's latest known count forward.
+ * With only one day of refreshes, each refresh (to the minute) is its own point so the chart
+ * fills in straight away. The line starts at zero on the first post date.
+ */
+function buildSeries(snapshots: Snapshot[], posts: Post[]): SeriesPoint[] {
+  const livePostIds = new Set(posts.map((p) => p.id));
+  const live = snapshots.filter((s) => livePostIds.has(s.postId));
+  const oneDay = new Set(live.map((s) => s.capturedAt.slice(0, 10))).size === 1;
+  const bucketOf = (s: Snapshot) => (oneDay ? `${s.capturedAt.slice(0, 16)}:00Z` : s.capturedAt.slice(0, 10));
+
+  const byBucket = new Map<string, Snapshot[]>();
+  for (const s of live) byBucket.set(bucketOf(s), [...(byBucket.get(bucketOf(s)) ?? []), s]);
   const latest = new Map<string, number>();
-  return [...byDay.keys()].sort().map((day) => {
-    for (const s of byDay.get(day)!) latest.set(s.postId, Math.max(latest.get(s.postId) ?? 0, s.views));
+  const series: SeriesPoint[] = [...byBucket.keys()].sort().map((date) => {
+    for (const s of byBucket.get(date)!) latest.set(s.postId, Math.max(latest.get(s.postId) ?? 0, s.views));
     let views = 0;
     latest.forEach((v) => (views += v));
-    return { date: day, views };
+    return { date, views };
   });
+
+  // Every post started at zero views, so anchor the line there on the first post date.
+  const firstPosted = posts.map((p) => p.postedAt?.slice(0, 10)).filter((d): d is string => Boolean(d)).sort()[0];
+  if (series.length && firstPosted && firstPosted < series[0].date) {
+    series.unshift({ date: firstPosted, views: 0, estimated: true });
+  }
+  return series;
 }
 
 function buildCreatorPerformance(posts: (Post & { creator?: Creator })[]): CreatorPerformance[] {

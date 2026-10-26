@@ -4,12 +4,23 @@ import type { SeriesPoint } from "@/lib/types";
 const W = 1000;
 const H = 280;
 
+/** Same-day refreshes carry a time; show it in Nashville time so the server and the team agree. */
+function pointLabel(date: string): string {
+  if (date.length === 10) return shortDate(date);
+  return new Date(date).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Chicago",
+    timeZoneName: "short",
+  });
+}
+
 export function ViewsChart({ series }: { series: SeriesPoint[] }) {
   if (series.length < 2) {
     return (
       <div className="h-[280px] border-2 border-dashed border-fb-black/30 flex items-center justify-center p-6 text-center">
         <p className="max-w-xs text-sm">
-          The views chart fills in after the stats have refreshed on at least two different days.
+          The views chart fills in after the first stats refresh.
         </p>
       </div>
     );
@@ -18,8 +29,13 @@ export function ViewsChart({ series }: { series: SeriesPoint[] }) {
   const max = Math.max(...series.map((p) => p.views)) * 1.08 || 1;
   const x = (i: number) => (i / (series.length - 1)) * W;
   const y = (v: number) => H - (v / max) * H;
-  const line = series.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.views).toFixed(1)}`).join(" ");
-  const area = `${line} L${W},${H} L0,${H} Z`;
+  const pt = (i: number) => `${x(i).toFixed(1)},${y(series[i].views).toFixed(1)}`;
+  // The zero starting point isn't a measured refresh, so the stretch up to the first real one is dashed.
+  const start = series[0].estimated ? 1 : 0;
+  const line = series.slice(start).map((_, i) => `${i ? "L" : "M"}${pt(i + start)}`).join(" ");
+  const lead = start ? `M${pt(0)} L${pt(1)}` : "";
+  const area = `M${pt(0)} ${series.slice(1).map((_, i) => `L${pt(i + 1)}`).join(" ")} L${W},${H} L0,${H} Z`;
+  const sameDay = series.every((p) => p.date.slice(0, 10) === series[0].date.slice(0, 10));
   const gridValues = [0.25, 0.5, 0.75, 1].map((f) => max * f);
   const last = series[series.length - 1];
   const mid = series[Math.floor(series.length / 2)];
@@ -32,7 +48,7 @@ export function ViewsChart({ series }: { series: SeriesPoint[] }) {
           preserveAspectRatio="none"
           className="absolute inset-0 h-full w-full overflow-visible"
           role="img"
-          aria-label={`Total views grew to ${compact(last.views)} by ${shortDate(last.date)}`}
+          aria-label={`Total views grew to ${compact(last.views)} by ${shortDate(last.date)}${sameDay && last.date.length > 10 ? `, ${pointLabel(last.date)}` : ""}`}
         >
           {gridValues.map((v) => (
             <line
@@ -47,6 +63,17 @@ export function ViewsChart({ series }: { series: SeriesPoint[] }) {
             />
           ))}
           <path d={area} fill="#ED2124" fillOpacity={0.1} />
+          {lead && (
+            <path
+              d={lead}
+              fill="none"
+              stroke="#ED2124"
+              strokeWidth={3}
+              strokeDasharray="6 6"
+              strokeOpacity={0.6}
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
           <path
             d={line}
             fill="none"
@@ -74,9 +101,14 @@ export function ViewsChart({ series }: { series: SeriesPoint[] }) {
       </div>
       <figcaption className="mt-3 flex justify-between text-xs tabular-nums">
         <span>{shortDate(series[0].date)}</span>
-        <span>{shortDate(mid.date)}</span>
-        <span>{shortDate(last.date)}</span>
+        {series.length > 2 && <span>{sameDay ? pointLabel(mid.date) : shortDate(mid.date)}</span>}
+        <span>{sameDay ? pointLabel(last.date) : shortDate(last.date)}</span>
       </figcaption>
+      {start > 0 && (
+        <p className="mt-2 text-xs text-fb-black/70">
+          Dashed: from 0 views on the first post date to the first stats refresh.
+        </p>
+      )}
     </figure>
   );
 }

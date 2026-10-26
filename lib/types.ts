@@ -96,8 +96,10 @@ export interface Snapshot extends Stats {
 }
 
 export interface SeriesPoint {
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD, or a full ISO time while the campaign has only one day of refreshes
   views: number;
+  /** The zero-views starting point on the first post date, not a measured refresh. */
+  estimated?: boolean;
 }
 
 export interface CreatorPerformance {
