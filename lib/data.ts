@@ -1,0 +1,344 @@
+import { type AirtableRecord, firstAttachment, ids, listAll, num, str, strings } from "./airtable";
+import {
+  ASSIGNMENT_FIELDS as AF,
+  CAMPAIGN_FIELDS as CF,
+  DRAFT_FIELDS as DF,
+  CREATOR_FIELDS as CRF,
+  POST_FIELDS as PF,
+  SNAPSHOT_FIELDS as SF,
+  TABLES,
+  isSampleMode,
+} from "./config";
+import { detectPlatform } from "./social";
+import {
+  sampleAssignments,
+  sampleCampaigns,
+  sampleCreators,
+  sampleDrafts,
+  samplePosts,
+  sampleSnapshots,
+} from "./sample-data";
+import type {
+  Assignment,
+  AssignmentStatus,
+  Campaign,
+  CampaignStatus,
+  CampaignView,
+  Creator,
+  CreatorPerformance,
+  Draft,
+  DraftStatus,
+  Platform,
+  Post,
+  SeriesPoint,
+  Snapshot,
+  Stage,
+  Stats,
+} from "./types";
+
+// ---------- Reads ----------
+
+export async function getCreators(opts: { fresh?: boolean } = {}): Promise<Creator[]> {
+  if (isSampleMode()) return sampleCreators;
+  const rows = await listAll(TABLES.creators, {}, opts);
+  return rows
+    .map((r) => ({
+      id: r.id,
+      name: str(r.fields[CRF.name]) ?? "Unnamed creator",
+      photo: firstAttachment(r.fields[CRF.photo]),
+      instagram: cleanHandle(str(r.fields[CRF.instagram])),
+      tiktok: cleanHandle(str(r.fields[CRF.tiktok])),
+      instagramFollowers: num(r.fields[CRF.instagramFollowers]),
+      tiktokFollowers: num(r.fields[CRF.tiktokFollowers]),
+      tags: strings(r.fields[CRF.tags]),
+      location: str(r.fields[CRF.location]),
+      rate: num(r.fields[CRF.rate]) || undefined,
+      email: str(r.fields[CRF.email]),
+      notes: str(r.fields[CRF.notes]),
+      avgViews: num(r.fields[CRF.avgViews]) || undefined,
+      statsUpdated: str(r.fields[CRF.statsUpdated]),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function getCampaigns(opts: { fresh?: boolean } = {}): Promise<Campaign[]> {
+  if (isSampleMode()) return sampleCampaigns;
+  const rows = await listAll(TABLES.campaigns, {}, opts);
+  return rows.map((r) => ({
+    id: r.id,
+    name: str(r.fields[CF.name]) ?? "Untitled campaign",
+    artist: str(r.fields[CF.artist]) ?? "",
+    song: str(r.fields[CF.song]),
+    startDate: str(r.fields[CF.startDate]),
+    endDate: str(r.fields[CF.endDate]),
+    budget: num(r.fields[CF.budget]) || undefined,
+    status: (str(r.fields[CF.status]) as CampaignStatus) ?? "Planning",
+    creatorIds: ids(r.fields[CF.creators]),
+    sharingEnabled: r.fields[CF.sharingEnabled] === true,
+    stage: toStage(str(r.fields[CF.stage])),
+    brief: str(r.fields[CF.brief]),
+    showRates: r.fields[CF.showRates] === true,
+  }));
+}
+
+function toStage(v?: string): Stage | undefined {
+  const s = v?.toLowerCase();
+  return s === "creators" || s === "drafts" || s === "live" ? s : undefined;
+}
+
+/** Which tab a campaign opens on: the Stage field if set, otherwise inferred from Status. */
+export function campaignStage(c: Campaign): Stage {
+  return c.stage ?? (c.status === "Planning" ? "creators" : "live");
+}
+
+// ---------- Roster (Campaign Creators) and drafts ----------
+
+function mapAssignment(r: AirtableRecord): Assignment {
+  return {
+    id: r.id,
+    campaignId: ids(r.fields[AF.campaign])[0] ?? str(r.fields[AF.campaignRecordId]) ?? "",
+    creatorId: ids(r.fields[AF.creator])[0],
+    status: (str(r.fields[AF.status]) as AssignmentStatus) ?? "Proposed",
+    fee: num(r.fields[AF.fee]) || undefined,
+    partnerComment: str(r.fields[AF.partnerComment]),
+    reviewedBy: str(r.fields[AF.reviewedBy]),
+    reviewedAt: str(r.fields[AF.reviewedAt]),
+  };
+}
+
+export async function getAssignments(campaignId: string, opts: { fresh?: boolean } = {}): Promise<Assignment[]> {
+  const [rows, creators] = await Promise.all([
+    isSampleMode()
+      ? Promise.resolve(sampleAssignments.filter((a) => a.campaignId === campaignId))
+      : listAll(TABLES.assignments, { filterByFormula: `{${AF.campaignRecordId}}='${safeId(campaignId)}'` }, opts).then(
+          (rs) => rs.map(mapAssignment),
+        ),
+    getCreators(opts),
+  ]);
+  const byId = new Map(creators.map((c) => [c.id, c]));
+  const order: Record<AssignmentStatus, number> = { Approved: 0, Proposed: 1, "Changes requested": 2, Declined: 3 };
+  return rows
+    .map((a) => ({ ...a, creator: a.creatorId ? byId.get(a.creatorId) : undefined }))
+    .sort(
+      (a, b) =>
+        order[a.status] - order[b.status] ||
+        totalReach(b.creator) - totalReach(a.creator),
+    );
+}
+
+export async function getAssignment(id: string): Promise<Assignment | undefined> {
+  if (isSampleMode()) return sampleAssignments.find((a) => a.id === id);
+  const rows = await listAll(TABLES.assignments, { filterByFormula: `RECORD_ID()='${safeId(id)}'` }, { fresh: true });
+  return rows[0] ? mapAssignment(rows[0]) : undefined;
+}
+
+function mapDraft(r: AirtableRecord): Draft {
+  return {
+    id: r.id,
+    assignmentId: ids(r.fields[DF.assignment])[0],
+    campaignId: ids(r.fields[DF.campaign])[0] ?? str(r.fields[DF.campaignRecordId]),
+    creatorId: ids(r.fields[DF.creator])[0],
+    videoUrl: str(r.fields[DF.videoUrl]),
+    caption: str(r.fields[DF.caption]),
+    version: num(r.fields[DF.version]) || 1,
+    status: (str(r.fields[DF.status]) as DraftStatus) ?? "Pending review",
+    partnerComment: str(r.fields[DF.partnerComment]),
+    reviewedBy: str(r.fields[DF.reviewedBy]),
+    submittedAt: str(r.fields[DF.submittedAt]) ?? r.createdTime,
+    reviewedAt: str(r.fields[DF.reviewedAt]),
+  };
+}
+
+/** Drafts for a campaign, newest first. */
+export async function getDrafts(campaignId: string, opts: { fresh?: boolean } = {}): Promise<Draft[]> {
+  const [rows, creators] = await Promise.all([
+    isSampleMode()
+      ? Promise.resolve(sampleDrafts.filter((d) => d.campaignId === campaignId))
+      : listAll(TABLES.drafts, { filterByFormula: `{${DF.campaignRecordId}}='${safeId(campaignId)}'` }, opts).then((rs) =>
+          rs.map(mapDraft),
+        ),
+    getCreators(opts),
+  ]);
+  const byId = new Map(creators.map((c) => [c.id, c]));
+  return rows
+    .map((d) => ({ ...d, creator: d.creatorId ? byId.get(d.creatorId) : undefined }))
+    .sort((a, b) => (b.submittedAt ?? "").localeCompare(a.submittedAt ?? ""));
+}
+
+export async function getDraft(id: string): Promise<Draft | undefined> {
+  if (isSampleMode()) return sampleDrafts.find((d) => d.id === id);
+  const rows = await listAll(TABLES.drafts, { filterByFormula: `RECORD_ID()='${safeId(id)}'` }, { fresh: true });
+  return rows[0] ? mapDraft(rows[0]) : undefined;
+}
+
+export const totalReach = (c?: Creator) => (c ? c.instagramFollowers + c.tiktokFollowers : 0);
+
+const safeId = (id: string) => id.replace(/[^A-Za-z0-9]/g, "");
+
+export async function getCampaign(id: string): Promise<Campaign | undefined> {
+  return (await getCampaigns()).find((c) => c.id === id);
+}
+
+export async function getPosts(opts: { fresh?: boolean } = {}): Promise<Post[]> {
+  if (isSampleMode()) return samplePosts;
+  const rows = await listAll(TABLES.posts, {}, opts);
+  return rows
+    .map((r): Post | undefined => {
+      const url = str(r.fields[PF.url]);
+      if (!url) return undefined;
+      const platformField = str(r.fields[PF.platform])?.toLowerCase();
+      const platform: Platform | undefined =
+        platformField === "instagram" || platformField === "tiktok" ? platformField : detectPlatform(url);
+      if (!platform) return undefined;
+      return {
+        id: r.id,
+        url,
+        platform,
+        creatorId: ids(r.fields[PF.creator])[0],
+        campaignId: ids(r.fields[PF.campaign])[0],
+        postedAt: str(r.fields[PF.postedAt]),
+        views: num(r.fields[PF.views]),
+        likes: num(r.fields[PF.likes]),
+        comments: num(r.fields[PF.comments]),
+        shares: num(r.fields[PF.shares]),
+        lastRefreshed: str(r.fields[PF.lastRefreshed]),
+        refreshNote: str(r.fields[PF.refreshNote]),
+        status: str(r.fields[PF.status]) === "Removed" ? "Removed" : "Live",
+      };
+    })
+    .filter((p): p is Post => Boolean(p));
+}
+
+export async function getSnapshots(campaignId: string): Promise<Snapshot[]> {
+  if (isSampleMode()) return sampleSnapshots.filter((s) => s.campaignId === campaignId);
+  // Linked-record formulas compare by primary field, so we filter on a plain-text copy of the ID.
+  const rows = await listAll(TABLES.snapshots, {
+    filterByFormula: `{${SF.campaignRecordId}}='${campaignId.replace(/'/g, "")}'`,
+    "sort[0][field]": SF.capturedAt,
+    "sort[0][direction]": "asc",
+  });
+  return rows
+    .map((r) => ({
+      id: r.id,
+      postId: ids(r.fields[SF.post])[0] ?? "",
+      campaignId: ids(r.fields[SF.campaign])[0],
+      capturedAt: str(r.fields[SF.capturedAt]) ?? r.createdTime,
+      views: num(r.fields[SF.views]),
+      likes: num(r.fields[SF.likes]),
+      comments: num(r.fields[SF.comments]),
+      shares: num(r.fields[SF.shares]),
+    }))
+    .filter((s) => s.campaignId === campaignId && s.postId);
+}
+
+// ---------- Campaign dashboard ----------
+
+export function engagementRate(s: Stats): number {
+  return s.views > 0 ? (s.likes + s.comments + s.shares) / s.views : 0;
+}
+
+export function sumStats(items: Stats[]): Stats {
+  return items.reduce(
+    (t, p) => ({
+      views: t.views + p.views,
+      likes: t.likes + p.likes,
+      comments: t.comments + p.comments,
+      shares: t.shares + p.shares,
+    }),
+    { views: 0, likes: 0, comments: 0, shares: 0 },
+  );
+}
+
+export async function getCampaignSummaries() {
+  const [campaigns, posts] = await Promise.all([getCampaigns(), getPosts()]);
+  const order: Record<CampaignStatus, number> = { Live: 0, Planning: 1, Wrapped: 2 };
+  return campaigns
+    .map((campaign) => {
+      const cp = posts.filter((p) => p.campaignId === campaign.id && p.status === "Live");
+      const totals = sumStats(cp);
+      return { campaign, totals, posts: cp.length, engagementRate: engagementRate(totals) };
+    })
+    .sort(
+      (a, b) =>
+        (order[a.campaign.status] ?? 3) - (order[b.campaign.status] ?? 3) ||
+        (b.campaign.startDate ?? "").localeCompare(a.campaign.startDate ?? ""),
+    );
+}
+
+export async function getCampaignView(campaign: Campaign): Promise<CampaignView> {
+  const [creators, allPosts, snapshots] = await Promise.all([
+    getCreators(),
+    getPosts(),
+    getSnapshots(campaign.id),
+  ]);
+  const byId = new Map(creators.map((c) => [c.id, c]));
+  const posts = allPosts
+    .filter((p) => p.campaignId === campaign.id && p.status === "Live")
+    .map((p) => ({ ...p, creator: p.creatorId ? byId.get(p.creatorId) : undefined }))
+    .sort((a, b) => b.views - a.views);
+
+  const totals = sumStats(posts);
+  const creatorIds = new Set(posts.map((p) => p.creatorId).filter(Boolean));
+
+  const lastRefreshed = posts
+    .map((p) => p.lastRefreshed)
+    .filter((d): d is string => Boolean(d))
+    .sort()
+    .at(-1);
+
+  return {
+    campaign,
+    posts,
+    totals: {
+      ...totals,
+      posts: posts.length,
+      creators: creatorIds.size,
+      engagementRate: engagementRate(totals),
+    },
+    series: buildSeries(snapshots, new Set(posts.map((p) => p.id))),
+    topCreators: buildCreatorPerformance(posts),
+    lastRefreshed,
+  };
+}
+
+/** Total campaign views per day, carrying each post's latest known count forward. */
+function buildSeries(snapshots: Snapshot[], livePostIds: Set<string>): SeriesPoint[] {
+  const byDay = new Map<string, Snapshot[]>();
+  for (const s of snapshots) {
+    if (!livePostIds.has(s.postId)) continue;
+    const day = s.capturedAt.slice(0, 10);
+    byDay.set(day, [...(byDay.get(day) ?? []), s]);
+  }
+  const latest = new Map<string, number>();
+  return [...byDay.keys()].sort().map((day) => {
+    for (const s of byDay.get(day)!) latest.set(s.postId, Math.max(latest.get(s.postId) ?? 0, s.views));
+    let views = 0;
+    latest.forEach((v) => (views += v));
+    return { date: day, views };
+  });
+}
+
+function buildCreatorPerformance(posts: (Post & { creator?: Creator })[]): CreatorPerformance[] {
+  const groups = new Map<string, (Post & { creator?: Creator })[]>();
+  for (const p of posts) {
+    const key = p.creatorId ?? `unassigned:${p.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), p]);
+  }
+  return [...groups.values()]
+    .map((ps) => {
+      const t = sumStats(ps);
+      return {
+        creator: ps[0].creator,
+        creatorId: ps[0].creatorId,
+        platforms: [...new Set(ps.map((p) => p.platform))],
+        posts: ps.length,
+        views: t.views,
+        engagementRate: engagementRate(t),
+      };
+    })
+    .sort((a, b) => b.views - a.views);
+}
+
+function cleanHandle(h?: string) {
+  return h?.replace(/^@/, "").replace(/^https?:\/\/[^/]+\/@?/, "").replace(/\/$/, "") || undefined;
+}
