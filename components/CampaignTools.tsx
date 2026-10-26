@@ -5,6 +5,13 @@ import { useState } from "react";
 import { timeAgo } from "@/lib/format";
 import type { Creator } from "@/lib/types";
 
+/** Pull every link out of pasted text: one per line, comma-separated, or mixed in with other words. */
+function extractLinks(text: string): string[] {
+  const found = text.match(/(?:https?:\/\/|www\.|(?:[\w-]+\.)?(?:instagram\.com|instagr\.am|tiktok\.com)\/)[^\s,;<>"']+/gi) ?? [];
+  const links = found.map((l) => l.replace(/[).\]]+$/, "")).map((l) => (/^https?:\/\//i.test(l) ? l : `https://${l}`));
+  return [...new Set(links)];
+}
+
 export function CampaignTools({
   campaignId,
   creators,
@@ -26,23 +33,42 @@ export function CampaignTools({
   const [message, setMessage] = useState<{ text: string; error?: boolean }>();
   const [copied, setCopied] = useState(false);
 
+  const links = extractLinks(url);
+
   async function addPost(e: React.FormEvent) {
     e.preventDefault();
+    if (!links.length) {
+      setMessage({ text: "Paste at least one Instagram or TikTok link.", error: true });
+      return;
+    }
     setAdding(true);
     setMessage(undefined);
     const res = await fetch("/api/posts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, campaignId, creatorId: creatorId || undefined }),
+      body: JSON.stringify({ urls: links, campaignId, creatorId: creatorId || undefined }),
     });
-    const data = (await res.json().catch(() => ({}))) as { error?: string; note?: string };
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      note?: string;
+      added?: number;
+      skipped?: { url: string; reason: "duplicate" | "unsupported" }[];
+    };
     setAdding(false);
     if (!res.ok) {
-      setMessage({ text: data.error ?? "Couldn't add that link. Try again.", error: true });
+      setMessage({ text: data.error ?? "Couldn't add those links. Try again.", error: true });
       return;
     }
+    const added = data.added ?? 1;
+    const dupes = data.skipped?.filter((s) => s.reason === "duplicate").length ?? 0;
+    const other = data.skipped?.filter((s) => s.reason === "unsupported").length ?? 0;
+    const skippedText = [
+      dupes ? `${dupes} already on this campaign` : "",
+      other ? `${other} not Instagram or TikTok` : "",
+    ].filter(Boolean).join(", ");
+    const lead = added === 1 ? "Post added with its latest stats." : `${added} posts added with their latest stats.`;
     setUrl("");
-    setMessage({ text: data.note ?? "Post added with its latest stats." });
+    setMessage({ text: [lead, skippedText && `Skipped ${skippedText}.`, data.note].filter(Boolean).join(" ") });
     router.refresh();
   }
 
@@ -81,19 +107,19 @@ export function CampaignTools({
     <section aria-label="Campaign tools" className="border-2 border-fb-black p-6 max-sm:p-4">
       <form onSubmit={addPost} className="grid gap-3 md:grid-cols-[1fr_220px_auto] items-end">
         <label className="block">
-          <span className="text-sm font-bold">Add a live post</span>
-          <input
-            type="url"
+          <span className="text-sm font-bold">Add live posts</span>
+          <textarea
             required
-            placeholder="Paste an Instagram or TikTok link"
+            rows={Math.min(Math.max(links.length, 1), 6)}
+            placeholder="Paste Instagram or TikTok links, one per line"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             disabled={sample}
-            className="mt-2 w-full border-b-2 border-fb-black bg-transparent py-2.5 outline-none focus:border-fb-red disabled:opacity-50"
+            className="mt-2 w-full resize-y border-b-2 border-fb-black bg-transparent py-2.5 outline-none focus:border-fb-red disabled:opacity-50"
           />
         </label>
         <label className="block">
-          <span className="text-sm font-bold">Creator</span>
+          <span className="text-sm font-bold">{links.length > 1 ? "Creator (for every link)" : "Creator"}</span>
           <select
             value={creatorId}
             onChange={(e) => setCreatorId(e.target.value)}
@@ -112,7 +138,9 @@ export function CampaignTools({
           disabled={sample || adding}
           className="subtitle bg-fb-red text-fb-white px-6 py-3.5 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
         >
-          {adding ? "Adding post" : "Add post"}
+          {adding
+            ? links.length > 1 ? `Adding ${links.length} posts` : "Adding post"
+            : links.length > 1 ? `Add ${links.length} posts` : "Add post"}
         </button>
       </form>
 
