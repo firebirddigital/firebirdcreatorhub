@@ -91,6 +91,117 @@ function DraftPlayer({ url }: { url: string }) {
   );
 }
 
+/**
+ * One version of a creator's draft: player, status, caption, notes and (for partners) review buttons.
+ * With `name` it's a creator's only card and shows their name; in a multi-version row it shows the version.
+ */
+function VersionCard({
+  draft: d,
+  name,
+  latest,
+  partner,
+}: {
+  draft?: Draft;
+  name?: string;
+  latest?: boolean;
+  partner?: { reviewEndpoint: string };
+}) {
+  const source = d?.videoUrl ? draftSource(d.videoUrl) : undefined;
+  return (
+    <>
+      <div className="relative aspect-[9/16] bg-fb-black overflow-hidden">
+        {d?.videoUrl ? (
+          <DraftPlayer url={d.videoUrl} />
+        ) : (
+          <div className="absolute inset-0 flex flex-col justify-end p-5 text-fb-white">
+            <span className="subtitle text-xs">{d ? `Version ${d.version}` : "Waiting on draft"}</span>
+            <span className="mt-2 text-sm text-fb-white/75">
+              {d ? "Sample draft. Real uploads play here." : "The creator hasn't uploaded yet."}
+            </span>
+          </div>
+        )}
+        {d && (
+          <span className={`absolute left-0 top-0 px-2.5 py-1 text-xs font-bold ${STATUS[d.status].className}`}>
+            {STATUS[d.status].label}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-baseline justify-between gap-3">
+        {name ? (
+          <h3 className="subtitle text-xl truncate">{name}</h3>
+        ) : (
+          <p className="subtitle text-xl">
+            Version {d?.version}
+            {latest && <span className="ml-2 align-middle text-xs bg-fb-black text-fb-white px-1.5 py-0.5">Latest</span>}
+          </p>
+        )}
+        {d && (
+          <span className="text-sm shrink-0">
+            {name ? `v${d.version}, ` : ""}
+            {shortDate(d.submittedAt)}
+          </span>
+        )}
+      </div>
+      {(d?.submittedBy || (source && !source.hosted)) && (
+        <p className="mt-1 text-xs">
+          {d?.submittedBy && <>Added by {d.submittedBy}. </>}
+          {d?.videoUrl && source && !source.hosted && (
+            <a href={d.videoUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+              Open on {source.label}
+            </a>
+          )}
+        </p>
+      )}
+      {d?.caption && <p className="mt-2 text-sm border-l-4 border-fb-black pl-3">{d.caption}</p>}
+      {d?.partnerComment && (
+        <blockquote className="mt-3 border-l-4 border-fb-red pl-3 text-sm">
+          {d.partnerComment}
+          {d.reviewedBy && <footer className="mt-1 text-xs">{d.reviewedBy}</footer>}
+        </blockquote>
+      )}
+      {partner && d && (
+        <div className="mt-4">
+          <ReviewControls
+            endpoint={partner.reviewEndpoint}
+            kind="draft"
+            recordId={d.id}
+            decided={d.status !== "Pending review"}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function TeamLaneControls({
+  assignmentId,
+  name,
+  uploadUrl,
+  campaignId,
+  sample,
+}: {
+  assignmentId: string;
+  name: string;
+  uploadUrl: string;
+  campaignId: string;
+  sample: boolean;
+}) {
+  return (
+    <>
+      <CopyButton text={uploadUrl} label="Copy draft upload link" copiedLabel="Upload link copied" />
+      <details className="mt-3">
+        <summary className="cursor-pointer text-sm font-bold underline underline-offset-4 hover:text-fb-red">
+          Add a draft for {name.split(" ")[0]}
+        </summary>
+        <div className="mt-4 max-w-2xl">
+          <TeamDraftForm campaignId={campaignId} fixed={{ assignmentId, name }} sample={sample} />
+        </div>
+      </details>
+    </>
+  );
+}
+
 export function DraftsBody({
   lanes,
   partner,
@@ -115,7 +226,7 @@ export function DraftsBody({
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 className="headline text-3xl">The drafts</h2>
-          {partner && lanes.some((l) => l.drafts[0]?.status === "Pending review") && (
+          {partner && lanes.some((l) => l.drafts.some((d) => d.status === "Pending review")) && (
             <p className="max-w-md text-sm">
               Watch each draft, then approve it or request a change. Creators see your notes and send a new version.
             </p>
@@ -125,108 +236,48 @@ export function DraftsBody({
         {lanes.length ? (
           <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
             {lanes.map(({ assignment: a, drafts }) => {
+              const name = a.creator?.name ?? "Creator";
+              const teamControls = team && (
+                <TeamLaneControls
+                  assignmentId={a.id}
+                  name={name}
+                  uploadUrl={team.uploadUrls[a.id]}
+                  campaignId={team.campaignId}
+                  sample={team.sample}
+                />
+              );
+
+              // Several versions: the creator gets a full-width row with every version side by side.
+              if (drafts.length > 1) {
+                return (
+                  <li key={a.id} className="col-span-full border-t-2 border-fb-black pt-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                      <h3 className="subtitle text-2xl">{name}</h3>
+                      <span className="text-sm">
+                        {drafts.length} versions, newest first
+                        {drafts.slice(1).some((d) => d.status === "Pending review") && (
+                          <span className="font-bold"> · an earlier version is still awaiting review</span>
+                        )}
+                      </span>
+                    </div>
+                    <ol className="mt-5 flex gap-8 overflow-x-auto pb-4 snap-x">
+                      {drafts.map((d, i) => (
+                        <li key={d.id} className="w-[280px] shrink-0 snap-start">
+                          <VersionCard draft={d} latest={i === 0} partner={partner} />
+                        </li>
+                      ))}
+                    </ol>
+                    {teamControls && <div className="mt-2">{teamControls}</div>}
+                  </li>
+                );
+              }
+
               const d = drafts[0];
               return (
                 <li key={a.id}>
                   <article>
-                    <div className="relative aspect-[9/16] bg-fb-black overflow-hidden">
-                      {d?.videoUrl ? (
-                        <DraftPlayer url={d.videoUrl} />
-                      ) : (
-                        <div className="absolute inset-0 flex flex-col justify-end p-5 text-fb-white">
-                          <span className="subtitle text-xs">{d ? `Version ${d.version}` : "Waiting on draft"}</span>
-                          <span className="mt-2 text-sm text-fb-white/75">
-                            {d ? "Sample draft. Real uploads play here." : "The creator hasn't uploaded yet."}
-                          </span>
-                        </div>
-                      )}
-                      {d && (
-                        <span
-                          className={`absolute left-0 top-0 px-2.5 py-1 text-xs font-bold ${STATUS[d.status].className}`}
-                        >
-                          {STATUS[d.status].label}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-4 flex items-baseline justify-between gap-3">
-                      <h3 className="subtitle text-xl truncate">{a.creator?.name ?? "Creator"}</h3>
-                      {d && (
-                        <span className="text-sm shrink-0">
-                          v{d.version}, {shortDate(d.submittedAt)}
-                        </span>
-                      )}
-                    </div>
-                    {(d?.submittedBy || (d?.videoUrl && !draftSource(d.videoUrl).hosted)) && (
-                      <p className="mt-1 text-xs">
-                        {d.submittedBy && <>Added by {d.submittedBy}. </>}
-                        {d.videoUrl && !draftSource(d.videoUrl).hosted && (
-                          <a href={d.videoUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                            Open on {draftSource(d.videoUrl).label}
-                          </a>
-                        )}
-                      </p>
-                    )}
-                    {d?.caption && <p className="mt-2 text-sm border-l-4 border-fb-black pl-3">{d.caption}</p>}
-                    {d?.partnerComment && (
-                      <blockquote className="mt-3 border-l-4 border-fb-red pl-3 text-sm">
-                        {d.partnerComment}
-                        {d.reviewedBy && <footer className="mt-1 text-xs">{d.reviewedBy}</footer>}
-                      </blockquote>
-                    )}
-
-                    {drafts.length > 1 && (
-                      <details className="mt-3 text-sm">
-                        <summary className="cursor-pointer underline underline-offset-4">
-                          Earlier versions ({drafts.length - 1})
-                        </summary>
-                        <ul className="mt-2 space-y-2">
-                          {drafts.slice(1).map((old) => (
-                            <li key={old.id} className="border-b border-fb-black/20 pb-2">
-                              <span className="font-bold">v{old.version}</span> {STATUS[old.status].label.toLowerCase()}
-                              {old.videoUrl && (
-                                <a href={old.videoUrl} target="_blank" rel="noreferrer" className="ml-2 underline">
-                                  Watch
-                                </a>
-                              )}
-                              {old.partnerComment && <p className="mt-1">{old.partnerComment}</p>}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-
-                    <div className="mt-4">
-                      {partner && d && (
-                        <ReviewControls
-                          endpoint={partner.reviewEndpoint}
-                          kind="draft"
-                          recordId={d.id}
-                          decided={d.status !== "Pending review"}
-                        />
-                      )}
-                      {team && (
-                        <>
-                          <CopyButton
-                            text={team.uploadUrls[a.id]}
-                            label="Copy draft upload link"
-                            copiedLabel="Upload link copied"
-                          />
-                          <details className="mt-3">
-                            <summary className="cursor-pointer text-sm font-bold underline underline-offset-4 hover:text-fb-red">
-                              Add a draft for {a.creator?.name?.split(" ")[0] ?? "them"}
-                            </summary>
-                            <div className="mt-4">
-                              <TeamDraftForm
-                                campaignId={team.campaignId}
-                                fixed={{ assignmentId: a.id, name: a.creator?.name ?? "Creator" }}
-                                sample={team.sample}
-                              />
-                            </div>
-                          </details>
-                        </>
-                      )}
-                    </div>
+                    <VersionCard draft={d} name={name} partner={partner} />
+                    {teamControls && <div className="mt-4">{teamControls}</div>}
                   </article>
                 </li>
               );
