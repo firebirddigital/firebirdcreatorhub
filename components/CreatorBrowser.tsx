@@ -59,11 +59,15 @@ export function CreatorBrowser({
   creators: initial,
   trackRecords = {},
   editable,
+  audience = "team",
 }: {
   creators: Creator[];
   trackRecords?: Record<string, TrackRecord>;
   editable: boolean;
+  /** "partner" is the shareable roster link: no rates, track records, downloads or editing. */
+  audience?: "team" | "partner";
 }) {
+  const team = audience === "team";
   const router = useRouter();
   // Tag edits show straight away; the server copy catches up on the next refresh.
   const [tagEdits, setTagEdits] = useState<Record<string, string[]>>({});
@@ -227,12 +231,14 @@ export function CreatorBrowser({
             onChange={(v) => setMinAvgViews(Number(v))}
             options={AVG_VIEWS_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
           />
-          <Select
-            label="Rate"
-            value={String(maxRate)}
-            onChange={(v) => setMaxRate(Number(v))}
-            options={RATE_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
-          />
+          {team && (
+            <Select
+              label="Rate"
+              value={String(maxRate)}
+              onChange={(v) => setMaxRate(Number(v))}
+              options={RATE_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
+            />
+          )}
           {locations.length > 0 && (
             <Select
               label="Location"
@@ -248,8 +254,12 @@ export function CreatorBrowser({
             options={[
               { label: "Biggest reach", value: "reach" },
               { label: "Most avg views", value: "avgViews" },
-              { label: "Best track record", value: "track" },
-              { label: "Lowest rate", value: "rate" },
+              ...(team
+                ? [
+                    { label: "Best track record", value: "track" },
+                    { label: "Lowest rate", value: "rate" },
+                  ]
+                : []),
               { label: "Name", value: "name" },
             ]}
           />
@@ -306,9 +316,11 @@ export function CreatorBrowser({
               Clear filters
             </button>
           )}
-          <button onClick={exportCsv} disabled={!shown.length} className="font-bold underline underline-offset-4 hover:text-fb-red">
-            Download this list
-          </button>
+          {team && (
+            <button onClick={exportCsv} disabled={!shown.length} className="font-bold underline underline-offset-4 hover:text-fb-red">
+              Download this list
+            </button>
+          )}
           <div role="group" aria-label="View" className="flex border-2 border-fb-black">
             {(["table", "cards"] as const).map((v) => (
               <button
@@ -376,6 +388,7 @@ export function CreatorBrowser({
       ) : view === "table" ? (
         <CreatorTable
           creators={shown}
+          team={team}
           trackRecords={trackRecords}
           activeTags={tags}
           allTags={allTags.map(([t]) => t)}
@@ -390,7 +403,7 @@ export function CreatorBrowser({
         <ul className="mt-8 grid gap-x-8 gap-y-12 grid-cols-[repeat(auto-fill,minmax(250px,1fr))]">
           {shown.map((c) => (
             <li key={c.id}>
-              <CreatorCard creator={c} activeTags={tags} trackRecord={trackRecordText(trackRecords[c.id])} />
+              <CreatorCard creator={c} activeTags={tags} trackRecord={team ? trackRecordText(trackRecords[c.id]) : undefined} />
             </li>
           ))}
         </ul>
@@ -467,6 +480,7 @@ function BulkTagBar({
 
 function CreatorTable({
   creators,
+  team,
   trackRecords,
   activeTags,
   allTags,
@@ -476,6 +490,7 @@ function CreatorTable({
   onTags,
 }: {
   creators: Creator[];
+  team: boolean;
   trackRecords: Record<string, TrackRecord>;
   activeTags: string[];
   allTags: string[];
@@ -506,8 +521,8 @@ function CreatorTable({
             <th className={`${th} text-right`}>TikTok</th>
             <th className={`${th} text-right`}>Instagram</th>
             <th className={`${th} text-right`} title="Average views across their last 20 posts">Avg views<span className="block font-normal">last 20 posts</span></th>
-            <th className={`${th} text-right`}>Rate</th>
-            <th className={th} title="Across all Firebird campaigns">Track record</th>
+            {team && <th className={`${th} text-right`}>Rate</th>}
+            {team && <th className={th} title="Across all Firebird campaigns">Track record</th>}
             <th className={th}>Tags</th>
           </tr>
         </thead>
@@ -550,8 +565,8 @@ function CreatorTable({
                 )}
               </td>
               <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
-              <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>
-              <td className="py-3 pr-4 text-xs">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>
+              {team && <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>}
+              {team && <td className="py-3 pr-4 text-xs">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>}
               <td className="py-3 min-w-64">
                 <TagCell creator={c} activeTags={activeTags} allTags={allTags} editable={editable} onTags={onTags} />
               </td>

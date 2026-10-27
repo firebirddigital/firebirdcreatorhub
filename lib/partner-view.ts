@@ -33,3 +33,10 @@ export function partnerView(view: CampaignView, showFees: boolean): CampaignView
     spend: showFees && view.spend?.basis === "fees" ? view.spend : undefined,
   };
 }
+
+/** Creators on the shareable roster link: no email, notes, rate or internal stats dates. */
+export function rosterCreator(c: Creator): Creator {
+  // Leave the fields out entirely rather than sending them blank.
+  const { email: _email, notes: _notes, rate: _rate, statsUpdated: _updated, ...rest } = c;
+  return rest;
+}

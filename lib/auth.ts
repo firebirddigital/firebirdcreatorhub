@@ -58,3 +58,15 @@ export async function submitSignature(assignmentId: string): Promise<string> {
 export async function isValidSubmit(assignmentId: string, sig: string): Promise<boolean> {
   return safeEqual(sig, await submitSignature(assignmentId));
 }
+
+/**
+ * Signature for the shareable creators link: /roster/<sig>. Change ROSTER_LINK_VERSION (any new value)
+ * to switch off every roster link already sent, without touching campaign links.
+ */
+export async function rosterSignature(): Promise<string> {
+  return (await hmac(`roster:${process.env.ROSTER_LINK_VERSION ?? "1"}`)).slice(0, 24);
+}
+
+export async function isValidRoster(sig: string): Promise<boolean> {
+  return safeEqual(sig, await rosterSignature());
+}

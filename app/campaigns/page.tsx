@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { NewCampaign } from "@/components/campaign/CampaignEditor";
 import { RequestsInbox } from "@/components/RequestsInbox";
 import { StatusTag } from "@/components/StatusTag";
-import { isSampleMode } from "@/lib/config";
+import { isSampleMode, REQUEST_FORM_URL } from "@/lib/config";
 import { getCampaignSummaries } from "@/lib/data";
 import { getRequests } from "@/lib/requests";
 import { compact, dateRange, pct } from "@/lib/format";
@@ -27,8 +27,17 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
     <>
       <Header active="campaigns" />
       <main className="px-[57px] max-sm:px-6 pb-24">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <h1 className="headline text-7xl max-sm:text-5xl">Campaigns</h1>
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-6">
+          <h1 className="headline text-7xl max-sm:text-5xl mr-3">Campaigns</h1>
+          <a
+            href={REQUEST_FORM_URL}
+            target="_blank"
+            rel="noreferrer"
+            title="The Airtable form partners fill in. Opens in a new tab; copy the link to send it."
+            className="ml-auto subtitle border-2 border-fb-black px-6 py-3 text-sm hover:bg-fb-black hover:text-fb-white transition-colors"
+          >
+            Request a campaign
+          </a>
           <NewCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
         </div>
 

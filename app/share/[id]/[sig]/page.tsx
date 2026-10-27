@@ -7,7 +7,7 @@ import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { Logo } from "@/components/Logo";
 import { isValidShare } from "@/lib/auth";
 import { signDraftUrls } from "@/lib/blob";
-import { isSampleMode } from "@/lib/config";
+import { isSampleMode, REQUEST_FORM_URL } from "@/lib/config";
 import { campaignStage, getAssignments, getCampaign, getCampaignView, getDrafts } from "@/lib/data";
 import { partnerAssignment, partnerCampaign, partnerCreator, partnerView, reviewerName } from "@/lib/partner-view";
 import { getStreams } from "@/lib/streams";
@@ -78,8 +78,16 @@ export default async function SharePage({
 
   return (
     <>
-      <header className="bg-fb-black px-[57px] max-sm:px-6 pt-[57px] max-sm:pt-8">
+      <header className="bg-fb-black px-[57px] max-sm:px-6 pt-[57px] max-sm:pt-8 flex flex-wrap items-start justify-between gap-6">
         <Logo variant="white" />
+        <a
+          href={REQUEST_FORM_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="subtitle border-2 border-fb-white px-5 py-2.5 text-sm text-fb-white hover:bg-fb-white hover:text-fb-black transition-colors"
+        >
+          Request a campaign
+        </a>
       </header>
       <CampaignShell campaign={safeCampaign} tab={tab} current={current} basePath={basePath} hero={hero}>
         {body}

@@ -2,21 +2,32 @@ import { CreatorBrowser } from "@/components/CreatorBrowser";
 import { CreatorImport } from "@/components/CreatorImport";
 import { Header } from "@/components/Header";
 import { isSampleMode } from "@/lib/config";
+import { CopyButton } from "@/components/campaign/TeamControls";
+import { rosterSignature } from "@/lib/auth";
 import { getCreators, getTrackRecords } from "@/lib/data";
+import { siteOrigin } from "@/lib/origin";
 
 export const revalidate = 300;
 
 export default async function CreatorsPage() {
-  const [creators, trackRecords] = await Promise.all([getCreators(), getTrackRecords()]);
+  const [creators, trackRecords, origin, sig] = await Promise.all([getCreators(), getTrackRecords(), siteOrigin(), rosterSignature()]);
+  const rosterUrl = `${origin}/roster/${sig}`;
 
   return (
     <>
       <Header active="creators" />
       <main className="px-[57px] max-sm:px-6 pb-24">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <h1 className="headline text-7xl max-sm:text-5xl">Creators</h1>
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-6">
+          <h1 className="headline text-7xl max-sm:text-5xl mr-3">Creators</h1>
+          <div className="ml-auto">
+            <CopyButton text={rosterUrl} label="Copy shareable link" copiedLabel="Link copied" variant="button" />
+          </div>
           {!isSampleMode() && <CreatorImport />}
         </div>
+        <p className="mt-4 max-w-prose text-sm">
+          The shareable link shows partners this list with a Request a campaign button. It never shows emails, notes, rates
+          or track records, and can&apos;t be downloaded.
+        </p>
         <p className="mt-4 max-w-prose">
           Every influencer we work with, tagged and filterable. Tag creators right here: click + Tag on a row, or tick
           several and add a tag to all of them. Edit everything else in Airtable; changes show here within five minutes.

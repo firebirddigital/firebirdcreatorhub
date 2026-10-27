@@ -100,6 +100,9 @@ export const SNAPSHOT_FIELDS = {
   shares: "Shares",
 } as const;
 
+/** The Airtable form partners use to request a campaign (saves to the operations base). */
+export const REQUEST_FORM_URL = "https://airtable.com/applP9sX2S8LkcG8O/pagOSm0gYzYVr4vHx/form";
+
 export function isSampleMode() {
   return !process.env.AIRTABLE_TOKEN || !process.env.AIRTABLE_BASE_ID;
 }
