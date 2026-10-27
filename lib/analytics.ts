@@ -5,6 +5,7 @@ import { listAll, type AirtableRecord } from "./airtable";
 import { isSampleMode } from "./config";
 import { engagementRate, getAllAssignments, getCampaigns, getCreators, getPosts, sumStats } from "./data";
 import { expectedCpm } from "./format";
+import { getRemovedPartners } from "./removed-partners";
 import { ROSTER_SNAPSHOT_DATE, SNAPSHOT_ARTISTS, SNAPSHOT_COMPANIES } from "./roster-snapshot";
 import type { Campaign, Stats } from "./types";
 
@@ -63,6 +64,8 @@ export interface Analytics {
   unmatched: { id: string; name: string; artist: string; reason: string }[];
   /** Where artists and partners came from: the synced tables, or the built-in snapshot (with its date). */
   rosterSource: { kind: "airtable" | "snapshot" | "sample"; date?: string };
+  /** Partners the team removed from Analytics; their campaigns don't count toward them. */
+  removedPartners: string[];
 }
 
 // Synced values arrive as text, arrays of names or objects; flatten to names.
@@ -128,14 +131,16 @@ export async function getAnalytics(
 ): Promise<Analytics> {
   const period = filters.period ?? "all";
   const missingTables: string[] = [];
-  const [liveArtists, liveCompanies, allCampaigns, posts, assignments, creators] = await Promise.all([
+  const [liveArtists, liveCompanies, allCampaigns, posts, assignments, creators, removedPartners] = await Promise.all([
     isSampleMode() ? Promise.resolve(SAMPLE_ARTISTS) : readTable(ARTISTS_TABLE, missingTables),
     isSampleMode() ? Promise.resolve(SAMPLE_COMPANIES) : readTable(PORTFOLIO_TABLE, missingTables),
     getCampaigns(),
     getPosts(),
     getAllAssignments(),
     getCreators(),
+    getRemovedPartners(),
   ]);
+  const removedKeys = new Set(removedPartners.map(normalize));
 
   // Without both tables in this base, use the built-in snapshot of the roster.
   const useSnapshot = missingTables.length > 0;
@@ -156,7 +161,9 @@ export async function getAnalytics(
     if (!name) continue;
     const key = normalize(name);
     const entry = rosterByKey.get(key) ?? { name, partners: [] };
-    for (const p of names(r.fields["Partner(s)"])) if (!entry.partners.includes(p)) entry.partners.push(p);
+    for (const p of names(r.fields["Partner(s)"])) {
+      if (!removedKeys.has(normalize(p)) && !entry.partners.includes(p)) entry.partners.push(p);
+    }
     rosterByKey.set(key, entry);
   }
   const roster = [...rosterByKey.values()];
@@ -169,7 +176,7 @@ export async function getAnalytics(
     companyRows
       .filter((r) => !hasOwnership || owned(r.fields["Firebird Ownership"]))
       .map((r) => ({ name: text(r.fields["Name"]) ?? "", types: names(r.fields["Organization Type"]) }))
-      .filter((c) => c.name)
+      .filter((c) => c.name && !removedKeys.has(normalize(c.name)))
       .map((c) => [normalize(c.name), c]),
   );
 
@@ -270,6 +277,7 @@ export async function getAnalytics(
     byArtist,
     unmatched,
     rosterSource,
+    removedPartners,
   };
 }
 

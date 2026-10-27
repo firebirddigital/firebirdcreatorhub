@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { AnalyticsFilters } from "@/components/AnalyticsFilters";
+import { PartnerRemoveButton } from "@/components/PartnerRemoveButton";
 import { analyticsHref } from "@/lib/analytics-href";
 import { HeroStats } from "@/components/campaign/Shell";
 import { StatusTag } from "@/components/StatusTag";
@@ -73,15 +74,29 @@ export default async function AnalyticsPage({
                 A campaign counts toward every partner of its artist (management, label, publisher), so partner rows can overlap
                 and won&apos;t add up to the total.
               </p>
-              <Breakdown rows={portfolioRows.length ? portfolioRows : otherRows} kind="partner" period={period} artist={a.artist} />
+              <Breakdown rows={portfolioRows.length ? portfolioRows : otherRows} kind="partner" period={period} artist={a.artist} partner={a.partner} />
               {portfolioRows.length > 0 && otherRows.length > 0 && (
                 <details className="mt-6">
                   <summary className="cursor-pointer text-sm font-bold underline underline-offset-4">
                     Other partners ({otherRows.length})
                   </summary>
-                  <Breakdown rows={otherRows} kind="partner" period={period} artist={a.artist} />
+                  <Breakdown rows={otherRows} kind="partner" period={period} artist={a.artist} partner={a.partner} />
                 </details>
               )}
+            </section>
+          )}
+
+          {a.removedPartners.length > 0 && (
+            <section>
+              <h2 className="subtitle text-sm">Removed partners</h2>
+              <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                {a.removedPartners.map((n) => (
+                  <li key={n} className="flex items-baseline gap-2">
+                    <span>{n}</span>
+                    <PartnerRemoveButton name={n} restore />
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 
@@ -198,8 +213,11 @@ function Breakdown({
                   {r.name}
                 </Link>
                 {kind === "partner" && (
-                  <p className="text-xs">
+                  <p className="text-xs flex flex-wrap items-baseline gap-x-3">
+                    <span>
                     {[r.types?.join(", "), r.rosterArtists ? `${r.rosterArtists} roster ${r.rosterArtists === 1 ? "artist" : "artists"}` : ""].filter(Boolean).join(" · ")}
+                    </span>
+                    <PartnerRemoveButton name={r.name} leaveFilter={partner === r.name ? analyticsHref({ period, artist }) : undefined} />
                   </p>
                 )}
               </td>
