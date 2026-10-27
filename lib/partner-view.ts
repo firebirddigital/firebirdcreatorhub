@@ -1,0 +1,35 @@
+// What partners (labels, managers, artist teams) are allowed to see. Server-side only.
+// Used by the partner share page and the partner wrap report so both strip the same things.
+import type { Assignment, Campaign, CampaignView, Creator } from "./types";
+
+/** No budget, no brief. */
+export const partnerCampaign = (c: Campaign): Campaign => ({ ...c, budget: undefined, brief: undefined });
+
+/** No email or notes; the creator's rate only when the campaign shows rates. */
+export const partnerCreator = (c: Creator | undefined, showFees: boolean): Creator | undefined =>
+  c && { ...c, email: undefined, notes: undefined, rate: showFees ? c.rate : undefined };
+
+/** "Jane Doe <jane@label.com>" → "Jane Doe": partners sharing a link see each other's names, not emails. */
+export const reviewerName = (r?: string) => r?.replace(/\s*<[^>]*>\s*$/, "").trim() || undefined;
+
+export const partnerAssignment = (a: Assignment, showFees: boolean): Assignment => ({
+  ...a,
+  creator: partnerCreator(a.creator, showFees),
+  fee: showFees ? a.fee : undefined,
+  reviewedBy: reviewerName(a.reviewedBy),
+});
+
+/** Live results for partners: no refresh notes, no budget, and money only from fees when rates are shown. */
+export function partnerView(view: CampaignView, showFees: boolean): CampaignView {
+  return {
+    ...view,
+    campaign: partnerCampaign(view.campaign),
+    posts: view.posts.map((p) => ({ ...p, refreshNote: undefined, creator: partnerCreator(p.creator, showFees) })),
+    topCreators: view.topCreators.map((c) => ({
+      ...c,
+      creator: partnerCreator(c.creator, showFees),
+      fee: showFees ? c.fee : undefined,
+    })),
+    spend: showFees && view.spend?.basis === "fees" ? view.spend : undefined,
+  };
+}

@@ -3,6 +3,8 @@ import { revalidateTag } from "next/cache";
 import { isSampleMode } from "@/lib/config";
 import { getCampaign } from "@/lib/data";
 import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
+import { notifyDraftSubmitted } from "@/lib/notify";
+import { siteOrigin } from "@/lib/origin";
 import { createDraft, ensureDraftAssignment, refreshCreatorStats, UserError } from "@/lib/roster";
 
 const TEAM_SUBMITTER = "Firebird team";
@@ -51,6 +53,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     const version = await createDraft(assignment, saved, body.caption, TEAM_SUBMITTER);
     revalidateTag("airtable");
+    const origin = await siteOrigin();
+    after(() =>
+      notifyDraftSubmitted({ origin, campaignId: id, assignmentId: assignment.id, version, byTeam: true }).catch(() => undefined),
+    );
     // A brand new creator gets followers and average views (last 20 posts) pulled after responding.
     if (createdCreator && assignment.creatorId && process.env.APIFY_TOKEN) {
       const creatorId = assignment.creatorId;

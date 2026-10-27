@@ -1,5 +1,6 @@
 import { compact, money } from "@/lib/format";
-import type { Assignment, AssignmentStatus } from "@/lib/types";
+import type { Assignment, AssignmentStatus, TrackRecord } from "@/lib/types";
+import { trackRecordText } from "../TrackRecordLine";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
 import { AssignmentControls } from "./TeamControls";
@@ -53,7 +54,7 @@ export function CreatorsBody({
   roster: Assignment[];
   showFees: boolean;
   partner?: { reviewEndpoint: string };
-  team?: { campaignId: string; uploadUrls: Record<string, string>; tools: React.ReactNode };
+  team?: { campaignId: string; uploadUrls: Record<string, string>; tools: React.ReactNode; trackRecords?: Record<string, TrackRecord> };
 }) {
   return (
     <>
@@ -72,7 +73,11 @@ export function CreatorsBody({
           <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
             {roster.map((a) => (
               <li key={a.id} className={a.status === "Declined" ? "opacity-60" : undefined}>
-                <RosterCard assignment={a} showFee={showFees} />
+                <RosterCard
+                  assignment={a}
+                  showFee={showFees}
+                  trackRecord={team && a.creatorId ? trackRecordText(team.trackRecords?.[a.creatorId]) ?? "First Firebird campaign" : undefined}
+                />
                 <div className="mt-4">
                   {partner && a.status !== "Declined" && (
                     <ReviewControls
@@ -108,7 +113,7 @@ export function CreatorsBody({
   );
 }
 
-function RosterCard({ assignment: a, showFee }: { assignment: Assignment; showFee: boolean }) {
+function RosterCard({ assignment: a, showFee, trackRecord }: { assignment: Assignment; showFee: boolean; trackRecord?: string }) {
   const c = a.creator;
   const status = STATUS_STYLE[a.status];
   const initials = (c?.name ?? "?")
@@ -152,6 +157,12 @@ function RosterCard({ assignment: a, showFee }: { assignment: Assignment; showFe
           <dt className="text-sm">Avg views (last 20 posts)</dt>
           <dd className="figure text-lg">{c?.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
+        {trackRecord && (
+          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2" title="Across all Firebird campaigns. Team only.">
+            <dt className="text-sm">Track record</dt>
+            <dd className="text-sm font-bold text-right">{trackRecord}</dd>
+          </div>
+        )}
         {showFee && (
           <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
             <dt className="text-sm">Fee</dt>

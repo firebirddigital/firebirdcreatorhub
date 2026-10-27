@@ -46,3 +46,26 @@ export function timeAgo(iso?: string): string {
   if (hrs < 48) return `${hrs}h ago`;
   return `${Math.round(hrs / 24)}d ago`;
 }
+
+/** How actual views compare with expected, e.g. "2.4×" or "12×". */
+export function times(views: number, expected: number): string | undefined {
+  if (!expected) return undefined;
+  const r = views / expected;
+  if (r < 0.1) return "<0.1×";
+  return `${r >= 10 ? Math.round(r) : r.toFixed(1)}×`;
+}
+
+/**
+ * The typical post's views against its creator's usual average: the middle of the per-post ratios.
+ * One creator with an inflated average can't drag the whole campaign's figure down.
+ */
+export function typicalVsUsual(posts: { views: number; creator?: { avgViews?: number } }[]): string | undefined {
+  const ratios = posts
+    .filter((p) => p.creator?.avgViews)
+    .map((p) => p.views / p.creator!.avgViews!)
+    .sort((a, b) => a - b);
+  if (!ratios.length) return undefined;
+  const mid = Math.floor(ratios.length / 2);
+  const median = ratios.length % 2 ? ratios[mid] : (ratios[mid - 1] + ratios[mid]) / 2;
+  return times(median, 1);
+}

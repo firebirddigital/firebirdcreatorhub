@@ -127,3 +127,37 @@ export function toRawRows(rows: string[][], mapping: ImportField[]): RawCreatorR
 export const TEMPLATE_CSV =
   "Name,Instagram,TikTok,Email,Tags,Location,Rate,Notes\n" +
   'Jane Example,instagram.com/janeexample,@janeexample,jane@example.com,"Country, Lifestyle","Nashville, TN",500,Met at CMA Fest\n';
+
+/**
+ * Daily streams from a Spotify for Artists export (or any sheet with a date column and a streams column).
+ * Accepts YYYY-MM-DD, M/D/YYYY and D Mon YYYY dates; numbers can have commas.
+ */
+export function parseStreamsCsv(text: string): { days: { date: string; streams: number }[]; skipped: number; error?: string } {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return { days: [], skipped: 0, error: "That file has no rows under the header." };
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const dateCol = header.findIndex((h) => /date|day/.test(h));
+  const streamsCol = header.findIndex((h) => /stream/.test(h));
+  if (dateCol < 0 || streamsCol < 0) {
+    return { days: [], skipped: 0, error: "Couldn't find a date column and a streams column. Use the song's CSV download from Spotify for Artists." };
+  }
+  const days: { date: string; streams: number }[] = [];
+  let skipped = 0;
+  for (const r of rows.slice(1)) {
+    const date = toIsoDate(r[dateCol] ?? "");
+    const streams = Number((r[streamsCol] ?? "").replace(/[,\s]/g, ""));
+    if (date && isFinite(streams) && streams >= 0) days.push({ date, streams: Math.round(streams) });
+    else skipped++;
+  }
+  return { days, skipped, error: days.length ? undefined : "No rows had both a date and a number of streams." };
+}
+
+function toIsoDate(v: string): string | undefined {
+  const s = v.trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) return `${m[3].length === 2 ? `20${m[3]}` : m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+  const t = Date.parse(s);
+  return isNaN(t) ? undefined : new Date(t).toISOString().slice(0, 10);
+}

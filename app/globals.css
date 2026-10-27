@@ -72,3 +72,26 @@ body {
     transform: none;
   }
 }
+
+/* Wrap report: print / Save as PDF. Keep brand colours exact and number the pages. */
+@media print {
+  @page {
+    size: letter;
+    margin: 15mm 15mm 18mm;
+    @bottom-right {
+      content: counter(page);
+      font-family: "Clarendon", "Clarendon BT", Rockwell, "Courier New", serif;
+      font-size: 10pt;
+      color: #000005;
+    }
+  }
+  html,
+  body {
+    background: #ffffff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .wrap-report a {
+    color: inherit;
+  }
+}

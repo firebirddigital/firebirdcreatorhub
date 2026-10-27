@@ -122,6 +122,24 @@ export interface CreatorPerformance {
   posts: number;
   views: number;
   engagementRate: number;
+  /** Views on posts by this creator vs what their usual (last 20 posts) average predicts. */
+  benchmark?: Benchmark;
+  /** Approved fee for this campaign. Team only. */
+  fee?: number;
+}
+
+/** A creator's results across every campaign they've posted in. Team only. */
+export interface TrackRecord {
+  campaigns: number;
+  posts: number;
+  views: number;
+  benchmark?: Benchmark;
+}
+
+/** Actual views against expected: the creator's usual average views × number of posts. */
+export interface Benchmark {
+  views: number;
+  expected: number;
 }
 
 export interface CampaignView {
@@ -131,4 +149,8 @@ export interface CampaignView {
   series: SeriesPoint[];
   topCreators: CreatorPerformance[];
   lastRefreshed?: string;
+  /** All posts whose creator has a usual average, against that average. */
+  benchmark?: Benchmark;
+  /** What the campaign cost: approved creator fees when entered, otherwise the budget. Team only. */
+  spend?: { amount: number; basis: "fees" | "budget" };
 }

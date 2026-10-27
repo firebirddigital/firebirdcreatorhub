@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isValidSubmit } from "@/lib/auth";
 import { isSampleMode } from "@/lib/config";
 import { getAssignment } from "@/lib/data";
 import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
+import { notifyDraftSubmitted } from "@/lib/notify";
+import { siteOrigin } from "@/lib/origin";
 import { createDraft } from "@/lib/roster";
 
 // Saves a draft (an uploaded file or a share link) against the creator's roster entry.
@@ -39,5 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ aid: st
 
   const version = await createDraft(assignment, saved, caption);
   revalidateTag("airtable");
+  const origin = await siteOrigin();
+  after(() => notifyDraftSubmitted({ origin, campaignId: assignment.campaignId, assignmentId: assignment.id, version }).catch(() => undefined));
   return NextResponse.json({ ok: true, version });
 }

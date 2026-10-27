@@ -85,7 +85,7 @@ export async function recordReview(opts: {
 }) {
   const now = new Date().toISOString();
   const common = {
-    reviewedBy: opts.reviewer?.trim().slice(0, 80) || "Partner",
+    reviewedBy: opts.reviewer?.trim().slice(0, 200) || "Partner",
     comment: opts.comment?.trim().slice(0, 2000) ?? "",
   };
   if (opts.kind === "creator") {

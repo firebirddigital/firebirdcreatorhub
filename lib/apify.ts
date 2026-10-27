@@ -162,6 +162,8 @@ export async function fetchProfileStats(
       ? runActor(TT_ACTOR(), {
           profiles: tt,
           resultsPerPage: RECENT_POSTS,
+          // Pinned posts are usually the creator's biggest hits; leaving them in inflates the average.
+          excludePinnedPosts: true,
           shouldDownloadVideos: false,
           shouldDownloadCovers: false,
           shouldDownloadSubtitles: false,
@@ -183,7 +185,7 @@ export async function fetchProfileStats(
     g.name ??= s(meta.nickName, meta.nickname);
     g.followers ??= n(meta.fans, meta.followerCount) || undefined;
     const v = n(it.playCount, ((it.stats ?? {}) as Item).playCount);
-    if (v) g.posts.push({ views: v, at: iso(it.createTimeISO ?? it.createTime) });
+    if (v && it.isPinned !== true) g.posts.push({ views: v, at: iso(it.createTimeISO ?? it.createTime) });
     byAuthor.set(handle, g);
   }
   byAuthor.forEach((g, handle) => {
@@ -204,7 +206,7 @@ export async function fetchProfileStats(
   for (const p of igPosts) {
     const handle = s(p.ownerUsername, (p.owner as Item | undefined)?.username)?.toLowerCase();
     const v = n(p.videoPlayCount, p.videoViewCount, p.playCount);
-    if (!handle || !v) continue;
+    if (!handle || !v || p.isPinned === true) continue;
     igPostsBy.set(handle, [...(igPostsBy.get(handle) ?? []), { views: v, at: iso(p.timestamp ?? p.takenAt) }]);
   }
   for (const it of igProfiles) {

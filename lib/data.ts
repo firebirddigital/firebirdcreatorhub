@@ -20,6 +20,8 @@ import {
   sampleSnapshots,
 } from "./sample-data";
 import type {
+  TrackRecord,
+  Benchmark,
   Assignment,
   AssignmentStatus,
   Campaign,
@@ -269,11 +271,16 @@ export async function getCampaignSummaries() {
 }
 
 export async function getCampaignView(campaign: Campaign): Promise<CampaignView> {
-  const [creators, allPosts, snapshots] = await Promise.all([
+  const [creators, allPosts, snapshots, roster] = await Promise.all([
     getCreators(),
     getPosts(),
     getSnapshots(campaign.id),
+    getAssignments(campaign.id),
   ]);
+  const feeByCreator = new Map(
+    roster.filter((a) => a.status === "Approved" && a.creatorId && a.fee).map((a) => [a.creatorId!, a.fee!]),
+  );
+  const fees = [...feeByCreator.values()].reduce((t, f) => t + f, 0);
   const byId = new Map(creators.map((c) => [c.id, c]));
   const posts = allPosts
     .filter((p) => p.campaignId === campaign.id && p.status === "Live")
@@ -299,8 +306,10 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
       engagementRate: engagementRate(totals),
     },
     series: buildSeries(snapshots, posts),
-    topCreators: buildCreatorPerformance(posts),
+    topCreators: buildCreatorPerformance(posts, feeByCreator),
     lastRefreshed,
+    benchmark: benchmarkOf(posts),
+    spend: fees ? { amount: fees, basis: "fees" } : campaign.budget ? { amount: campaign.budget, basis: "budget" } : undefined,
   };
 }
 
@@ -333,7 +342,41 @@ function buildSeries(snapshots: Snapshot[], posts: Post[]): SeriesPoint[] {
   return series;
 }
 
-function buildCreatorPerformance(posts: (Post & { creator?: Creator })[]): CreatorPerformance[] {
+/** Views on posts whose creator has a usual average, against that average × those posts. */
+function benchmarkOf(posts: (Post & { creator?: Creator })[]): Benchmark | undefined {
+  const known = posts.filter((p) => p.creator?.avgViews);
+  if (!known.length) return undefined;
+  return {
+    views: known.reduce((t, p) => t + p.views, 0),
+    expected: known.reduce((t, p) => t + (p.creator!.avgViews ?? 0), 0),
+  };
+}
+
+/** Every creator's results across all campaigns (live posts only), keyed by creator ID. Team only. */
+export async function getTrackRecords(): Promise<Record<string, TrackRecord>> {
+  const [creators, posts] = await Promise.all([getCreators(), getPosts()]);
+  const byId = new Map(creators.map((c) => [c.id, c]));
+  const out: Record<string, TrackRecord> = {};
+  const groups = new Map<string, (Post & { creator?: Creator })[]>();
+  for (const p of posts) {
+    if (p.status !== "Live" || !p.creatorId) continue;
+    groups.set(p.creatorId, [...(groups.get(p.creatorId) ?? []), { ...p, creator: byId.get(p.creatorId) }]);
+  }
+  groups.forEach((ps, id) => {
+    out[id] = {
+      campaigns: new Set(ps.map((p) => p.campaignId).filter(Boolean)).size,
+      posts: ps.length,
+      views: ps.reduce((t, p) => t + p.views, 0),
+      benchmark: benchmarkOf(ps),
+    };
+  });
+  return out;
+}
+
+function buildCreatorPerformance(
+  posts: (Post & { creator?: Creator })[],
+  feeByCreator: Map<string, number> = new Map(),
+): CreatorPerformance[] {
   const groups = new Map<string, (Post & { creator?: Creator })[]>();
   for (const p of posts) {
     const key = p.creatorId ?? `unassigned:${p.id}`;
@@ -349,6 +392,8 @@ function buildCreatorPerformance(posts: (Post & { creator?: Creator })[]): Creat
         posts: ps.length,
         views: t.views,
         engagementRate: engagementRate(t),
+        benchmark: benchmarkOf(ps),
+        fee: ps[0].creatorId ? feeByCreator.get(ps[0].creatorId) : undefined,
       };
     })
     .sort((a, b) => b.views - a.views);

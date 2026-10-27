@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { compact, shortDate, timeAgo } from "@/lib/format";
+import { compact, shortDate, timeAgo, times } from "@/lib/format";
 import { embedUrl, PLATFORM_LABEL } from "@/lib/social";
 import type { Creator, Platform, Post } from "@/lib/types";
 
@@ -144,11 +144,26 @@ function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: b
         <Stat label="Shares" value={post.shares} />
       </dl>
 
+      {post.creator?.avgViews ? <VsUsual views={post.views} usual={post.creator.avgViews} name={post.creator.name} /> : null}
+
       {internal && post.refreshNote && <p className="mt-2 text-sm text-fb-red">{post.refreshNote}</p>}
       {internal && !post.refreshNote && post.lastRefreshed && (
         <p className="mt-2 text-xs text-fb-black/60">Updated {timeAgo(post.lastRefreshed)}</p>
       )}
     </article>
+  );
+}
+
+/** "3.2× their usual": this post's views against the creator's last-20-post average. */
+function VsUsual({ views, usual, name }: { views: number; usual: number; name: string }) {
+  const r = views / usual;
+  return (
+    <p
+      className={`mt-2 text-sm ${r >= 1.5 ? "font-bold text-fb-red" : r < 0.5 ? "text-fb-black/60" : ""}`}
+      title={`${name} usually gets ${compact(usual)} views (average of their last 20 posts)`}
+    >
+      {times(views, usual)} their usual <span className="font-normal text-fb-black/60">({compact(usual)} avg, last 20 posts)</span>
+    </p>
   );
 }
 

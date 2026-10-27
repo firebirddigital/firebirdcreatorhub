@@ -117,7 +117,10 @@ export function CampaignTools({
         ) : (
           <span className="text-sm">Tick “Partner link on” in Edit campaign to get a partner link.</span>
         )}
-        <span className="text-sm text-fb-black/70">Stats last updated {timeAgo(lastRefreshed)}</span>
+        <a href={`/campaigns/${campaignId}/report`} className={BUTTON}>
+          Wrap report
+        </a>
+        <span className="text-sm">Stats last updated {timeAgo(lastRefreshed)}</span>
       </div>
       {message?.at === "actions" && (
         <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>

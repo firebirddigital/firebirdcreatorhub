@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { signDraftUrls } from "@/lib/blob";
 import { notFound } from "next/navigation";
 import { buildLanes, DraftsBody, DraftsHero } from "@/components/campaign/DraftsStage";
 import { CreatorsBody, CreatorsHero } from "@/components/campaign/CreatorsStage";
@@ -7,9 +6,12 @@ import { CampaignShell, parseTab } from "@/components/campaign/Shell";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { Logo } from "@/components/Logo";
 import { isValidShare } from "@/lib/auth";
+import { signDraftUrls } from "@/lib/blob";
 import { isSampleMode } from "@/lib/config";
 import { campaignStage, getAssignments, getCampaign, getCampaignView, getDrafts } from "@/lib/data";
-import type { Assignment, CampaignView, Creator } from "@/lib/types";
+import { partnerAssignment, partnerCampaign, partnerCreator, partnerView, reviewerName } from "@/lib/partner-view";
+import { getStreams } from "@/lib/streams";
+import type { Assignment, Creator } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -28,19 +30,14 @@ export default async function SharePage({
   if (!campaign || !campaign.sharingEnabled) notFound();
 
   const showFees = campaign.showRates;
-  const cleanCreator = (c?: Creator): Creator | undefined =>
-    c && { ...c, email: undefined, notes: undefined, rate: showFees ? c.rate : undefined };
-  const cleanAssignment = (a: Assignment): Assignment => ({
-    ...a,
-    creator: cleanCreator(a.creator),
-    fee: showFees ? a.fee : undefined,
-  });
+  const cleanCreator = (c?: Creator) => partnerCreator(c, showFees);
+  const cleanAssignment = (a: Assignment) => partnerAssignment(a, showFees);
 
   const current = campaignStage(campaign);
   const tab = parseTab(sp.tab) ?? current;
   const basePath = `/share/${id}/${sig}`;
   const partner = { reviewEndpoint: `/api/share/${id}/${sig}/review` };
-  const safeCampaign = { ...campaign, budget: undefined, brief: undefined };
+  const safeCampaign = partnerCampaign(campaign);
 
   let hero: React.ReactNode;
   let body: React.ReactNode;
@@ -51,19 +48,32 @@ export default async function SharePage({
     body = <CreatorsBody roster={roster} showFees={showFees} partner={partner} />;
   } else if (tab === "drafts") {
     const [roster, drafts] = await Promise.all([getAssignments(id), getDrafts(id).then(signDraftUrls)]);
-    const lanes = buildLanes(roster.map(cleanAssignment), drafts.map((d) => ({ ...d, creator: cleanCreator(d.creator) })));
+    const lanes = buildLanes(
+      roster.map(cleanAssignment),
+      drafts.map((d) => ({ ...d, creator: cleanCreator(d.creator), reviewedBy: reviewerName(d.reviewedBy) })),
+    );
     hero = <DraftsHero lanes={lanes} />;
     body = <DraftsBody lanes={lanes} partner={partner} />;
   } else {
-    const view = await getCampaignView(campaign);
-    const safe: CampaignView = {
-      ...view,
-      campaign: safeCampaign,
-      posts: view.posts.map((p) => ({ ...p, refreshNote: undefined, creator: cleanCreator(p.creator) })),
-      topCreators: view.topCreators.map((c) => ({ ...c, creator: cleanCreator(c.creator) })),
-    };
+    const [view, streams] = await Promise.all([getCampaignView(campaign), getStreams(id)]);
+    const safe = partnerView(view, showFees);
     hero = <LiveHero view={safe} internal={false} />;
-    body = <LiveBody view={safe} internal={false} sample={isSampleMode()} />;
+    body = (
+      <>
+        <a
+          href={`${basePath}/report`}
+          className="subtitle inline-block border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors"
+        >
+          Download wrap report
+        </a>
+        <LiveBody
+          view={safe}
+          internal={false}
+          sample={isSampleMode()}
+          streams={streams?.shareWithPartner ? streams : undefined}
+        />
+      </>
+    );
   }
 
   return (

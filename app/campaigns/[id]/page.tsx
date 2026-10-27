@@ -7,12 +7,14 @@ import { RosterTools } from "@/components/campaign/TeamControls";
 import { TeamDraftForm, type PickerCreator } from "@/components/campaign/TeamDraftForm";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { CampaignTools } from "@/components/CampaignTools";
+import { StreamsUpload } from "@/components/StreamsUpload";
 import { Header } from "@/components/Header";
 import { shareSignature, submitSignature } from "@/lib/auth";
 import { signDraftUrls } from "@/lib/blob";
 import { isSampleMode } from "@/lib/config";
-import { campaignStage, getAssignments, getCampaign, getCampaignView, getCreators, getDrafts } from "@/lib/data";
+import { campaignStage, getAssignments, getTrackRecords, getCampaign, getCampaignView, getCreators, getDrafts } from "@/lib/data";
 import { siteOrigin } from "@/lib/origin";
+import { getStreams } from "@/lib/streams";
 import type { Assignment } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +75,12 @@ export default async function CampaignPage({
       <CreatorsBody
         roster={roster}
         showFees
-        team={{ campaignId: id, uploadUrls: await uploadUrlsFor(roster), tools: await rosterTools(roster) }}
+        team={{
+          campaignId: id,
+          uploadUrls: await uploadUrlsFor(roster),
+          tools: await rosterTools(roster),
+          trackRecords: await getTrackRecords(),
+        }}
       />
     );
   } else if (tab === "drafts") {
@@ -98,7 +105,7 @@ export default async function CampaignPage({
       />
     );
   } else {
-    const [view, creators] = await Promise.all([getCampaignView(campaign), getCreators()]);
+    const [view, creators, streams] = await Promise.all([getCampaignView(campaign), getCreators(), getStreams(id)]);
     const onCampaign = new Set(campaign.creatorIds);
     const pickerCreators = [
       ...creators.filter((c) => onCampaign.has(c.id)),
@@ -110,6 +117,17 @@ export default async function CampaignPage({
         view={view}
         internal
         sample={sample}
+        streams={streams}
+        streamsControls={
+          sample ? undefined : (
+            <StreamsUpload
+              campaignId={campaign.id}
+              hasStreams={Boolean(streams?.days.length)}
+              shareWithPartner={streams?.shareWithPartner ?? false}
+              uploadedAt={streams?.uploadedAt}
+            />
+          )
+        }
         tools={
           <CampaignTools
             campaignId={campaign.id}

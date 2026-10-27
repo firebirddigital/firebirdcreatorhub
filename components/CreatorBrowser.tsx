@@ -4,10 +4,11 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { compact, money } from "@/lib/format";
 import { pullStatsInBatches } from "@/lib/pull-stats";
-import type { Creator } from "@/lib/types";
+import type { Creator, TrackRecord } from "@/lib/types";
+import { trackRecordRatio, trackRecordText } from "./TrackRecordLine";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
-type Sort = "reach" | "avgViews" | "name" | "rate";
+type Sort = "reach" | "avgViews" | "track" | "name" | "rate";
 type View = "cards" | "table";
 
 const REACH_OPTIONS = [
@@ -54,7 +55,15 @@ async function saveTags(updates: { id: string; tags: string[] }[]) {
   if (!res.ok) throw new Error(data.error ?? "Tags didn't save. Try again.");
 }
 
-export function CreatorBrowser({ creators: initial, editable }: { creators: Creator[]; editable: boolean }) {
+export function CreatorBrowser({
+  creators: initial,
+  trackRecords = {},
+  editable,
+}: {
+  creators: Creator[];
+  trackRecords?: Record<string, TrackRecord>;
+  editable: boolean;
+}) {
   const router = useRouter();
   // Tag edits show straight away; the server copy catches up on the next refresh.
   const [tagEdits, setTagEdits] = useState<Record<string, string[]>>({});
@@ -115,9 +124,12 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
             ? (a.rate ?? Infinity) - (b.rate ?? Infinity)
             : sort === "avgViews"
               ? (b.avgViews ?? 0) - (a.avgViews ?? 0)
+              : sort === "track"
+                ? trackRecordRatio(trackRecords[b.id]) - trackRecordRatio(trackRecords[a.id]) ||
+                  (trackRecords[b.id]?.views ?? 0) - (trackRecords[a.id]?.views ?? 0)
               : reach(b, platform) - reach(a, platform),
       );
-  }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, location, sort]);
+  }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, location, sort, trackRecords]);
 
   const toggleTag = (t: string) => {
     setUntaggedOnly(false);
@@ -236,6 +248,7 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
             options={[
               { label: "Biggest reach", value: "reach" },
               { label: "Most avg views", value: "avgViews" },
+              { label: "Best track record", value: "track" },
               { label: "Lowest rate", value: "rate" },
               { label: "Name", value: "name" },
             ]}
@@ -363,6 +376,7 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
       ) : view === "table" ? (
         <CreatorTable
           creators={shown}
+          trackRecords={trackRecords}
           activeTags={tags}
           allTags={allTags.map(([t]) => t)}
           editable={editable}
@@ -376,7 +390,7 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
         <ul className="mt-8 grid gap-x-8 gap-y-12 grid-cols-[repeat(auto-fill,minmax(250px,1fr))]">
           {shown.map((c) => (
             <li key={c.id}>
-              <CreatorCard creator={c} activeTags={tags} />
+              <CreatorCard creator={c} activeTags={tags} trackRecord={trackRecordText(trackRecords[c.id])} />
             </li>
           ))}
         </ul>
@@ -453,6 +467,7 @@ function BulkTagBar({
 
 function CreatorTable({
   creators,
+  trackRecords,
   activeTags,
   allTags,
   editable,
@@ -461,6 +476,7 @@ function CreatorTable({
   onTags,
 }: {
   creators: Creator[];
+  trackRecords: Record<string, TrackRecord>;
   activeTags: string[];
   allTags: string[];
   editable: boolean;
@@ -472,7 +488,7 @@ function CreatorTable({
   const th = "py-2 pr-4 text-left text-xs font-bold whitespace-nowrap";
   return (
     <div className="mt-6 overflow-x-auto">
-      <table className="w-full min-w-[900px] border-t-2 border-fb-black text-sm">
+      <table className="w-full min-w-[1040px] border-t-2 border-fb-black text-sm">
         <thead>
           <tr className="border-b-2 border-fb-black">
             {editable && (
@@ -491,6 +507,7 @@ function CreatorTable({
             <th className={`${th} text-right`}>Instagram</th>
             <th className={`${th} text-right`} title="Average views across their last 20 posts">Avg views<span className="block font-normal">last 20 posts</span></th>
             <th className={`${th} text-right`}>Rate</th>
+            <th className={th} title="Across all Firebird campaigns">Track record</th>
             <th className={th}>Tags</th>
           </tr>
         </thead>
@@ -534,6 +551,7 @@ function CreatorTable({
               </td>
               <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
               <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>
+              <td className="py-3 pr-4 text-xs">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>
               <td className="py-3 min-w-64">
                 <TagCell creator={c} activeTags={activeTags} allTags={allTags} editable={editable} onTags={onTags} />
               </td>
@@ -646,7 +664,7 @@ function TagCell({
   );
 }
 
-function CreatorCard({ creator: c, activeTags }: { creator: Creator; activeTags: string[] }) {
+function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator; activeTags: string[]; trackRecord?: string }) {
   const initials = c.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -692,6 +710,7 @@ function CreatorCard({ creator: c, activeTags }: { creator: Creator; activeTags:
         ))}
       </ul>
       {c.rate && <p className="mt-3 text-sm">Rate {money(c.rate)} per post</p>}
+      {trackRecord && <p className="mt-1 text-sm">Track record: {trackRecord}</p>}
     </article>
   );
 }

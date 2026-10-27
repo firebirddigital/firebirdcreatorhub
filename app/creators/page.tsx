@@ -2,12 +2,12 @@ import { CreatorBrowser } from "@/components/CreatorBrowser";
 import { CreatorImport } from "@/components/CreatorImport";
 import { Header } from "@/components/Header";
 import { isSampleMode } from "@/lib/config";
-import { getCreators } from "@/lib/data";
+import { getCreators, getTrackRecords } from "@/lib/data";
 
 export const revalidate = 300;
 
 export default async function CreatorsPage() {
-  const creators = await getCreators();
+  const [creators, trackRecords] = await Promise.all([getCreators(), getTrackRecords()]);
 
   return (
     <>
@@ -21,7 +21,7 @@ export default async function CreatorsPage() {
           Every influencer we work with, tagged and filterable. Tag creators right here: click + Tag on a row, or tick
           several and add a tag to all of them. Edit everything else in Airtable; changes show here within five minutes.
         </p>
-        <CreatorBrowser creators={creators} editable={!isSampleMode()} />
+        <CreatorBrowser creators={creators} trackRecords={trackRecords} editable={!isSampleMode()} />
       </main>
     </>
   );
