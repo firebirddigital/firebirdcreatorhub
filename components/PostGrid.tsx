@@ -1,12 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { compact, shortDate, timeAgo, times } from "@/lib/format";
+import { compact, cpmVsExpected, money, shortDate, timeAgo, times } from "@/lib/format";
 import { embedUrl, PLATFORM_LABEL } from "@/lib/social";
-import type { Creator, Platform, Post } from "@/lib/types";
+import type { CampaignView, Platform, Post } from "@/lib/types";
 
-type PostWithCreator = Post & { creator?: Creator };
-type Sort = "views" | "newest" | "engagement";
+type PostWithCreator = CampaignView["posts"][number];
+type Sort = "views" | "newest" | "engagement" | "cpm";
+
+/** This post's cost per 1,000 views so far. */
+const postCpm = (p: PostWithCreator) => (p.cost && p.views ? (p.cost.amount / p.views) * 1000 : undefined);
 
 export function PostGrid({
   posts,
@@ -28,7 +31,9 @@ export function PostGrid({
         ? b.views - a.views
         : sort === "newest"
           ? (b.postedAt ?? "").localeCompare(a.postedAt ?? "")
-          : er(b) - er(a),
+          : sort === "cpm"
+            ? (postCpm(a) ?? Infinity) - (postCpm(b) ?? Infinity)
+            : er(b) - er(a),
     );
   }, [posts, platform, sort]);
 
@@ -72,6 +77,7 @@ export function PostGrid({
             <option value="views">Most views</option>
             <option value="engagement">Highest engagement</option>
             <option value="newest">Newest</option>
+            {posts.some((p) => p.cost) && <option value="cpm">Lowest CPM</option>}
           </select>
         </label>
       </div>
@@ -145,12 +151,53 @@ function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: b
       </dl>
 
       {post.creator?.avgViews ? <VsUsual views={post.views} usual={post.creator.avgViews} name={post.creator.name} /> : null}
+      {post.cost && <PostCost post={post} internal={internal} />}
 
       {internal && post.refreshNote && <p className="mt-2 text-sm text-fb-red">{post.refreshNote}</p>}
       {internal && !post.refreshNote && post.lastRefreshed && (
         <p className="mt-2 text-xs text-fb-black/60">Updated {timeAgo(post.lastRefreshed)}</p>
       )}
     </article>
+  );
+}
+
+/**
+ * What this post cost and its CPM so far, against the creator's average CPM (cost ÷ their usual views).
+ * Team pages mark a better-than-average CPM green; partner pages stay red, black and white.
+ */
+function PostCost({ post, internal }: { post: PostWithCreator; internal: boolean }) {
+  const cost = post.cost!;
+  const now = postCpm(post);
+  const avg = post.creator?.avgViews ? (cost.amount / post.creator.avgViews) * 1000 : undefined;
+  const vs = cpmVsExpected(now, avg);
+  const tone = vs ? (vs.under ? (internal ? "text-green-700" : "") : "text-fb-red") : "";
+  const paidNote = [
+    cost.basis === "rate" ? "their rate (no fee set)" : "",
+    cost.splitAcross > 1 ? `fee split across their ${cost.splitAcross} posts` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return (
+    <dl className="mt-3 grid grid-cols-3 border-t border-fb-black/20 pt-3 text-sm">
+      <div title={paidNote || "The creator's fee for this post"}>
+        <dt className="text-xs">Paid{cost.basis === "rate" ? " (rate)" : ""}</dt>
+        <dd className="figure mt-1 text-lg">{money(cost.amount)}</dd>
+      </div>
+      <div title="Paid ÷ this post's views × 1,000">
+        <dt className="text-xs">CPM now</dt>
+        <dd className={`figure mt-1 text-lg ${tone}`}>{now !== undefined ? money(now, 2) : "—"}</dd>
+      </div>
+      <div title="Paid ÷ their average views (last 20 posts) × 1,000">
+        <dt className="text-xs">Their avg CPM</dt>
+        <dd className="figure mt-1 text-lg">{avg !== undefined ? money(avg, 2) : "—"}</dd>
+      </div>
+      {vs && (
+        <p className={`col-span-3 mt-1 text-xs font-bold ${tone}`}>
+          {vs.under && !internal && <span aria-hidden>↓ </span>}
+          {vs.text.replace("expected", "their average")}
+        </p>
+      )}
+    </dl>
   );
 }
 

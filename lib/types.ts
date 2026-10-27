@@ -146,7 +146,11 @@ export interface Benchmark {
 
 export interface CampaignView {
   campaign: Campaign;
-  posts: (Post & { creator?: Creator })[];
+  posts: (Post & {
+    creator?: Creator;
+    /** What this post cost: the creator's fee (or rate, if no fee) split across their posts here. Team, or partners with fees shown. */
+    cost?: { amount: number; basis: "fee" | "rate"; splitAcross: number };
+  })[];
   totals: Stats & { posts: number; engagementRate: number; creators: number };
   series: SeriesPoint[];
   topCreators: CreatorPerformance[];

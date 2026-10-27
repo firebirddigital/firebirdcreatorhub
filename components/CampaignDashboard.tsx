@@ -126,7 +126,13 @@ export function LiveBody({
                     )}
                     {c.fee && c.views ? (
                       <p className="text-xs" title={internal ? "Fee ÷ views × 1,000. Team only." : "Fee ÷ views × 1,000"}>
-                        {money((c.fee / c.views) * 1000, 2)}/1K
+                        {money((c.fee / c.views) * 1000, 2)} CPM
+                        {c.creator?.avgViews ? (
+                          <span title="Fee ÷ (their avg views × posts) × 1,000">
+                            {" "}
+                            vs {money((c.fee / (c.creator.avgViews * c.posts)) * 1000, 2)} avg
+                          </span>
+                        ) : null}
                       </p>
                     ) : null}
                   </div>

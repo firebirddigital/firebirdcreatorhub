@@ -299,9 +299,22 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
       }),
   );
   const byId = new Map(creators.map((c) => [c.id, c]));
-  const posts = allPosts
-    .filter((p) => p.campaignId === campaign.id && p.status === "Live")
-    .map((p) => ({ ...p, creator: p.creatorId ? byId.get(p.creatorId) : undefined }))
+  const live = allPosts.filter((p) => p.campaignId === campaign.id && p.status === "Live");
+  // A creator's fee covers all their posts on this campaign, so each post carries an equal share.
+  const postsByCreator = new Map<string, number>();
+  live.forEach((p) => p.creatorId && postsByCreator.set(p.creatorId, (postsByCreator.get(p.creatorId) ?? 0) + 1));
+  const approvedCreators = new Set(roster.filter((a) => a.status === "Approved").map((a) => a.creatorId));
+  const costOf = (creatorId?: string): CampaignView["posts"][number]["cost"] => {
+    if (!creatorId) return undefined;
+    const fee = feeByCreator.get(creatorId);
+    const rate = approvedCreators.has(creatorId) ? byId.get(creatorId)?.rate : undefined;
+    const splitAcross = postsByCreator.get(creatorId) ?? 1;
+    if (fee) return { amount: fee / splitAcross, basis: "fee", splitAcross };
+    if (rate) return { amount: rate / splitAcross, basis: "rate", splitAcross };
+    return undefined;
+  };
+  const posts = live
+    .map((p) => ({ ...p, creator: p.creatorId ? byId.get(p.creatorId) : undefined, cost: costOf(p.creatorId) }))
     .sort((a, b) => b.views - a.views);
 
   const totals = sumStats(posts);

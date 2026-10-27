@@ -1,5 +1,5 @@
 import { draftSource } from "@/lib/draft-links";
-import { money, shortDate } from "@/lib/format";
+import { creatorCpm, money, shortDate } from "@/lib/format";
 import type { Assignment, Draft, DraftStatus } from "@/lib/types";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
@@ -44,14 +44,15 @@ export function DraftsHero({ lanes }: { lanes: Lane[] }) {
 }
 
 /** The creator's handles, linked to their profiles, and (when shown) their cost for this campaign. */
-function CreatorMeta({ assignment: a, showCost }: { assignment: Assignment; showCost: boolean }) {
+function CreatorMeta({ assignment: a, showCost, showCpm }: { assignment: Assignment; showCost: boolean; showCpm: boolean }) {
   const c = a.creator;
   const cost = a.fee ? money(a.fee) : c?.rate ? `${money(c.rate)} rate` : undefined;
+  const cpm = creatorCpm({ rate: a.fee ?? c?.rate, avgViews: c?.avgViews });
   const handles = [
     c?.tiktok && { label: `TikTok @${c.tiktok}`, href: `https://www.tiktok.com/@${c.tiktok}` },
     c?.instagram && { label: `Instagram @${c.instagram}`, href: `https://www.instagram.com/${c.instagram}/` },
   ].filter((h): h is { label: string; href: string } => Boolean(h));
-  if (!handles.length && !(showCost && cost)) return null;
+  if (!handles.length && !(showCost && cost) && !(showCpm && cpm)) return null;
   return (
     <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
       {handles.map((h) => (
@@ -62,6 +63,11 @@ function CreatorMeta({ assignment: a, showCost }: { assignment: Assignment; show
       {showCost && cost && (
         <span className="font-bold" title={a.fee ? "Fee for this campaign" : "No fee set yet; their general rate"}>
           {cost}
+        </span>
+      )}
+      {showCpm && cpm !== undefined && (
+        <span className="font-bold" title="Cost ÷ their avg views (last 20 posts) × 1,000">
+          {money(cpm, 2)} CPM
         </span>
       )}
     </p>
@@ -286,7 +292,7 @@ export function DraftsBody({
                 />
               );
               // The team edits the fee in its own box, so the read-only cost is for partners.
-              const meta = <CreatorMeta assignment={a} showCost={!team && showFees} />;
+              const meta = <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />;
 
               // Several versions: the creator gets a full-width row with every version side by side.
               if (drafts.length > 1) {
