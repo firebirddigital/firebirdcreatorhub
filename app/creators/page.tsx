@@ -19,9 +19,13 @@ export default async function CreatorsPage() {
       <main className="px-[57px] max-sm:px-6 pb-24">
         <div className="flex flex-wrap items-end gap-x-3 gap-y-6">
           <h1 className="headline text-7xl max-sm:text-5xl mr-3">Creators</h1>
-          <div className="ml-auto">
-            <CopyButton text={rosterUrl} label="Copy shareable link" copiedLabel="Link copied" variant="button" />
-          </div>
+          <a
+            href="/creators/preview"
+            className="ml-auto subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors"
+          >
+            Preview shareable page
+          </a>
+          <CopyButton text={rosterUrl} label="Copy shareable link" copiedLabel="Link copied" variant="button" />
           {!isSampleMode() && <CreatorImport />}
         </div>
         <p className="mt-4 max-w-prose text-sm">
