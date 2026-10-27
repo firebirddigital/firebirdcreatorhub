@@ -53,7 +53,7 @@ export default async function SharePage({
       drafts.map((d) => ({ ...d, creator: cleanCreator(d.creator), reviewedBy: reviewerName(d.reviewedBy) })),
     );
     hero = <DraftsHero lanes={lanes} />;
-    body = <DraftsBody lanes={lanes} partner={partner} />;
+    body = <DraftsBody lanes={lanes} partner={partner} showFees={showFees} />;
   } else {
     const [view, streams] = await Promise.all([getCampaignView(campaign), getStreams(id)]);
     const safe = partnerView(view, showFees);

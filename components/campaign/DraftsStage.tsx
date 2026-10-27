@@ -1,10 +1,10 @@
 import { draftSource } from "@/lib/draft-links";
-import { shortDate } from "@/lib/format";
+import { money, shortDate } from "@/lib/format";
 import type { Assignment, Draft, DraftStatus } from "@/lib/types";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
 import { TeamDraftForm } from "./TeamDraftForm";
-import { CopyButton } from "./TeamControls";
+import { CopyButton, FeeField } from "./TeamControls";
 
 interface Lane {
   assignment: Assignment;
@@ -40,6 +40,31 @@ export function DraftsHero({ lanes }: { lanes: Lane[] }) {
         ]}
       />
     </>
+  );
+}
+
+/** The creator's handles, linked to their profiles, and (when shown) their cost for this campaign. */
+function CreatorMeta({ assignment: a, showCost }: { assignment: Assignment; showCost: boolean }) {
+  const c = a.creator;
+  const cost = a.fee ? money(a.fee) : c?.rate ? `${money(c.rate)} rate` : undefined;
+  const handles = [
+    c?.tiktok && { label: `TikTok @${c.tiktok}`, href: `https://www.tiktok.com/@${c.tiktok}` },
+    c?.instagram && { label: `Instagram @${c.instagram}`, href: `https://www.instagram.com/${c.instagram}/` },
+  ].filter((h): h is { label: string; href: string } => Boolean(h));
+  if (!handles.length && !(showCost && cost)) return null;
+  return (
+    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+      {handles.map((h) => (
+        <a key={h.href} href={h.href} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-fb-red">
+          {h.label}
+        </a>
+      ))}
+      {showCost && cost && (
+        <span className="font-bold" title={a.fee ? "Fee for this campaign" : "No fee set yet; their general rate"}>
+          {cost}
+        </span>
+      )}
+    </p>
   );
 }
 
@@ -98,11 +123,14 @@ function DraftPlayer({ url }: { url: string }) {
 function VersionCard({
   draft: d,
   name,
+  meta,
   latest,
   partner,
 }: {
   draft?: Draft;
   name?: string;
+  /** Handles and cost, under the creator's name. */
+  meta?: React.ReactNode;
   latest?: boolean;
   partner?: { reviewEndpoint: string };
 }) {
@@ -143,6 +171,7 @@ function VersionCard({
           </span>
         )}
       </div>
+      {meta}
       {(d?.submittedBy || (source && !source.hosted)) && (
         <p className="mt-1 text-xs">
           {d?.submittedBy && <>Added by {d.submittedBy}. </>}
@@ -180,15 +209,20 @@ function TeamLaneControls({
   uploadUrl,
   campaignId,
   sample,
+  fee,
+  rate,
 }: {
   assignmentId: string;
   name: string;
   uploadUrl: string;
   campaignId: string;
   sample: boolean;
+  fee?: number;
+  rate?: number;
 }) {
   return (
     <>
+      <FeeField key={fee ?? "none"} campaignId={campaignId} assignmentId={assignmentId} fee={fee} rate={rate} className="w-40 mb-3" />
       <CopyButton text={uploadUrl} label="Copy draft upload link" copiedLabel="Upload link copied" />
       <details className="mt-3">
         <summary className="cursor-pointer text-sm font-bold underline underline-offset-4 hover:text-fb-red">
@@ -206,9 +240,12 @@ export function DraftsBody({
   lanes,
   partner,
   team,
+  showFees = false,
 }: {
   lanes: Lane[];
   partner?: { reviewEndpoint: string };
+  /** Partner view: show each creator's cost (only when the campaign shows rates). The team always sees it. */
+  showFees?: boolean;
   team?: { uploadUrls: Record<string, string>; tools: React.ReactNode; addDraft: React.ReactNode; campaignId: string; sample: boolean };
 }) {
   return (
@@ -244,15 +281,22 @@ export function DraftsBody({
                   uploadUrl={team.uploadUrls[a.id]}
                   campaignId={team.campaignId}
                   sample={team.sample}
+                  fee={a.fee}
+                  rate={a.creator?.rate}
                 />
               );
+              // The team edits the fee in its own box, so the read-only cost is for partners.
+              const meta = <CreatorMeta assignment={a} showCost={!team && showFees} />;
 
               // Several versions: the creator gets a full-width row with every version side by side.
               if (drafts.length > 1) {
                 return (
                   <li key={a.id} className="col-span-full border-t-2 border-fb-black pt-5">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-                      <h3 className="subtitle text-2xl">{name}</h3>
+                      <div>
+                        <h3 className="subtitle text-2xl">{name}</h3>
+                        {meta}
+                      </div>
                       <span className="text-sm">
                         {drafts.length} versions, newest first
                         {drafts.slice(1).some((d) => d.status === "Pending review") && (
@@ -276,7 +320,7 @@ export function DraftsBody({
               return (
                 <li key={a.id}>
                   <article>
-                    <VersionCard draft={d} name={name} partner={partner} />
+                    <VersionCard draft={d} name={name} meta={meta} partner={partner} />
                     {teamControls && <div className="mt-4">{teamControls}</div>}
                   </article>
                 </li>

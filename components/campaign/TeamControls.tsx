@@ -534,6 +534,58 @@ export function RosterTools({
   );
 }
 
+/** A creator's fee for this campaign, saved when the box loses focus. Shows their general rate as a hint. */
+export function FeeField({
+  campaignId,
+  assignmentId,
+  fee,
+  rate,
+  className = "w-28",
+}: {
+  campaignId: string;
+  assignmentId: string;
+  fee?: number;
+  rate?: number;
+  className?: string;
+}) {
+  const router = useRouter();
+  const [feeInput, setFeeInput] = useState(fee ? String(fee) : "");
+  const [state, setState] = useState<"saving" | "saved" | { error: string }>();
+
+  async function save() {
+    const next = feeInput ? Number(feeInput) : null;
+    if (next === (fee ?? null)) return;
+    setState("saving");
+    try {
+      await call(`/api/campaigns/${campaignId}/roster`, "PATCH", { assignmentId, fee: next });
+      setState("saved");
+      router.refresh();
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  return (
+    <label className={`block ${className}`}>
+      <span className="text-xs font-bold">
+        Fee ($)
+        {state === "saving" && <span className="ml-2 font-normal">Saving…</span>}
+        {state === "saved" && <span className="ml-2 font-normal">Saved</span>}
+      </span>
+      <input
+        inputMode="numeric"
+        value={feeInput}
+        placeholder={rate ? `Rate ${rate.toLocaleString("en-US")}` : undefined}
+        onChange={(e) => setFeeInput(e.target.value.replace(/[^\d]/g, ""))}
+        onBlur={save}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 font-bold outline-none focus:border-fb-red placeholder:font-normal placeholder:text-fb-black/50"
+      />
+      {typeof state === "object" && <span className="mt-1 block text-xs text-fb-red font-bold">{state.error}</span>}
+    </label>
+  );
+}
+
 /** Per-creator controls for the team: status, fee and the creator's private upload link. */
 export function AssignmentControls({
   campaignId,
@@ -549,7 +601,6 @@ export function AssignmentControls({
   uploadUrl: string;
 }) {
   const router = useRouter();
-  const [feeInput, setFeeInput] = useState(fee ? String(fee) : "");
   const [error, setError] = useState<string>();
 
   async function patch(body: object) {
@@ -577,19 +628,7 @@ export function AssignmentControls({
             ))}
           </select>
         </label>
-        <label className="w-28">
-          <span className="text-xs font-bold">Fee ($)</span>
-          <input
-            inputMode="numeric"
-            value={feeInput}
-            onChange={(e) => setFeeInput(e.target.value.replace(/[^\d]/g, ""))}
-            onBlur={() => {
-              const next = feeInput ? Number(feeInput) : null;
-              if (next !== (fee ?? null)) patch({ fee: next });
-            }}
-            className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 font-bold outline-none focus:border-fb-red"
-          />
-        </label>
+        <FeeField campaignId={campaignId} assignmentId={assignmentId} fee={fee} />
       </div>
       {status === "Approved" ? (
         <CopyButton text={uploadUrl} label="Copy draft upload link" copiedLabel="Upload link copied" />
