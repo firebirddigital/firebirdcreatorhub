@@ -39,6 +39,8 @@ export const CAMPAIGN_FIELDS = {
   showRates: "Show Rates",
   // Optional single select: Influencer, Content Seeding. Without it the hub guesses from the name.
   type: "Type",
+  // Optional long text: partner names and emails from the request form. Team only.
+  partnerContacts: "Partner Contacts",
 } as const;
 
 export const ASSIGNMENT_FIELDS = {

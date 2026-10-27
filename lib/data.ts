@@ -82,6 +82,7 @@ export async function getCampaigns(opts: { fresh?: boolean } = {}): Promise<Camp
     brief: str(r.fields[CF.brief]),
     showRates: r.fields[CF.showRates] === true,
     type: CAMPAIGN_TYPES.find((t) => t.toLowerCase() === str(r.fields[CF.type])?.toLowerCase()),
+    partnerContacts: str(r.fields[CF.partnerContacts]),
   }));
 }
 

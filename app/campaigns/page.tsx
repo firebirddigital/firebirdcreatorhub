@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { NewCampaign } from "@/components/campaign/CampaignEditor";
+import { RequestsInbox } from "@/components/RequestsInbox";
 import { StatusTag } from "@/components/StatusTag";
 import { isSampleMode } from "@/lib/config";
 import { getCampaignSummaries } from "@/lib/data";
+import { getRequests } from "@/lib/requests";
 import { compact, dateRange, pct } from "@/lib/format";
 import { campaignType, type CampaignType } from "@/lib/types";
 
@@ -15,7 +17,7 @@ const TABS: { key: string; type: CampaignType; label: string }[] = [
 ];
 
 export default async function CampaignsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
-  const [all, sp] = await Promise.all([getCampaignSummaries(), searchParams]);
+  const [all, sp, inbox] = await Promise.all([getCampaignSummaries(), searchParams, getRequests()]);
   const tab = TABS.find((t) => t.key === sp.type) ?? TABS[0];
   const summaries = all.filter((s) => campaignType(s.campaign) === tab.type);
   const count = (type: CampaignType) => all.filter((s) => campaignType(s.campaign) === type).length;
@@ -29,6 +31,13 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
           <h1 className="headline text-7xl max-sm:text-5xl">Campaigns</h1>
           <NewCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
         </div>
+
+        <RequestsInbox
+          requests={inbox.requests}
+          missingTables={inbox.missingTables}
+          sample={isSampleMode()}
+          campaigns={all.map(({ campaign }) => ({ id: campaign.id, name: campaign.name, artist: campaign.artist }))}
+        />
 
         <nav aria-label="Campaign type" className="mt-10 flex flex-wrap gap-x-8 gap-y-3 border-b-2 border-fb-black">
           {TABS.map((t) => (

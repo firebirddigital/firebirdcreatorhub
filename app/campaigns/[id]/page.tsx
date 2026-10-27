@@ -146,6 +146,12 @@ export default async function CampaignPage({
       <Header active="campaigns" />
       <CampaignShell campaign={campaign} tab={tab} current={current} basePath={`/campaigns/${id}`} hero={hero}>
         <CampaignEditor key={JSON.stringify(campaign)} campaign={campaign} stage={current} sample={sample} />
+        {campaign.partnerContacts && (
+          <section aria-label="Partner contacts" className="-mt-10 text-sm">
+            <p className="text-xs font-bold">Partner contacts (team only)</p>
+            <p className="mt-1 whitespace-pre-line">{campaign.partnerContacts}</p>
+          </section>
+        )}
         {body}
       </CampaignShell>
     </>

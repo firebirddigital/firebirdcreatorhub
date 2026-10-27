@@ -36,6 +36,8 @@ export interface Campaign {
   showRates: boolean;
   /** From the Type field. Empty when it isn't set (or the field doesn't exist yet); see campaignType(). */
   type?: CampaignType;
+  /** Partner names and emails from the request form. Team only: stripped from partner pages. */
+  partnerContacts?: string;
 }
 
 export type CampaignType = "Influencer" | "Content Seeding";

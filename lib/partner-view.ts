@@ -2,8 +2,8 @@
 // Used by the partner share page and the partner wrap report so both strip the same things.
 import type { Assignment, Campaign, CampaignView, Creator } from "./types";
 
-/** No budget, no brief. */
-export const partnerCampaign = (c: Campaign): Campaign => ({ ...c, budget: undefined, brief: undefined });
+/** No budget, no brief, no partner contacts. */
+export const partnerCampaign = (c: Campaign): Campaign => ({ ...c, budget: undefined, brief: undefined, partnerContacts: undefined });
 
 /** No email or notes; the creator's rate only when the campaign shows rates. */
 export const partnerCreator = (c: Creator | undefined, showFees: boolean): Creator | undefined =>
