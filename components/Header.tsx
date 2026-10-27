@@ -3,7 +3,7 @@ import { authEnabled } from "@/lib/auth";
 import { isSampleMode } from "@/lib/config";
 import { Logo } from "./Logo";
 
-export function Header({ active }: { active?: "campaigns" | "creators" | "partners" }) {
+export function Header({ active }: { active?: "campaigns" | "creators" | "analytics" }) {
   const navClass = (key: string) =>
     `subtitle text-sm pb-1 border-b-2 ${active === key ? "border-fb-red" : "border-transparent hover:border-fb-black"}`;
 
@@ -26,8 +26,8 @@ export function Header({ active }: { active?: "campaigns" | "creators" | "partne
           <Link href="/creators" className={navClass("creators")}>
             Creators
           </Link>
-          <Link href="/partners" className={navClass("partners")}>
-            Partners
+          <Link href="/analytics" className={navClass("analytics")}>
+            Analytics
           </Link>
           {authEnabled() && (
             <form action="/api/logout" method="post">
