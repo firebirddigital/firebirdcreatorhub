@@ -132,6 +132,12 @@ export async function getAssignments(campaignId: string, opts: { fresh?: boolean
     );
 }
 
+/** Every campaign's roster entries in one read (for cross-campaign totals like the Partners page). */
+export async function getAllAssignments(opts: { fresh?: boolean } = {}): Promise<Assignment[]> {
+  if (isSampleMode()) return sampleAssignments;
+  return (await listAll(TABLES.assignments, {}, opts)).map(mapAssignment);
+}
+
 export async function getAssignment(id: string): Promise<Assignment | undefined> {
   if (isSampleMode()) return sampleAssignments.find((a) => a.id === id);
   const rows = await listAll(TABLES.assignments, { filterByFormula: `RECORD_ID()='${safeId(id)}'` }, { fresh: true });
