@@ -4,10 +4,17 @@
 //   NOTIFY_FROM         Sender on a domain verified in Resend, e.g. "Firebird Creator Hub <hub@firebird-music.com>"
 //   TEAM_NOTIFY_EMAILS  Comma-separated team addresses that get every update
 import { shareSignature, submitSignature } from "./auth";
-import { getAssignment, getAssignments, getCampaign, getCreators, getDrafts } from "./data";
+import { campaignStage, getAssignment, getAssignments, getCampaign, getCampaignView, getCreators, getDrafts } from "./data";
+import { compact, pct } from "./format";
 import type { Campaign } from "./types";
 
 const enabled = () => Boolean(process.env.RESEND_API_KEY && process.env.NOTIFY_FROM);
+/** Whether the hub can send email yet (Resend key and sender set). */
+export const emailEnabled = enabled;
+
+export const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+/** Every email address in free text, such as Partner Contacts ("Jane Doe <jane@label.com>", one per line). */
+export const emailsIn = (text?: string) => [...new Set((text ?? "").match(/[^\s<>(),;"']+@[^\s<>(),;"']+\.[^\s<>(),;"']+/g) ?? [])].filter(isEmail);
 const teamEmails = () =>
   (process.env.TEAM_NOTIFY_EMAILS ?? "")
     .split(",")
@@ -28,7 +35,7 @@ ${opts.button ? `<p style="margin:24px 0 0"><a href="${esc(opts.button.url)}" st
 </div></body></html>`;
 }
 
-async function send(to: string[], subject: string, body: Parameters<typeof html>[0]) {
+async function send(to: string[], subject: string, body: Parameters<typeof html>[0]): Promise<string | undefined> {
   const recipients = [...new Set(to.map((t) => t.toLowerCase()))];
   if (!enabled() || !recipients.length) return;
   const res = await fetch("https://api.resend.com/emails", {
@@ -44,7 +51,11 @@ async function send(to: string[], subject: string, body: Parameters<typeof html>
         .join("\n\n"),
     }),
   });
-  if (!res.ok) console.error(`Resend email failed (${res.status}): ${await res.text()}`);
+  if (!res.ok) {
+    const error = `Resend email failed (${res.status}): ${await res.text()}`;
+    console.error(error);
+    return error;
+  }
 }
 
 const songLine = (c: Campaign) => `${c.artist}${c.song ? `, “${c.song}”` : ""}`;
@@ -122,4 +133,69 @@ export async function notifyReview(opts: {
       button: { label: "See notes and send a new version", url: `${opts.origin}/submit/${assignmentId}/${sig}` },
     });
   }
+}
+
+/**
+ * The campaign's dashboard, emailed to partners: where it stands, the headline numbers (no money) and
+ * their share link. Each recipient gets their own email, so addresses aren't shared.
+ */
+export async function sendDashboardEmail(opts: { origin: string; campaign: Campaign; to: string[]; note?: string }) {
+  const { subject, body } = await dashboardEmail(opts);
+  const errors: string[] = [];
+  for (const to of [...new Set(opts.to.map((e) => e.toLowerCase()))]) {
+    const error = await send([to], subject, body);
+    if (error) errors.push(`${to}: ${error}`);
+  }
+  return { sent: opts.to.length - errors.length, errors };
+}
+
+/** The dashboard email as partners will see it, for the team's preview. */
+export async function previewDashboardEmail(opts: { origin: string; campaign: Campaign; note?: string }) {
+  const { subject, body } = await dashboardEmail(opts);
+  return { subject, html: html(body) };
+}
+
+async function dashboardEmail(opts: { origin: string; campaign: Campaign; note?: string }) {
+  const { campaign } = opts;
+  const sig = await shareSignature(campaign.id);
+  const stage = campaignStage(campaign);
+  const url = `${opts.origin}/share/${campaign.id}/${sig}?tab=${stage}`;
+  const lines: string[] = [];
+  let headline = "Your campaign update";
+
+  if (stage === "live") {
+    const view = await getCampaignView(campaign);
+    const t = view.totals;
+    headline = t.posts ? `${compact(t.views)} views so far` : "Your campaign is live";
+    lines.push(
+      t.posts
+        ? `${songLine(campaign)}: ${compact(t.views)} views across ${t.posts} ${t.posts === 1 ? "post" : "posts"} from ${t.creators} ${t.creators === 1 ? "creator" : "creators"}, with ${pct(t.engagementRate)} engagement.`
+        : `${songLine(campaign)} is live. Posts and views show up on your dashboard as they go up.`,
+    );
+  } else if (stage === "drafts") {
+    const drafts = await getDrafts(campaign.id, { fresh: true });
+    const waiting = drafts.filter((d) => d.status === "Pending review").length;
+    headline = waiting ? "Drafts ready for you" : "Drafts in progress";
+    lines.push(
+      waiting
+        ? `${waiting} ${waiting === 1 ? "draft is" : "drafts are"} waiting for your review for ${songLine(campaign)}.`
+        : `Creators are working on drafts for ${songLine(campaign)}. You can watch each one as it comes in.`,
+    );
+  } else {
+    const roster = await getAssignments(campaign.id, { fresh: true });
+    const proposed = roster.filter((a) => a.status === "Proposed").length;
+    headline = proposed ? "Creators ready for you" : "Your creator lineup";
+    lines.push(
+      proposed
+        ? `We've proposed ${proposed} ${proposed === 1 ? "creator" : "creators"} for ${songLine(campaign)}. Approve the ones you like or ask for changes.`
+        : `Here's the creator lineup for ${songLine(campaign)}.`,
+    );
+  }
+  lines.push("Your dashboard updates daily. No login needed.");
+
+  const subject = `${campaign.name}: ${headline.replace(/^Your c/, "C")}`;
+  return {
+    subject,
+    body: { headline, lines, quote: opts.note?.trim() || undefined, button: { label: "Open your dashboard", url } },
+  };
 }

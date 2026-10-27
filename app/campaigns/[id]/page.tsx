@@ -14,6 +14,8 @@ import { signDraftUrls } from "@/lib/blob";
 import { isSampleMode } from "@/lib/config";
 import { campaignStage, getAssignments, getTrackRecords, getCampaign, getCampaignView, getCreators, getDrafts } from "@/lib/data";
 import { siteOrigin } from "@/lib/origin";
+import { emailEnabled, emailsIn } from "@/lib/notify";
+import { EmailDashboard } from "@/components/campaign/EmailDashboard";
 import { getStreams } from "@/lib/streams";
 import type { Assignment } from "@/lib/types";
 
@@ -152,6 +154,13 @@ export default async function CampaignPage({
             <p className="mt-1 whitespace-pre-line">{campaign.partnerContacts}</p>
           </section>
         )}
+        <EmailDashboard
+          key={campaign.partnerContacts ?? ""}
+          campaignId={campaign.id}
+          contacts={emailsIn(campaign.partnerContacts)}
+          sharingEnabled={campaign.sharingEnabled}
+          emailReady={emailEnabled()}
+        />
         {body}
       </CampaignShell>
     </>
