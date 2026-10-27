@@ -4,8 +4,8 @@ import { AnalyticsFilters } from "@/components/AnalyticsFilters";
 import { analyticsHref } from "@/lib/analytics-href";
 import { HeroStats } from "@/components/campaign/Shell";
 import { StatusTag } from "@/components/StatusTag";
-import { ARTISTS_TABLE, getAnalytics, PORTFOLIO_TABLE, type BreakdownRow, type Period } from "@/lib/analytics";
-import { compact, dateRange, money, pct } from "@/lib/format";
+import { getAnalytics, type BreakdownRow, type Period } from "@/lib/analytics";
+import { compact, dateRange, money, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -59,10 +59,10 @@ export default async function AnalyticsPage({
             partners={a.options.partners}
           />
 
-          {a.missingTables.length > 0 && (
-            <p className="max-w-prose border-2 border-fb-red p-4 text-sm">
-              To see partners, sync the operations base&apos;s IP DB Roster and Partners tables into this base as “
-              {ARTISTS_TABLE}” and “{PORTFOLIO_TABLE}”. Missing: {a.missingTables.join(" and ")}. Totals and artists still work.
+          {a.rosterSource.kind === "snapshot" && (
+            <p className="text-sm">
+              Artists and partners from the IP DB Roster export of {shortDate(a.rosterSource.date)}. Send a fresh export to
+              update them.
             </p>
           )}
 
@@ -131,7 +131,7 @@ export default async function AnalyticsPage({
             )}
           </section>
 
-          {!a.missingTables.length && a.unmatched.length > 0 && (
+          {a.unmatched.length > 0 && (
             <section>
               <h2 className="headline text-3xl">Not in any partner&apos;s totals</h2>
               <p className="mt-2 max-w-prose text-sm">

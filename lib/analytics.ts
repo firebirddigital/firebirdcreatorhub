@@ -5,6 +5,7 @@ import { listAll, type AirtableRecord } from "./airtable";
 import { isSampleMode } from "./config";
 import { engagementRate, getAllAssignments, getCampaigns, getCreators, getPosts, sumStats } from "./data";
 import { expectedCpm } from "./format";
+import { ROSTER_SNAPSHOT_DATE, SNAPSHOT_ARTISTS, SNAPSHOT_COMPANIES } from "./roster-snapshot";
 import type { Campaign, Stats } from "./types";
 
 export const ARTISTS_TABLE = "Artists";
@@ -60,7 +61,8 @@ export interface Analytics {
   byArtist: BreakdownRow[];
   /** Campaigns in view whose artist couldn't be matched to the roster, or has no partners. */
   unmatched: { id: string; name: string; artist: string; reason: string }[];
-  missingTables: string[];
+  /** Where artists and partners came from: the synced tables, or the built-in snapshot (with its date). */
+  rosterSource: { kind: "airtable" | "snapshot" | "sample"; date?: string };
 }
 
 // Synced values arrive as text, arrays of names or objects; flatten to names.
@@ -126,7 +128,7 @@ export async function getAnalytics(
 ): Promise<Analytics> {
   const period = filters.period ?? "all";
   const missingTables: string[] = [];
-  const [artistRows, companyRows, allCampaigns, posts, assignments, creators] = await Promise.all([
+  const [liveArtists, liveCompanies, allCampaigns, posts, assignments, creators] = await Promise.all([
     isSampleMode() ? Promise.resolve(SAMPLE_ARTISTS) : readTable(ARTISTS_TABLE, missingTables),
     isSampleMode() ? Promise.resolve(SAMPLE_COMPANIES) : readTable(PORTFOLIO_TABLE, missingTables),
     getCampaigns(),
@@ -135,21 +137,39 @@ export async function getAnalytics(
     getCreators(),
   ]);
 
-  // Roster: artist → partners
-  const roster = artistRows
-    .map((r) => ({ name: text(r.fields["Name"]) ?? "", partners: names(r.fields["Partner(s)"]) }))
-    .filter((a) => a.name);
-  const rosterByKey = new Map(roster.map((a) => [normalize(a.name), a]));
+  // Without both tables in this base, use the built-in snapshot of the roster.
+  const useSnapshot = missingTables.length > 0;
+  const artistRows = useSnapshot ? SNAPSHOT_ARTISTS.map(([Name, partners], i) => rec({ Name, "Partner(s)": partners }, i)) : liveArtists;
+  const companyRows = useSnapshot
+    ? SNAPSHOT_COMPANIES.map(([Name, types], i) => rec({ Name, "Organization Type": types }, i))
+    : liveCompanies;
+  const rosterSource: Analytics["rosterSource"] = isSampleMode()
+    ? { kind: "sample" }
+    : useSnapshot
+      ? { kind: "snapshot", date: ROSTER_SNAPSHOT_DATE }
+      : { kind: "airtable" };
 
-  // Portfolio companies (Firebird Ownership = True when the field is synced; otherwise every row counts)
+  // Roster: artist → partners. An artist listed twice gets the partners from both rows.
+  const rosterByKey = new Map<string, { name: string; partners: string[] }>();
+  for (const r of artistRows) {
+    const name = text(r.fields["Name"]);
+    if (!name) continue;
+    const key = normalize(name);
+    const entry = rosterByKey.get(key) ?? { name, partners: [] };
+    for (const p of names(r.fields["Partner(s)"])) if (!entry.partners.includes(p)) entry.partners.push(p);
+    rosterByKey.set(key, entry);
+  }
+  const roster = [...rosterByKey.values()];
+
+  // Portfolio companies: rows with Firebird Ownership ticked or "True". If the column wasn't brought over
+  // (the rows were filtered before import), every row counts. Airtable leaves empty and unticked fields out.
+  const hasOwnership = companyRows.some((r) => "Firebird Ownership" in r.fields);
+  const owned = (v: unknown) => v === true || /^(true|checked|yes)$/i.test(text(v) ?? "");
   const companies = new Map(
     companyRows
-      .map((r) => ({
-        name: text(r.fields["Name"]) ?? "",
-        ownership: text(r.fields["Firebird Ownership"]),
-        types: names(r.fields["Organization Type"]),
-      }))
-      .filter((c) => c.name && c.ownership !== "False")
+      .filter((r) => !hasOwnership || owned(r.fields["Firebird Ownership"]))
+      .map((r) => ({ name: text(r.fields["Name"]) ?? "", types: names(r.fields["Organization Type"]) }))
+      .filter((c) => c.name)
       .map((c) => [normalize(c.name), c]),
   );
 
@@ -249,7 +269,7 @@ export async function getAnalytics(
     byPartner,
     byArtist,
     unmatched,
-    missingTables,
+    rosterSource,
   };
 }
 
