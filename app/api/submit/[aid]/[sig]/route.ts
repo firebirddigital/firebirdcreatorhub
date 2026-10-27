@@ -3,9 +3,10 @@ import { revalidateTag } from "next/cache";
 import { isValidSubmit } from "@/lib/auth";
 import { isSampleMode } from "@/lib/config";
 import { getAssignment } from "@/lib/data";
+import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
 import { createDraft } from "@/lib/roster";
 
-// Saves an uploaded draft against the creator's roster entry.
+// Saves a draft (an uploaded file or a share link) against the creator's roster entry.
 export async function POST(req: Request, { params }: { params: Promise<{ aid: string; sig: string }> }) {
   const { aid, sig } = await params;
   if (!(await isValidSubmit(aid, sig))) return NextResponse.json({ error: "This link isn't valid." }, { status: 404 });
@@ -17,15 +18,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ aid: st
   }
 
   const { videoUrl, caption } = (await req.json().catch(() => ({}))) as { videoUrl?: string; caption?: string };
-  // Only accept files that landed in our Blob store under this creator's folder
-  let ok = false;
-  try {
-    const u = new URL(videoUrl ?? "");
-    ok = u.hostname.endsWith(".blob.vercel-storage.com") && u.pathname.startsWith(`/drafts/${aid}/`);
-  } catch {}
-  if (!ok) return NextResponse.json({ error: "Upload the video first." }, { status: 400 });
+  if (!videoUrl?.trim()) return NextResponse.json({ error: "Paste a link to your draft or upload the file." }, { status: 400 });
 
-  const version = await createDraft(assignment, videoUrl!, caption);
+  // Uploaded files must sit in our Blob store under this creator's folder; anything else is a share link.
+  let saved: string;
+  let blob = false;
+  try {
+    blob = isBlobUrl(new URL(videoUrl));
+  } catch {}
+  if (blob) {
+    if (!new URL(videoUrl).pathname.startsWith(`/drafts/${aid}/`)) {
+      return NextResponse.json({ error: "Upload the video first." }, { status: 400 });
+    }
+    saved = videoUrl;
+  } else {
+    const link = checkDraftLink(videoUrl);
+    if (!link.ok) return NextResponse.json({ error: link.error }, { status: 400 });
+    saved = link.url;
+  }
+
+  const version = await createDraft(assignment, saved, caption);
   revalidateTag("airtable");
   return NextResponse.json({ ok: true, version });
 }

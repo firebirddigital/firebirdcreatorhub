@@ -146,6 +146,7 @@ function mapDraft(r: AirtableRecord): Draft {
     reviewedBy: str(r.fields[DF.reviewedBy]),
     submittedAt: str(r.fields[DF.submittedAt]) ?? r.createdTime,
     reviewedAt: str(r.fields[DF.reviewedAt]),
+    submittedBy: str(r.fields[DF.submittedBy]),
   };
 }
 

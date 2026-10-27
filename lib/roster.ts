@@ -25,6 +25,7 @@ export async function addCreatorsToCampaign(
   campaignId: string,
   creatorIds: string[],
   status: AssignmentStatus = "Proposed",
+  reviewedBy?: string,
 ): Promise<number> {
   const [campaign, existing, creators] = await Promise.all([
     getCampaign(campaignId),
@@ -46,6 +47,7 @@ export async function addCreatorsToCampaign(
         [AF.campaignRecordId]: campaignId,
         [AF.creator]: [creatorId],
         [AF.status]: status,
+        ...(reviewedBy ? { [AF.reviewedBy]: reviewedBy, [AF.reviewedAt]: new Date().toISOString() } : {}),
         ...(byId.get(creatorId)?.rate ? { [AF.fee]: byId.get(creatorId)!.rate } : {}),
       },
     })),
@@ -113,8 +115,8 @@ export async function recordReview(opts: {
   }
 }
 
-/** Saves a creator's uploaded draft as the next version. */
-export async function createDraft(assignment: Assignment, videoUrl: string, caption?: string) {
+/** Saves a draft (an uploaded file or a link) as the creator's next version. */
+export async function createDraft(assignment: Assignment, videoUrl: string, caption?: string, submittedBy?: string) {
   const [campaign, drafts, creators] = await Promise.all([
     getCampaign(assignment.campaignId),
     getDrafts(assignment.campaignId, { fresh: true }),
@@ -122,23 +124,104 @@ export async function createDraft(assignment: Assignment, videoUrl: string, capt
   ]);
   const version = drafts.filter((d) => d.assignmentId === assignment.id).length + 1;
   const name = creators.find((c) => c.id === assignment.creatorId)?.name ?? "Creator";
-  await createRecords(TABLES.drafts, [
-    {
-      fields: {
-        [DF.label]: `${name} v${version}${campaign ? ` for ${campaign.name}` : ""}`,
-        [DF.assignment]: [assignment.id],
-        [DF.campaign]: [assignment.campaignId],
-        [DF.campaignRecordId]: assignment.campaignId,
-        ...(assignment.creatorId ? { [DF.creator]: [assignment.creatorId] } : {}),
-        [DF.videoUrl]: videoUrl,
-        [DF.caption]: caption?.trim().slice(0, 2200) ?? "",
-        [DF.version]: version,
-        [DF.status]: "Pending review",
-        [DF.submittedAt]: new Date().toISOString(),
-      },
-    },
-  ]);
+  const fields: Record<string, unknown> = {
+    [DF.label]: `${name} v${version}${campaign ? ` for ${campaign.name}` : ""}`,
+    [DF.assignment]: [assignment.id],
+    [DF.campaign]: [assignment.campaignId],
+    [DF.campaignRecordId]: assignment.campaignId,
+    ...(assignment.creatorId ? { [DF.creator]: [assignment.creatorId] } : {}),
+    [DF.videoUrl]: videoUrl,
+    [DF.caption]: caption?.trim().slice(0, 2200) ?? "",
+    [DF.version]: version,
+    [DF.status]: "Pending review",
+    [DF.submittedAt]: new Date().toISOString(),
+  };
+  try {
+    await createRecords(TABLES.drafts, [{ fields: submittedBy ? { ...fields, [DF.submittedBy]: submittedBy } : fields }]);
+  } catch (e) {
+    // Submitted By is optional in Airtable; save without it if the base doesn't have the field.
+    if (!submittedBy || !String(e).includes("UNKNOWN_FIELD_NAME")) throw e;
+    await createRecords(TABLES.drafts, [{ fields }]);
+  }
   return version;
+}
+
+/**
+ * Finds or creates the creator's roster entry so the team can add a draft even when the
+ * Creators step was skipped. New entries are Approved and marked as added by the team.
+ * Partner decisions are respected: a declined or sent-back creator isn't silently re-approved.
+ */
+export async function ensureDraftAssignment(
+  campaignId: string,
+  who: { assignmentId?: string; creatorId?: string; newCreator?: { name: string; instagram?: string; tiktok?: string } },
+): Promise<{ assignment: Assignment; createdCreator: boolean; addedToCampaign: boolean }> {
+  const TEAM_NOTE = "Firebird team (added with a draft)";
+
+  if (who.assignmentId) {
+    const a = (await getAssignments(campaignId, { fresh: true })).find((x) => x.id === who.assignmentId);
+    if (!a) throw new UserError("That creator isn't on this campaign.");
+    return { assignment: await approveForDraft(a, TEAM_NOTE), createdCreator: false, addedToCampaign: false };
+  }
+
+  let creatorId = who.creatorId;
+  let createdCreator = false;
+  if (!creatorId && who.newCreator) {
+    const name = who.newCreator.name.trim().slice(0, 100);
+    const instagram = cleanHandle(who.newCreator.instagram);
+    const tiktok = cleanHandle(who.newCreator.tiktok);
+    if (!name) throw new UserError("Add the creator's name.");
+    // Reuse a roster creator with the same handle rather than making a duplicate.
+    const roster = await getCreators({ fresh: true });
+    const match = roster.find(
+      (c) =>
+        (instagram && c.instagram?.toLowerCase() === instagram.toLowerCase()) ||
+        (tiktok && c.tiktok?.toLowerCase() === tiktok.toLowerCase()),
+    );
+    if (match) creatorId = match.id;
+    else {
+      const [rec] = await createRecords(TABLES.creators, [
+        {
+          fields: {
+            [CRF.name]: name,
+            ...(instagram ? { [CRF.instagram]: instagram } : {}),
+            ...(tiktok ? { [CRF.tiktok]: tiktok } : {}),
+            [CRF.notes]: "Added by the team with a draft. Add tags and rate.",
+          },
+        },
+      ]);
+      creatorId = rec.id;
+      createdCreator = true;
+    }
+  }
+  if (!creatorId) throw new UserError("Pick a creator or add a new one.");
+
+  const existing = (await getAssignments(campaignId, { fresh: true })).find((a) => a.creatorId === creatorId);
+  if (existing) return { assignment: await approveForDraft(existing, TEAM_NOTE), createdCreator, addedToCampaign: false };
+
+  await addCreatorsToCampaign(campaignId, [creatorId], "Approved", TEAM_NOTE);
+  const added = (await getAssignments(campaignId, { fresh: true })).find((a) => a.creatorId === creatorId);
+  if (!added) throw new Error("Couldn't add that creator to the campaign. Try again.");
+  return { assignment: added, createdCreator, addedToCampaign: true };
+}
+
+async function approveForDraft(a: Assignment, note: string): Promise<Assignment> {
+  if (a.status === "Approved") return a;
+  if (a.status !== "Proposed") {
+    throw new UserError(
+      `The partner marked this creator “${a.status}”. Change their status on the Creators tab first if you still want to add a draft.`,
+    );
+  }
+  await updateRecords(TABLES.assignments, [
+    { id: a.id, fields: { [AF.status]: "Approved", [AF.reviewedBy]: note, [AF.reviewedAt]: new Date().toISOString() } },
+  ]);
+  return { ...a, status: "Approved", reviewedBy: note };
+}
+
+/** An error whose message is safe and useful to show the team. */
+export class UserError extends Error {}
+
+function cleanHandle(h?: string) {
+  return h?.trim().replace(/^@/, "").replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "") || undefined;
 }
 
 /**

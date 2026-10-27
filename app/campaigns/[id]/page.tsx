@@ -4,6 +4,7 @@ import { CreatorsBody, CreatorsHero } from "@/components/campaign/CreatorsStage"
 import { CampaignEditor } from "@/components/campaign/CampaignEditor";
 import { CampaignShell, parseTab } from "@/components/campaign/Shell";
 import { RosterTools } from "@/components/campaign/TeamControls";
+import { TeamDraftForm, type PickerCreator } from "@/components/campaign/TeamDraftForm";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { CampaignTools } from "@/components/CampaignTools";
 import { Header } from "@/components/Header";
@@ -75,11 +76,25 @@ export default async function CampaignPage({
       />
     );
   } else if (tab === "drafts") {
-    const [roster, drafts] = await Promise.all([getAssignments(id), getDrafts(id)]);
+    const [roster, drafts, creators] = await Promise.all([getAssignments(id), getDrafts(id), getCreators()]);
     const lanes = buildLanes(roster, drafts);
+    const assignmentFor = new Map(roster.map((a) => [a.creatorId, a]));
+    const pickerCreators: PickerCreator[] = creators.map(({ id: cid, name, instagram, tiktok }) => {
+      const a = assignmentFor.get(cid);
+      return { id: cid, name, instagram, tiktok, ...(a ? { assignment: { id: a.id, status: a.status } } : {}) };
+    });
     hero = <DraftsHero lanes={lanes} />;
     body = (
-      <DraftsBody lanes={lanes} team={{ uploadUrls: await uploadUrlsFor(roster), tools: await rosterTools(roster) }} />
+      <DraftsBody
+        lanes={lanes}
+        team={{
+          uploadUrls: await uploadUrlsFor(roster),
+          tools: await rosterTools(roster),
+          addDraft: <TeamDraftForm campaignId={id} creators={pickerCreators} sample={sample} />,
+          campaignId: id,
+          sample,
+        }}
+      />
     );
   } else {
     const [view, creators] = await Promise.all([getCampaignView(campaign), getCreators()]);

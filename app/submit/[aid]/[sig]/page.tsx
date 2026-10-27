@@ -47,11 +47,11 @@ export default async function SubmitPage({ params }: { params: Promise<{ aid: st
         <h1 className="headline mt-2 text-6xl max-sm:text-4xl">{headline}</h1>
         <p className="mt-4 max-w-prose text-lg text-fb-white/85">
           {!latest &&
-            `${firstName ? `Hi ${firstName}. ` : ""}Read the brief, then upload your draft video here. The team will review it and you'll see their notes on this page.`}
+            `${firstName ? `Hi ${firstName}. ` : ""}Read the brief, then send your draft here: paste a share link or upload the file. The team will review it and you'll see their notes on this page.`}
           {latest?.status === "Pending review" &&
             `Thanks${firstName ? `, ${firstName}` : ""}. Version ${latest.version} is with the team for review. Check back here for notes.`}
           {latest?.status === "Changes requested" &&
-            "The team left notes on your last version. Make the changes and upload a new version below."}
+            "The team left notes on your last version. Make the changes and send a new version below."}
           {latest?.status === "Approved" &&
             "Your draft is approved. Post it on the agreed date, then send the live link to your Firebird contact."}
         </p>

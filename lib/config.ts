@@ -65,6 +65,8 @@ export const DRAFT_FIELDS = {
   submittedAt: "Submitted At",
   reviewedAt: "Reviewed At",
   campaignRecordId: "Campaign Record ID",
+  // Optional single line text field. Leave it out of Airtable and the hub skips it.
+  submittedBy: "Submitted By",
 } as const;
 
 export const POST_FIELDS = {

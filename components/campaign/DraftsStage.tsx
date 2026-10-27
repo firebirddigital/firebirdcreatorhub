@@ -1,7 +1,9 @@
+import { draftSource } from "@/lib/draft-links";
 import { shortDate } from "@/lib/format";
 import type { Assignment, Draft, DraftStatus } from "@/lib/types";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
+import { TeamDraftForm } from "./TeamDraftForm";
 import { CopyButton } from "./TeamControls";
 
 interface Lane {
@@ -47,6 +49,48 @@ const STATUS: Record<DraftStatus, { label: string; className: string }> = {
   "Changes requested": { label: "Changes requested", className: "bg-fb-black text-fb-white" },
 };
 
+/** Plays a draft in place: our own files and Dropbox in a video tag, YouTube, Vimeo and Drive in their player. */
+function DraftPlayer({ url }: { url: string }) {
+  const source = draftSource(url);
+  const { player } = source;
+  if (player.kind === "video") {
+    return (
+      <video
+        src={player.src}
+        controls
+        playsInline
+        preload="metadata"
+        className="absolute inset-0 h-full w-full object-contain bg-fb-black"
+      />
+    );
+  }
+  if (player.kind === "iframe") {
+    return (
+      <iframe
+        src={player.src}
+        title={`Draft on ${source.label}`}
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        loading="lazy"
+        className="absolute inset-0 h-full w-full border-0 bg-fb-black"
+      />
+    );
+  }
+  return (
+    <div className="absolute inset-0 flex flex-col items-start justify-end gap-3 p-5 text-fb-white">
+      <span className="text-sm text-fb-white/75">This draft is on {source.label}.</span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="subtitle bg-fb-red px-5 py-3 text-sm hover:bg-fb-white hover:text-fb-black transition-colors"
+      >
+        Open draft
+      </a>
+    </div>
+  );
+}
+
 export function DraftsBody({
   lanes,
   partner,
@@ -54,11 +98,20 @@ export function DraftsBody({
 }: {
   lanes: Lane[];
   partner?: { reviewEndpoint: string };
-  team?: { uploadUrls: Record<string, string>; tools: React.ReactNode };
+  team?: { uploadUrls: Record<string, string>; tools: React.ReactNode; addDraft: React.ReactNode; campaignId: string; sample: boolean };
 }) {
   return (
     <>
       {team?.tools}
+      {team && (
+        <section aria-label="Add a draft" className="border-2 border-fb-black p-6 max-sm:p-4">
+          <h2 className="headline text-2xl">Add a draft</h2>
+          <p className="mt-1 mb-5 max-w-prose text-sm">
+            Got a draft by email or text? Add it here for any creator, even one who isn't on this campaign yet.
+          </p>
+          {team.addDraft}
+        </section>
+      )}
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 className="headline text-3xl">The drafts</h2>
@@ -78,13 +131,7 @@ export function DraftsBody({
                   <article>
                     <div className="relative aspect-[9/16] bg-fb-black overflow-hidden">
                       {d?.videoUrl ? (
-                        <video
-                          src={d.videoUrl}
-                          controls
-                          playsInline
-                          preload="metadata"
-                          className="absolute inset-0 h-full w-full object-contain bg-fb-black"
-                        />
+                        <DraftPlayer url={d.videoUrl} />
                       ) : (
                         <div className="absolute inset-0 flex flex-col justify-end p-5 text-fb-white">
                           <span className="subtitle text-xs">{d ? `Version ${d.version}` : "Waiting on draft"}</span>
@@ -110,6 +157,16 @@ export function DraftsBody({
                         </span>
                       )}
                     </div>
+                    {(d?.submittedBy || (d?.videoUrl && !draftSource(d.videoUrl).hosted)) && (
+                      <p className="mt-1 text-xs">
+                        {d.submittedBy && <>Added by {d.submittedBy}. </>}
+                        {d.videoUrl && !draftSource(d.videoUrl).hosted && (
+                          <a href={d.videoUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                            Open on {draftSource(d.videoUrl).label}
+                          </a>
+                        )}
+                      </p>
+                    )}
                     {d?.caption && <p className="mt-2 text-sm border-l-4 border-fb-black pl-3">{d.caption}</p>}
                     {d?.partnerComment && (
                       <blockquote className="mt-3 border-l-4 border-fb-red pl-3 text-sm">
@@ -149,11 +206,25 @@ export function DraftsBody({
                         />
                       )}
                       {team && (
-                        <CopyButton
-                          text={team.uploadUrls[a.id]}
-                          label="Copy draft upload link"
-                          copiedLabel="Upload link copied"
-                        />
+                        <>
+                          <CopyButton
+                            text={team.uploadUrls[a.id]}
+                            label="Copy draft upload link"
+                            copiedLabel="Upload link copied"
+                          />
+                          <details className="mt-3">
+                            <summary className="cursor-pointer text-sm font-bold underline underline-offset-4 hover:text-fb-red">
+                              Add a draft for {a.creator?.name?.split(" ")[0] ?? "them"}
+                            </summary>
+                            <div className="mt-4">
+                              <TeamDraftForm
+                                campaignId={team.campaignId}
+                                fixed={{ assignmentId: a.id, name: a.creator?.name ?? "Creator" }}
+                                sample={team.sample}
+                              />
+                            </div>
+                          </details>
+                        </>
                       )}
                     </div>
                   </article>
@@ -163,7 +234,9 @@ export function DraftsBody({
           </ul>
         ) : (
           <p className="mt-8 max-w-prose">
-            Drafts show up here once creators are approved and start uploading.
+            {team
+              ? "Drafts show up here once creators are approved and send them, or when you add one above."
+              : "Drafts show up here once creators are approved and start uploading."}
           </p>
         )}
       </section>

@@ -67,6 +67,8 @@ export interface Draft {
   reviewedBy?: string;
   submittedAt?: string;
   reviewedAt?: string;
+  /** "Firebird team" when the team added it for the creator. Empty for the creator's own uploads. */
+  submittedBy?: string;
 }
 
 export interface Stats {
