@@ -166,32 +166,9 @@ export async function ensureDraftAssignment(
   let creatorId = who.creatorId;
   let createdCreator = false;
   if (!creatorId && who.newCreator) {
-    const name = who.newCreator.name.trim().slice(0, 100);
-    const instagram = cleanHandle(who.newCreator.instagram);
-    const tiktok = cleanHandle(who.newCreator.tiktok);
-    if (!name) throw new UserError("Add the creator's name.");
-    // Reuse a roster creator with the same handle rather than making a duplicate.
-    const roster = await getCreators({ fresh: true });
-    const match = roster.find(
-      (c) =>
-        (instagram && c.instagram?.toLowerCase() === instagram.toLowerCase()) ||
-        (tiktok && c.tiktok?.toLowerCase() === tiktok.toLowerCase()),
-    );
-    if (match) creatorId = match.id;
-    else {
-      const [rec] = await createRecords(TABLES.creators, [
-        {
-          fields: {
-            [CRF.name]: name,
-            ...(instagram ? { [CRF.instagram]: instagram } : {}),
-            ...(tiktok ? { [CRF.tiktok]: tiktok } : {}),
-            [CRF.notes]: "Added by the team with a draft. Add tags and rate.",
-          },
-        },
-      ]);
-      creatorId = rec.id;
-      createdCreator = true;
-    }
+    const found = await findOrCreateCreator(who.newCreator, "Added by the team with a draft.");
+    creatorId = found.id;
+    createdCreator = found.created;
   }
   if (!creatorId) throw new UserError("Pick a creator or add a new one.");
 
@@ -219,6 +196,63 @@ async function approveForDraft(a: Assignment, note: string): Promise<Assignment>
 
 /** An error whose message is safe and useful to show the team. */
 export class UserError extends Error {}
+
+export interface NewCreatorInput {
+  name: string;
+  instagram?: string;
+  tiktok?: string;
+  tags?: string[];
+  rate?: number;
+  email?: string;
+  location?: string;
+}
+
+/**
+ * Adds a creator to the roster, or reuses the one that already has the same Instagram or TikTok
+ * handle so nobody ends up in the database twice. New tags are added to a matched creator too.
+ */
+export async function findOrCreateCreator(
+  input: NewCreatorInput,
+  note: string,
+): Promise<{ id: string; created: boolean; name: string }> {
+  const name = input.name.trim().slice(0, 100);
+  const instagram = cleanHandle(input.instagram);
+  const tiktok = cleanHandle(input.tiktok);
+  if (!name) throw new UserError("Add the creator's name.");
+  const tags = [...new Set((input.tags ?? []).map((t) => t.trim().replace(/,/g, "").slice(0, 50)).filter(Boolean))].slice(0, 30);
+  const email = input.email?.trim().slice(0, 200);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new UserError("That email doesn't look right.");
+
+  const roster = await getCreators({ fresh: true });
+  const match = roster.find(
+    (c) =>
+      (instagram && c.instagram?.toLowerCase() === instagram.toLowerCase()) ||
+      (tiktok && c.tiktok?.toLowerCase() === tiktok.toLowerCase()) ||
+      // No handles to go on: fall back to an exact name match.
+      (!instagram && !tiktok && c.name.toLowerCase() === name.toLowerCase()),
+  );
+  if (match) {
+    const missing = tags.filter((t) => !match.tags.includes(t));
+    if (missing.length) await updateRecords(TABLES.creators, [{ id: match.id, fields: { [CRF.tags]: [...match.tags, ...missing] } }]);
+    return { id: match.id, created: false, name: match.name };
+  }
+
+  const [rec] = await createRecords(TABLES.creators, [
+    {
+      fields: {
+        [CRF.name]: name,
+        ...(instagram ? { [CRF.instagram]: instagram } : {}),
+        ...(tiktok ? { [CRF.tiktok]: tiktok } : {}),
+        ...(tags.length ? { [CRF.tags]: tags } : {}),
+        ...(input.rate && input.rate > 0 ? { [CRF.rate]: Math.round(input.rate) } : {}),
+        ...(email ? { [CRF.email]: email } : {}),
+        ...(input.location?.trim() ? { [CRF.location]: input.location.trim().slice(0, 100) } : {}),
+        [CRF.notes]: `${note}${tags.length ? "" : " Add tags."}`,
+      },
+    },
+  ]);
+  return { id: rec.id, created: true, name };
+}
 
 function cleanHandle(h?: string) {
   return h?.trim().replace(/^@/, "").replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "") || undefined;

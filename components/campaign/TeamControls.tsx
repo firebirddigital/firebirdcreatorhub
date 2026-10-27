@@ -34,6 +34,138 @@ export function CopyButton({ text, label, copiedLabel = "Copied" }: { text: stri
   );
 }
 
+interface NewCreatorDraft {
+  name: string;
+  instagram: string;
+  tiktok: string;
+  tags: string[];
+  rate: string;
+  email: string;
+  location: string;
+}
+
+const EMPTY_NEW: NewCreatorDraft = { name: "", instagram: "", tiktok: "", tags: [], rate: "", email: "", location: "" };
+
+/** Adds a brand new creator to the Creators database and this campaign in one go. */
+function NewCreatorForm({
+  value: v,
+  onChange,
+  allTags,
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  value: NewCreatorDraft;
+  onChange: (v: NewCreatorDraft) => void;
+  allTags: string[];
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  const [tagDraft, setTagDraft] = useState("");
+  const set = (patch: Partial<NewCreatorDraft>) => onChange({ ...v, ...patch });
+  const toggleTag = (t: string) => set({ tags: v.tags.includes(t) ? v.tags.filter((x) => x !== t) : [...v.tags, t] });
+  const addTypedTag = () => {
+    const t = tagDraft.trim();
+    if (t && !v.tags.includes(t)) set({ tags: [...v.tags, t] });
+    setTagDraft("");
+  };
+  const field = "mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 outline-none focus:border-fb-red";
+  const canSave = v.name.trim() && !busy;
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (canSave) onSubmit();
+      }}
+      className="mt-4 border-2 border-fb-red p-5 space-y-4"
+    >
+      <div>
+        <h3 className="subtitle text-lg">New creator</h3>
+        <p className="text-xs">Saved to the Creators database and added to this campaign. If someone already has this handle, we use them instead.</p>
+      </div>
+      <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+        <label>
+          <span className="text-xs font-bold">Name</span>
+          <input required autoFocus value={v.name} onChange={(e) => set({ name: e.target.value })} className={field} />
+        </label>
+        <label>
+          <span className="text-xs font-bold">TikTok handle</span>
+          <input value={v.tiktok} onChange={(e) => set({ tiktok: e.target.value })} placeholder="@" className={field} />
+        </label>
+        <label>
+          <span className="text-xs font-bold">Instagram handle</span>
+          <input value={v.instagram} onChange={(e) => set({ instagram: e.target.value })} placeholder="@" className={field} />
+        </label>
+        <label>
+          <span className="text-xs font-bold">Rate per post ($)</span>
+          <input
+            inputMode="numeric"
+            value={v.rate}
+            onChange={(e) => set({ rate: e.target.value.replace(/[^\d]/g, "") })}
+            className={field}
+          />
+        </label>
+        <label>
+          <span className="text-xs font-bold">Email (optional)</span>
+          <input type="email" value={v.email} onChange={(e) => set({ email: e.target.value })} className={field} />
+        </label>
+        <label>
+          <span className="text-xs font-bold">Location (optional)</span>
+          <input value={v.location} onChange={(e) => set({ location: e.target.value })} className={field} />
+        </label>
+      </div>
+      <div>
+        <span className="text-xs font-bold">Tags</span>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {[...new Set([...allTags, ...v.tags])].map((t) => {
+            const on = v.tags.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => toggleTag(t)}
+                aria-pressed={on}
+                className={`px-2 py-0.5 text-xs font-bold border ${
+                  on ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
+          <input
+            value={tagDraft}
+            onChange={(e) => setTagDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                addTypedTag();
+              }
+            }}
+            onBlur={addTypedTag}
+            placeholder="+ new tag"
+            aria-label="Add a new tag"
+            className="w-28 border-b-2 border-fb-black bg-transparent py-0.5 text-xs outline-none focus:border-fb-red"
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <button
+          disabled={!canSave}
+          className="subtitle bg-fb-red text-fb-white px-6 py-3 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+        >
+          {busy ? "Adding" : "Add to database and campaign"}
+        </button>
+        <button type="button" onClick={onCancel} className="text-sm underline underline-offset-4">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /** Team toolbar on the Creators tab: add from the roster, pull stats, move stage, share. */
 export function RosterTools({
   campaignId,
@@ -53,8 +185,11 @@ export function RosterTools({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [newCreator, setNewCreator] = useState<NewCreatorDraft>();
   const [busy, setBusy] = useState<string>();
   const [message, setMessage] = useState<{ text: string; error?: boolean }>();
+
+  const allTags = useMemo(() => [...new Set(roster.flatMap((c) => c.tags))].sort(), [roster]);
 
   const options = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -119,9 +254,62 @@ export function RosterTools({
                 );
               })
             ) : (
-              <li className="px-3 py-2.5 text-sm">No one on the roster matches. Add new creators in Airtable first.</li>
+              <li className="px-3 py-2.5 text-sm">No one on the roster matches.</li>
             )}
+            <li>
+              <button
+                type="button"
+                onClick={() => {
+                  const q = query.trim();
+                  const handle = q.startsWith("@") ? q.slice(1) : "";
+                  setNewCreator({ ...EMPTY_NEW, name: handle ? "" : q, tiktok: handle });
+                  setQuery("");
+                }}
+                disabled={sample}
+                className="w-full px-3 py-2.5 text-left font-bold hover:bg-fb-black/5"
+              >
+                + Add “{query.trim()}” as a new creator
+              </button>
+            </li>
           </ul>
+        )}
+        {!query && !newCreator && (
+          <button
+            type="button"
+            onClick={() => setNewCreator({ ...EMPTY_NEW })}
+            disabled={sample}
+            className="mt-3 text-sm font-bold underline underline-offset-4 hover:text-fb-red disabled:opacity-50"
+          >
+            Add a new creator
+          </button>
+        )}
+        {newCreator && (
+          <NewCreatorForm
+            value={newCreator}
+            onChange={setNewCreator}
+            allTags={allTags}
+            busy={busy === "new"}
+            onCancel={() => setNewCreator(undefined)}
+            onSubmit={() =>
+              run("new", async () => {
+                const d = (await call(`/api/campaigns/${campaignId}/roster`, "POST", {
+                  newCreator: {
+                    ...newCreator,
+                    tags: newCreator.tags,
+                    rate: newCreator.rate ? Number(newCreator.rate) : undefined,
+                  },
+                })) as { added?: number; newCreator?: { created: boolean; name: string } };
+                setNewCreator(undefined);
+                const who = d.newCreator?.name ?? newCreator.name;
+                if (d.newCreator && !d.newCreator.created) {
+                  return d.added
+                    ? `${who} was already in the database (same handle), so we added them to this campaign as Proposed.`
+                    : `${who} is already in the database and on this campaign.`;
+                }
+                return `Added ${who} to the Creators database and to this campaign as Proposed. Click Refresh creator stats to pull their followers.`;
+              })
+            }
+          />
         )}
         {picked.length > 0 && (
           <button
