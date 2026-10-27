@@ -9,6 +9,7 @@ import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { CampaignTools } from "@/components/CampaignTools";
 import { Header } from "@/components/Header";
 import { shareSignature, submitSignature } from "@/lib/auth";
+import { signDraftUrls } from "@/lib/blob";
 import { isSampleMode } from "@/lib/config";
 import { campaignStage, getAssignments, getCampaign, getCampaignView, getCreators, getDrafts } from "@/lib/data";
 import { siteOrigin } from "@/lib/origin";
@@ -76,7 +77,7 @@ export default async function CampaignPage({
       />
     );
   } else if (tab === "drafts") {
-    const [roster, drafts, creators] = await Promise.all([getAssignments(id), getDrafts(id), getCreators()]);
+    const [roster, drafts, creators] = await Promise.all([getAssignments(id), getDrafts(id).then(signDraftUrls), getCreators()]);
     const lanes = buildLanes(roster, drafts);
     const assignmentFor = new Map(roster.map((a) => [a.creatorId, a]));
     const pickerCreators: PickerCreator[] = creators.map(({ id: cid, name, instagram, tiktok }) => {

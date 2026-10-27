@@ -29,7 +29,7 @@ export async function resolveDraft(
   }
   const ext = c.file.name.split(".").pop()?.toLowerCase() || "mp4";
   const blob = await upload(`${opts.path}.${ext}`, c.file, {
-    access: "public",
+    access: "private",
     handleUploadUrl: opts.handleUploadUrl,
     onUploadProgress: ({ percentage }) => opts.onProgress(Math.round(percentage)),
   });

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { signDraftUrls } from "@/lib/blob";
 import { notFound } from "next/navigation";
 import { buildLanes, DraftsBody, DraftsHero } from "@/components/campaign/DraftsStage";
 import { CreatorsBody, CreatorsHero } from "@/components/campaign/CreatorsStage";
@@ -49,7 +50,7 @@ export default async function SharePage({
     hero = <CreatorsHero roster={roster} showFees={showFees} />;
     body = <CreatorsBody roster={roster} showFees={showFees} partner={partner} />;
   } else if (tab === "drafts") {
-    const [roster, drafts] = await Promise.all([getAssignments(id), getDrafts(id)]);
+    const [roster, drafts] = await Promise.all([getAssignments(id), getDrafts(id).then(signDraftUrls)]);
     const lanes = buildLanes(roster.map(cleanAssignment), drafts.map((d) => ({ ...d, creator: cleanCreator(d.creator) })));
     hero = <DraftsHero lanes={lanes} />;
     body = <DraftsBody lanes={lanes} partner={partner} />;
