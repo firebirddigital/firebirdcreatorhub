@@ -1,5 +1,6 @@
 // Partner shortlists on the shareable creators page. Kept in the partner's own browser (no accounts),
-// and shareable as a link that carries the creator IDs. Safe for client code.
+// and shareable as a link that carries the creator IDs. Partners can't download the roster or a list.
+// Safe for client code.
 import type { Creator } from "./types";
 
 export interface RosterList {
@@ -98,29 +99,4 @@ export function shareUrlFor(list: RosterList): string {
   url.searchParams.set("list", list.creatorIds.join(","));
   url.searchParams.set("listName", list.name);
   return url.toString();
-}
-
-export function downloadCsv(list: RosterList, members: Creator[], showRates: boolean) {
-  const header = ["Name", "TikTok", "TikTok followers", "Instagram", "Instagram followers", "Avg views (last 20 posts)", "Tags", "Location"];
-  if (showRates) header.push("Rate");
-  const rows = members.map((c) => {
-    const row = [
-      c.name,
-      c.tiktok ? `@${c.tiktok}` : "",
-      String(c.tiktokFollowers || ""),
-      c.instagram ? `@${c.instagram}` : "",
-      String(c.instagramFollowers || ""),
-      c.avgViews ? String(c.avgViews) : "",
-      c.tags.join("; "),
-      c.location ?? "",
-    ];
-    if (showRates) row.push(c.rate ? String(c.rate) : "");
-    return row;
-  });
-  const csv = [header, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `${list.name.replace(/[^\w-]+/g, "-").toLowerCase() || "shortlist"}.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
 }

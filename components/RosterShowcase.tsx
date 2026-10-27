@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { compact, money } from "@/lib/format";
 import {
-  downloadCsv,
   listTotals,
   loadLists,
   newListId,
@@ -385,13 +384,6 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
                 className="subtitle border-2 border-fb-white px-3 py-2 text-xs hover:bg-fb-white hover:text-fb-black disabled:opacity-50"
               >
                 {copied ? "Link copied" : "Share list"}
-              </button>
-              <button
-                onClick={() => downloadCsv(active, members, showRates)}
-                disabled={!members.length}
-                className="subtitle border-2 border-fb-white px-3 py-2 text-xs hover:bg-fb-white hover:text-fb-black disabled:opacity-50"
-              >
-                Download
               </button>
               <a
                 href={members.length ? requestUrlFor(requestUrl, active, members, showRates) : requestUrl}
