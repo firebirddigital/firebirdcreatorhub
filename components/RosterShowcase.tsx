@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { compact, money } from "@/lib/format";
+import { compact, CPM_OPTIONS, creatorCpm, money } from "@/lib/format";
 import {
   listTotals,
   loadLists,
@@ -16,7 +16,7 @@ import type { Creator } from "@/lib/types";
 const UNTAGGED = "More creators";
 type View = "cards" | "list";
 type Platform = "any" | "tiktok" | "instagram";
-type Sort = "reach" | "avgViews" | "name" | "rate";
+type Sort = "reach" | "avgViews" | "name" | "rate" | "cpm";
 
 const FOLLOWER_OPTIONS = [0, 10_000, 50_000, 100_000, 500_000, 1_000_000];
 const VIEW_OPTIONS = [0, 5_000, 10_000, 50_000, 100_000, 500_000];
@@ -42,6 +42,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
   const [platform, setPlatform] = useState<Platform>("any");
   const [minFollowers, setMinFollowers] = useState(0);
   const [minViews, setMinViews] = useState(0);
+  const [maxCpm, setMaxCpm] = useState(0);
   const [sort, setSort] = useState<Sort>("reach");
 
   // ---- Shortlists (kept in this browser) ----
@@ -141,6 +142,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
         if (platform === "instagram" && !c.instagram) return false;
         if (minFollowers && followersOn(c) < minFollowers) return false;
         if (minViews && (c.avgViews ?? 0) < minViews) return false;
+        if (showRates && maxCpm && !((creatorCpm(c) ?? Infinity) <= maxCpm)) return false;
         if (!q) return true;
         return [c.name, c.instagram, c.tiktok, c.location, ...c.tags].some((v) => v?.toLowerCase().includes(q));
       })
@@ -151,9 +153,11 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
             ? (b.avgViews ?? 0) - (a.avgViews ?? 0)
             : sort === "rate"
               ? (a.rate ?? Infinity) - (b.rate ?? Infinity)
+              : sort === "cpm"
+                ? (creatorCpm(a) ?? Infinity) - (creatorCpm(b) ?? Infinity)
               : reach(b) - reach(a),
       );
-  }, [creators, query, picked, matchAll, platform, minFollowers, minViews, sort]);
+  }, [creators, query, picked, matchAll, platform, minFollowers, minViews, maxCpm, showRates, sort]);
 
   // Cards: one row per tag. With "all" (or a single tag), one grid of the matching creators.
   const asGrid = picked.length === 1 || (matchAll && picked.length > 1);
@@ -167,7 +171,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
     return groups.filter((g) => g.creators.length);
   }, [filtered, tags, picked, asGrid]);
 
-  const filtersOn = Boolean(query || picked.length || platform !== "any" || minFollowers || minViews);
+  const filtersOn = Boolean(query || picked.length || platform !== "any" || minFollowers || minViews || maxCpm);
   const showBar = Boolean(active && (members.length > 0 || panelOpen));
 
   return (
@@ -262,6 +266,14 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               onChange={(v) => setMinViews(Number(v))}
               options={VIEW_OPTIONS.map((v) => [String(v), v ? `${compact(v)}+` : "Any"])}
             />
+            {showRates && (
+              <DarkSelect
+                label="CPM"
+                value={String(maxCpm)}
+                onChange={(v) => setMaxCpm(Number(v))}
+                options={CPM_OPTIONS.map((v) => [String(v), v ? `Up to $${v}` : "Any"])}
+              />
+            )}
             <DarkSelect
               label="Sort"
               value={sort}
@@ -269,7 +281,12 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               options={[
                 ["reach", "Most followers"],
                 ["avgViews", "Most avg views"],
-                ...(showRates ? ([["rate", "Lowest rate"]] as [string, string][]) : []),
+                ...(showRates
+                  ? ([
+                      ["rate", "Lowest rate"],
+                      ["cpm", "Lowest CPM"],
+                    ] as [string, string][])
+                  : []),
                 ["name", "Name"],
               ]}
             />
@@ -281,6 +298,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
                   setPlatform("any");
                   setMinFollowers(0);
                   setMinViews(0);
+                  setMaxCpm(0);
                 }}
                 className="pb-2 text-sm underline underline-offset-4 hover:text-fb-red"
               >
@@ -496,6 +514,7 @@ function ListPanel({
               <th className="py-2 pr-4 text-right">Followers</th>
               <th className="py-2 pr-4 text-right">Avg views</th>
               {showRates && <th className="py-2 pr-4 text-right">Rate</th>}
+              {showRates && <th className="py-2 pr-4 text-right">CPM</th>}
               <th className="py-2" />
             </tr>
           </thead>
@@ -506,6 +525,7 @@ function ListPanel({
                 <td className="py-2 pr-4 text-right figure text-base">{compact(reach(c))}</td>
                 <td className="py-2 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
                 {showRates && <td className="py-2 pr-4 text-right">{c.rate ? money(c.rate) : "—"}</td>}
+                {showRates && <td className="py-2 pr-4 text-right">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</td>}
                 <td className="py-2 text-right">
                   <button onClick={() => onRemove(c.id)} className="text-xs underline underline-offset-2 hover:text-fb-red">
                     Remove
@@ -544,6 +564,11 @@ function ListView({
               Avg views<span className="block font-normal">last 20 posts</span>
             </th>
             {showRates && <th className={`${th} text-right`}>Rate</th>}
+            {showRates && (
+              <th className={`${th} text-right`} title="Rate ÷ avg views (last 20 posts) × 1,000">
+                CPM
+              </th>
+            )}
             <th className={th}>Tags</th>
             <th className={th} />
           </tr>
@@ -577,6 +602,9 @@ function ListView({
               </td>
               <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
               {showRates && <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>}
+              {showRates && (
+                <td className="py-3 pr-4 text-right whitespace-nowrap">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</td>
+              )}
               <td className="py-3 pr-4 text-xs">{c.tags.join(", ")}</td>
               <td className="py-3 text-right">
                 <AddButton added={inList(c.id)} onClick={() => onToggle(c.id)} />
@@ -678,6 +706,12 @@ function CreatorTile({
           <div>
             <dt className="text-xs">Rate</dt>
             <dd className="figure text-lg">{c.rate ? money(c.rate) : "—"}</dd>
+          </div>
+        )}
+        {showRates && (
+          <div title="Rate ÷ avg views (last 20 posts) × 1,000">
+            <dt className="text-xs">CPM</dt>
+            <dd className="figure text-lg">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</dd>
           </div>
         )}
       </dl>

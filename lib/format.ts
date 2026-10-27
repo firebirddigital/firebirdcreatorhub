@@ -91,3 +91,11 @@ export function cpmVsExpected(current?: number, expected?: number): { under: boo
   if (Math.abs(diff) < 0.005) return { under: true, text: "On expected" };
   return { under: diff < 0, text: `${Math.round(Math.abs(diff) * 100)}% ${diff < 0 ? "under" : "over"} expected` };
 }
+
+/** A creator's cost per 1,000 views: rate ÷ average views (last 20 posts) × 1,000. Needs both. */
+export function creatorCpm(c: { rate?: number; avgViews?: number }): number | undefined {
+  return c.rate && c.avgViews ? (c.rate / c.avgViews) * 1000 : undefined;
+}
+
+/** "CPM up to" filter choices, shared by the creators page and the shareable link with rates. */
+export const CPM_OPTIONS = [0, 5, 10, 20, 50, 100];

@@ -2,13 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
-import { compact, money, timeAgo } from "@/lib/format";
+import { compact, CPM_OPTIONS, creatorCpm, money, timeAgo } from "@/lib/format";
 import { pullStatsInBatches } from "@/lib/pull-stats";
 import type { Creator, TrackRecord } from "@/lib/types";
 import { trackRecordRatio, trackRecordText } from "./TrackRecordLine";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
-type Sort = "reach" | "avgViews" | "track" | "stale" | "name" | "rate";
+type Sort = "reach" | "avgViews" | "track" | "stale" | "name" | "rate" | "cpm";
 type View = "cards" | "table";
 
 const REACH_OPTIONS = [
@@ -85,6 +85,7 @@ export function CreatorBrowser({
   const [minReach, setMinReach] = useState(0);
   const [minAvgViews, setMinAvgViews] = useState(0);
   const [maxRate, setMaxRate] = useState(0);
+  const [maxCpm, setMaxCpm] = useState(0);
   const [location, setLocation] = useState("");
   const [sort, setSort] = useState<Sort>("reach");
   const [selected, setSelected] = useState<string[]>([]);
@@ -115,6 +116,7 @@ export function CreatorBrowser({
         if (reach(c, platform) < minReach) return false;
         if (minAvgViews && (c.avgViews ?? 0) < minAvgViews) return false;
         if (maxRate && (!c.rate || c.rate > maxRate)) return false;
+        if (maxCpm && !((creatorCpm(c) ?? Infinity) <= maxCpm)) return false;
         if (location && c.location !== location) return false;
         if (!q) return true;
         return [c.name, c.instagram, c.tiktok, c.location, c.notes, ...c.tags]
@@ -126,6 +128,8 @@ export function CreatorBrowser({
           ? a.name.localeCompare(b.name)
           : sort === "rate"
             ? (a.rate ?? Infinity) - (b.rate ?? Infinity)
+            : sort === "cpm"
+            ? (creatorCpm(a) ?? Infinity) - (creatorCpm(b) ?? Infinity)
             : sort === "avgViews"
               ? (b.avgViews ?? 0) - (a.avgViews ?? 0)
               : sort === "track"
@@ -135,14 +139,14 @@ export function CreatorBrowser({
                   ? (a.statsUpdated ?? "").localeCompare(b.statsUpdated ?? "")
                   : reach(b, platform) - reach(a, platform),
       );
-  }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, location, sort, trackRecords]);
+  }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, maxCpm, location, sort, trackRecords]);
 
   const toggleTag = (t: string) => {
     setUntaggedOnly(false);
     setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
   };
   const filtersOn = Boolean(
-    query || tags.length || untaggedOnly || platform !== "any" || minReach || minAvgViews || maxRate || location,
+    query || tags.length || untaggedOnly || platform !== "any" || minReach || minAvgViews || maxRate || maxCpm || location,
   );
   const clearFilters = () => {
     setQuery("");
@@ -152,6 +156,7 @@ export function CreatorBrowser({
     setMinReach(0);
     setMinAvgViews(0);
     setMaxRate(0);
+    setMaxCpm(0);
     setLocation("");
   };
 
@@ -172,7 +177,7 @@ export function CreatorBrowser({
 
   function exportCsv() {
     const rows = [
-      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Avg views (last 20 posts)", "Tags", "Location", "Rate", "Email"],
+      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Avg views (last 20 posts)", "Tags", "Location", "Rate", "CPM", "Email"],
       ...shown.map((c) => [
         c.name,
         c.instagram ? `@${c.instagram}` : "",
@@ -183,6 +188,7 @@ export function CreatorBrowser({
         c.tags.join("; "),
         c.location ?? "",
         c.rate ? String(c.rate) : "",
+        creatorCpm(c)?.toFixed(2) ?? "",
         c.email ?? "",
       ]),
     ];
@@ -241,6 +247,14 @@ export function CreatorBrowser({
               options={RATE_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
             />
           )}
+          {team && (
+            <Select
+              label="CPM"
+              value={String(maxCpm)}
+              onChange={(v) => setMaxCpm(Number(v))}
+              options={CPM_OPTIONS.map((v) => ({ label: v ? `Up to $${v}` : "Any CPM", value: String(v) }))}
+            />
+          )}
           {locations.length > 0 && (
             <Select
               label="Location"
@@ -261,6 +275,7 @@ export function CreatorBrowser({
                     { label: "Best track record", value: "track" },
                     { label: "Oldest stats first", value: "stale" },
                     { label: "Lowest rate", value: "rate" },
+                    { label: "Lowest CPM", value: "cpm" },
                   ]
                 : []),
               { label: "Name", value: "name" },
@@ -528,6 +543,11 @@ function CreatorTable({
             <th className={`${th} text-right`}>Instagram</th>
             <th className={`${th} text-right`} title="Average views across their last 20 posts">Avg views<span className="block font-normal">last 20 posts</span></th>
             {team && <th className={`${th} text-right`}>Rate</th>}
+            {team && (
+              <th className={`${th} text-right`} title="Rate ÷ avg views (last 20 posts) × 1,000">
+                CPM
+              </th>
+            )}
             {team && <th className={th} title="Across all Firebird campaigns">Track record</th>}
             {team && (
               <th className={th} title="Followers and average views. Refreshed automatically every night, oldest first.">
@@ -577,6 +597,7 @@ function CreatorTable({
               </td>
               <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
               {team && <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>}
+              {team && <td className="py-3 pr-4 text-right whitespace-nowrap">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</td>}
               {team && <td className="py-3 pr-4 text-xs">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>}
               {team && (
                 <td className="py-3 pr-4 text-xs whitespace-nowrap" title={c.statsUpdated ? new Date(c.statsUpdated).toLocaleString("en-US") : undefined}>
@@ -740,7 +761,12 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
           </li>
         ))}
       </ul>
-      {c.rate && <p className="mt-3 text-sm">Rate {money(c.rate)} per post</p>}
+      {c.rate && (
+        <p className="mt-3 text-sm">
+          Rate {money(c.rate)} per post
+          {creatorCpm(c) !== undefined && <> · CPM {money(creatorCpm(c)!, 2)}</>}
+        </p>
+      )}
       {trackRecord && <p className="mt-1 text-sm">Track record: {trackRecord}</p>}
       {c.statsUpdated && <p className="mt-1 text-xs">Stats updated {updatedLabel(c.statsUpdated)}</p>}
     </article>
