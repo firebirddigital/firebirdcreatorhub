@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { compact } from "@/lib/format";
+import { profileFromUrl } from "@/lib/social";
 import type { AssignmentStatus, Creator, Stage } from "@/lib/types";
 
 const STATUSES: AssignmentStatus[] = ["Proposed", "Approved", "Changes requested", "Declined"];
@@ -42,9 +43,36 @@ interface NewCreatorDraft {
   rate: string;
   email: string;
   location: string;
+  /** Profile link pasted at the top of the form; looked up for the name and stats. */
+  link: string;
+  /** True while the name is still the one we filled in (so a lookup may replace it). */
+  nameAuto: boolean;
+  instagramFollowers?: number;
+  tiktokFollowers?: number;
+  avgViews?: number;
 }
 
-const EMPTY_NEW: NewCreatorDraft = { name: "", instagram: "", tiktok: "", tags: [], rate: "", email: "", location: "" };
+const EMPTY_NEW: NewCreatorDraft = {
+  name: "",
+  instagram: "",
+  tiktok: "",
+  tags: [],
+  rate: "",
+  email: "",
+  location: "",
+  link: "",
+  nameAuto: true,
+};
+
+interface Lookup {
+  platform: "instagram" | "tiktok";
+  handle: string;
+  name?: string;
+  followers?: number;
+  avgViews?: number;
+  found: boolean;
+  existing?: { id: string; name: string };
+}
 
 /** Adds a brand new creator to the Creators database and this campaign in one go. */
 function NewCreatorForm({
@@ -63,7 +91,64 @@ function NewCreatorForm({
   onSubmit: () => void;
 }) {
   const [tagDraft, setTagDraft] = useState("");
+  const [lookup, setLookup] = useState<{ state: "loading" | "done" | "error"; handle: string; result?: Lookup; error?: string }>();
+  const latest = useRef(v);
+  latest.current = v;
+  const lookupSeq = useRef(0);
   const set = (patch: Partial<NewCreatorDraft>) => onChange({ ...v, ...patch });
+
+  /** Fills the handle straight away, then the display name and stats once the lookup returns. */
+  async function lookUp(link: string) {
+    const profile = profileFromUrl(link);
+    if (!profile) return;
+    const seq = ++lookupSeq.current;
+    const cur = latest.current;
+    const handleField = profile.platform === "tiktok" ? "tiktok" : "instagram";
+    onChange({
+      ...cur,
+      link,
+      [handleField]: profile.handle,
+      ...(cur.nameAuto || !cur.name.trim() ? { name: cur.name.trim() || profile.handle, nameAuto: true } : {}),
+    });
+    setLookup({ state: "loading", handle: profile.handle });
+    try {
+      const res = await fetch("/api/creators/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: link }),
+      });
+      const data = (await res.json().catch(() => ({}))) as Lookup & { error?: string };
+      if (seq !== lookupSeq.current) return; // a newer link was pasted
+      if (!res.ok) {
+        setLookup({ state: "error", handle: profile.handle, error: data.error });
+        return;
+      }
+      const now = latest.current;
+      onChange({
+        ...now,
+        ...(data.name && now.nameAuto ? { name: data.name } : {}),
+        ...(data.followers
+          ? data.platform === "tiktok"
+            ? { tiktokFollowers: data.followers }
+            : { instagramFollowers: data.followers }
+          : {}),
+        ...(data.avgViews ? { avgViews: now.avgViews ?? data.avgViews } : {}),
+      });
+      setLookup({ state: "done", handle: profile.handle, result: data });
+    } catch {
+      if (seq === lookupSeq.current) setLookup({ state: "error", handle: profile.handle });
+    }
+  }
+
+  // A profile link passed in from the search box is looked up as soon as the form opens.
+  const started = useRef(false);
+  useEffect(() => {
+    if (!started.current && v.link) {
+      started.current = true;
+      lookUp(v.link);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const toggleTag = (t: string) => set({ tags: v.tags.includes(t) ? v.tags.filter((x) => x !== t) : [...v.tags, t] });
   const addTypedTag = () => {
     const t = tagDraft.trim();
@@ -85,10 +170,54 @@ function NewCreatorForm({
         <h3 className="subtitle text-lg">New creator</h3>
         <p className="text-xs">Saved to the Creators database and added to this campaign. If someone already has this handle, we use them instead.</p>
       </div>
+      <label className="block">
+        <span className="text-xs font-bold">Profile link</span>
+        <span className="block text-xs">Paste their TikTok or Instagram profile link and we&apos;ll fill in the name, handle and stats. Paste the other one too if they have both.</span>
+        <input
+          autoFocus
+          inputMode="url"
+          value={v.link}
+          onChange={(e) => {
+            set({ link: e.target.value });
+            if (profileFromUrl(e.target.value)) lookUp(e.target.value);
+          }}
+          placeholder="tiktok.com/@name or instagram.com/name"
+          className={field}
+        />
+        {v.link.trim() && !profileFromUrl(v.link) && (
+          <span className="mt-1 block text-xs text-fb-red font-bold">
+            That isn&apos;t a profile link. Use tiktok.com/@name or instagram.com/name (Instagram post links don&apos;t include the handle).
+          </span>
+        )}
+        {lookup && (
+          <span role="status" className="mt-1 block text-xs">
+            {lookup.state === "loading" && <>Looking up @{lookup.handle}. This can take up to a minute; you can keep filling in the rest.</>}
+            {lookup.state === "error" && <>Couldn&apos;t look up @{lookup.handle}{lookup.error ? `: ${lookup.error}` : ""}. Type the name and save anyway.</>}
+            {lookup.state === "done" && lookup.result && (
+              <>
+                {lookup.result.found ? (
+                  <>
+                    Found <span className="font-bold">{lookup.result.name ?? `@${lookup.handle}`}</span>
+                    {lookup.result.followers ? `, ${compact(lookup.result.followers)} followers` : ""}
+                    {lookup.result.avgViews ? `, ${compact(lookup.result.avgViews)} avg views` : ""}.
+                  </>
+                ) : (
+                  <>Couldn&apos;t read @{lookup.handle}&apos;s profile (it may be private). Type the name and save anyway.</>
+                )}
+                {lookup.result.existing && (
+                  <span className="block font-bold">
+                    Already in the database as {lookup.result.existing.name}. Saving adds them to this campaign without a duplicate.
+                  </span>
+                )}
+              </>
+            )}
+          </span>
+        )}
+      </label>
       <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
         <label>
           <span className="text-xs font-bold">Name</span>
-          <input required autoFocus value={v.name} onChange={(e) => set({ name: e.target.value })} className={field} />
+          <input required value={v.name} onChange={(e) => set({ name: e.target.value, nameAuto: false })} className={field} />
         </label>
         <label>
           <span className="text-xs font-bold">TikTok handle</span>
@@ -192,7 +321,8 @@ export function RosterTools({
   const allTags = useMemo(() => [...new Set(roster.flatMap((c) => c.tags))].sort(), [roster]);
 
   const options = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    // A pasted profile link searches by its handle, so existing creators show up first.
+    const q = (profileFromUrl(query)?.handle ?? query.trim().replace(/^@/, "")).toLowerCase();
     return roster
       .filter((c) => !onCampaign.includes(c.id))
       .filter(
@@ -261,14 +391,19 @@ export function RosterTools({
                 type="button"
                 onClick={() => {
                   const q = query.trim();
-                  const handle = q.startsWith("@") ? q.slice(1) : "";
-                  setNewCreator({ ...EMPTY_NEW, name: handle ? "" : q, tiktok: handle });
+                  if (profileFromUrl(q)) setNewCreator({ ...EMPTY_NEW, link: q });
+                  else {
+                    const handle = q.startsWith("@") ? q.slice(1) : "";
+                    setNewCreator({ ...EMPTY_NEW, name: handle ? "" : q, nameAuto: false, tiktok: handle });
+                  }
                   setQuery("");
                 }}
                 disabled={sample}
                 className="w-full px-3 py-2.5 text-left font-bold hover:bg-fb-black/5"
               >
-                + Add “{query.trim()}” as a new creator
+                {profileFromUrl(query)
+                  ? `+ Add the creator from this ${profileFromUrl(query)!.platform === "tiktok" ? "TikTok" : "Instagram"} link`
+                  : `+ Add “${query.trim()}” as a new creator`}
               </button>
             </li>
           </ul>
@@ -292,12 +427,9 @@ export function RosterTools({
             onCancel={() => setNewCreator(undefined)}
             onSubmit={() =>
               run("new", async () => {
+                const { link: _link, nameAuto: _auto, ...fields } = newCreator;
                 const d = (await call(`/api/campaigns/${campaignId}/roster`, "POST", {
-                  newCreator: {
-                    ...newCreator,
-                    tags: newCreator.tags,
-                    rate: newCreator.rate ? Number(newCreator.rate) : undefined,
-                  },
+                  newCreator: { ...fields, rate: fields.rate ? Number(fields.rate) : undefined },
                 })) as { added?: number; newCreator?: { created: boolean; name: string } };
                 setNewCreator(undefined);
                 const who = d.newCreator?.name ?? newCreator.name;

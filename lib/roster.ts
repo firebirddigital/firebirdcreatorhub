@@ -205,6 +205,10 @@ export interface NewCreatorInput {
   rate?: number;
   email?: string;
   location?: string;
+  /** From a profile link lookup, so new creators arrive with stats. */
+  instagramFollowers?: number;
+  tiktokFollowers?: number;
+  avgViews?: number;
 }
 
 /**
@@ -231,9 +235,29 @@ export async function findOrCreateCreator(
       // No handles to go on: fall back to an exact name match.
       (!instagram && !tiktok && c.name.toLowerCase() === name.toLowerCase()),
   );
+  const count = (v?: number) => (typeof v === "number" && isFinite(v) && v > 0 ? Math.round(v) : undefined);
+  const stats = (
+    [
+      [CRF.instagramFollowers, instagram ? count(input.instagramFollowers) : undefined],
+      [CRF.tiktokFollowers, tiktok ? count(input.tiktokFollowers) : undefined],
+      [CRF.avgViews, count(input.avgViews)],
+    ] as [string, number | undefined][]
+  ).filter((e): e is [string, number] => e[1] !== undefined);
+
   if (match) {
+    // Add new tags, and fill in stats the existing record is missing (never overwrite ones it has).
     const missing = tags.filter((t) => !match.tags.includes(t));
-    if (missing.length) await updateRecords(TABLES.creators, [{ id: match.id, fields: { [CRF.tags]: [...match.tags, ...missing] } }]);
+    const current: Record<string, number | undefined> = {
+      [CRF.instagramFollowers]: match.instagramFollowers,
+      [CRF.tiktokFollowers]: match.tiktokFollowers,
+      [CRF.avgViews]: match.avgViews,
+    };
+    const blanks = stats.filter(([field]) => !current[field]);
+    const fields: Record<string, unknown> = {
+      ...(missing.length ? { [CRF.tags]: [...match.tags, ...missing] } : {}),
+      ...(blanks.length ? Object.fromEntries([...blanks, [CRF.statsUpdated, new Date().toISOString()]]) : {}),
+    };
+    if (Object.keys(fields).length) await updateRecords(TABLES.creators, [{ id: match.id, fields }]);
     return { id: match.id, created: false, name: match.name };
   }
 
@@ -247,6 +271,7 @@ export async function findOrCreateCreator(
         ...(input.rate && input.rate > 0 ? { [CRF.rate]: Math.round(input.rate) } : {}),
         ...(email ? { [CRF.email]: email } : {}),
         ...(input.location?.trim() ? { [CRF.location]: input.location.trim().slice(0, 100) } : {}),
+        ...(stats.length ? Object.fromEntries([...stats, [CRF.statsUpdated, new Date().toISOString()]]) : {}),
         [CRF.notes]: `${note}${tags.length ? "" : " Add tags."}`,
       },
     },

@@ -30,6 +30,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           rate: typeof n.rate === "number" && isFinite(n.rate) ? n.rate : undefined,
           email: typeof n.email === "string" ? n.email : undefined,
           location: typeof n.location === "string" ? n.location : undefined,
+          instagramFollowers: typeof n.instagramFollowers === "number" ? n.instagramFollowers : undefined,
+          tiktokFollowers: typeof n.tiktokFollowers === "number" ? n.tiktokFollowers : undefined,
+          avgViews: typeof n.avgViews === "number" ? n.avgViews : undefined,
         },
         "Added from a campaign.",
       );
