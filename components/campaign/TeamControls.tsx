@@ -19,7 +19,24 @@ async function call(url: string, method: string, body?: object) {
   return data;
 }
 
-export function CopyButton({ text, label, copiedLabel = "Copied" }: { text: string; label: string; copiedLabel?: string }) {
+/** Outlined button for team actions. */
+export const BUTTON =
+  "subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-fb-black";
+/** Filled red button for the main next step. */
+export const BUTTON_PRIMARY =
+  "subtitle border-2 border-fb-red bg-fb-red text-fb-white px-5 py-2.5 text-sm hover:bg-fb-black hover:border-fb-black transition-colors disabled:opacity-50";
+
+export function CopyButton({
+  text,
+  label,
+  copiedLabel = "Copied",
+  variant = "link",
+}: {
+  text: string;
+  label: string;
+  copiedLabel?: string;
+  variant?: "link" | "button";
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -28,7 +45,7 @@ export function CopyButton({ text, label, copiedLabel = "Copied" }: { text: stri
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="text-sm font-bold underline underline-offset-4 hover:text-fb-red"
+      className={variant === "button" ? BUTTON : "text-sm font-bold underline underline-offset-4 hover:text-fb-red"}
     >
       {copied ? copiedLabel : label}
     </button>
@@ -316,7 +333,8 @@ export function RosterTools({
   const [picked, setPicked] = useState<string[]>([]);
   const [newCreator, setNewCreator] = useState<NewCreatorDraft>();
   const [busy, setBusy] = useState<string>();
-  const [message, setMessage] = useState<{ text: string; error?: boolean }>();
+  // Messages show next to whatever triggered them: the action buttons or the roster box.
+  const [message, setMessage] = useState<{ text: string; error?: boolean; at: "actions" | "box" }>();
 
   const allTags = useMemo(() => [...new Set(roster.flatMap((c) => c.tags))].sort(), [roster]);
 
@@ -334,13 +352,14 @@ export function RosterTools({
   }, [roster, onCampaign, query]);
 
   async function run(key: string, fn: () => Promise<string>) {
+    const at = key === "stats" || key === "stage" ? "actions" : "box";
     setBusy(key);
     setMessage(undefined);
     try {
-      setMessage({ text: await fn() });
+      setMessage({ text: await fn(), at });
       router.refresh();
     } catch (e) {
-      setMessage({ text: e instanceof Error ? e.message : String(e), error: true });
+      setMessage({ text: e instanceof Error ? e.message : String(e), error: true, at });
     } finally {
       setBusy(undefined);
     }
@@ -349,6 +368,45 @@ export function RosterTools({
   const nextStage: Stage | undefined = current === "creators" ? "drafts" : current === "drafts" ? "live" : undefined;
 
   return (
+    <div className="space-y-4">
+      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() =>
+            run("stats", async () => {
+              const d = await call(`/api/campaigns/${campaignId}/creator-stats`, "POST");
+              return `Updated followers and average views for ${d.updated} of ${d.requested} creators.`;
+            })
+          }
+          disabled={sample || busy === "stats"}
+          className={BUTTON}
+        >
+          {busy === "stats" ? "Pulling stats (up to a minute)" : "Refresh creator stats"}
+        </button>
+        {nextStage && (
+          <button
+            onClick={() =>
+              run("stage", async () => {
+                await call(`/api/campaigns/${campaignId}/stage`, "POST", { stage: nextStage });
+                return `Moved to ${nextStage === "drafts" ? "Drafts" : "Live"}. The share link now opens there.`;
+              })
+            }
+            disabled={sample || busy === "stage"}
+            className={BUTTON_PRIMARY}
+          >
+            Move campaign to {nextStage === "drafts" ? "Drafts" : "Live"}
+          </button>
+        )}
+        {shareUrl ? (
+          <CopyButton text={shareUrl} label="Copy partner share link" copiedLabel="Share link copied" variant="button" />
+        ) : (
+          <span className="text-sm">Tick “Partner link on” in Edit campaign to get a partner link.</span>
+        )}
+      </div>
+      {message && message.at === "actions" && (
+        <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
+          {message.text}
+        </p>
+      )}
     <section aria-label="Roster tools" className="border-2 border-fb-black p-6 max-sm:p-4 space-y-5">
       <div>
         <label className="block">
@@ -461,47 +519,14 @@ export function RosterTools({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-        <button
-          onClick={() =>
-            run("stats", async () => {
-              const d = await call(`/api/campaigns/${campaignId}/creator-stats`, "POST");
-              return `Updated followers and average views for ${d.updated} of ${d.requested} creators.`;
-            })
-          }
-          disabled={sample || busy === "stats"}
-          className="font-bold underline underline-offset-4 hover:text-fb-red disabled:opacity-50 disabled:no-underline"
-        >
-          {busy === "stats" ? "Pulling creator stats (up to a minute)" : "Refresh creator stats"}
-        </button>
-        {nextStage && (
-          <button
-            onClick={() =>
-              run("stage", async () => {
-                await call(`/api/campaigns/${campaignId}/stage`, "POST", { stage: nextStage });
-                return `Moved to ${nextStage === "drafts" ? "Drafts" : "Live"}. The share link now opens there.`;
-              })
-            }
-            disabled={sample || busy === "stage"}
-            className="font-bold underline underline-offset-4 hover:text-fb-red disabled:opacity-50 disabled:no-underline"
-          >
-            Move campaign to {nextStage === "drafts" ? "Drafts" : "Live"}
-          </button>
-        )}
-        {shareUrl ? (
-          <CopyButton text={shareUrl} label="Copy partner share link" copiedLabel="Share link copied" />
-        ) : (
-          <span>Tick “Sharing Enabled” on this campaign in Airtable to get a partner link.</span>
-        )}
-      </div>
-
       {sample && <p className="text-sm">These tools turn on once Airtable and Apify are connected.</p>}
-      {message && (
+      {message && message.at === "box" && (
         <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
           {message.text}
         </p>
       )}
     </section>
+    </div>
   );
 }
 

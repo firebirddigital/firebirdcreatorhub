@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { timeAgo } from "@/lib/format";
 import type { Creator } from "@/lib/types";
+import { BUTTON } from "./campaign/TeamControls";
 
 /** Pull every link out of pasted text: one per line, comma-separated, or mixed in with other words. */
 function extractLinks(text: string): string[] {
@@ -30,7 +31,7 @@ export function CampaignTools({
   const [creatorId, setCreatorId] = useState("");
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [message, setMessage] = useState<{ text: string; error?: boolean }>();
+  const [message, setMessage] = useState<{ text: string; error?: boolean; at: "actions" | "box" }>();
   const [copied, setCopied] = useState(false);
 
   const links = extractLinks(url);
@@ -38,7 +39,7 @@ export function CampaignTools({
   async function addPost(e: React.FormEvent) {
     e.preventDefault();
     if (!links.length) {
-      setMessage({ text: "Paste at least one Instagram or TikTok link.", error: true });
+      setMessage({ text: "Paste at least one Instagram or TikTok link.", error: true, at: "box" });
       return;
     }
     setAdding(true);
@@ -56,7 +57,7 @@ export function CampaignTools({
     };
     setAdding(false);
     if (!res.ok) {
-      setMessage({ text: data.error ?? "Couldn't add those links. Try again.", error: true });
+      setMessage({ text: data.error ?? "Couldn't add those links. Try again.", error: true, at: "box" });
       return;
     }
     const added = data.added ?? 1;
@@ -68,7 +69,7 @@ export function CampaignTools({
     ].filter(Boolean).join(", ");
     const lead = added === 1 ? "Post added with its latest stats." : `${added} posts added with their latest stats.`;
     setUrl("");
-    setMessage({ text: [lead, skippedText && `Skipped ${skippedText}.`, data.note].filter(Boolean).join(" ") });
+    setMessage({ text: [lead, skippedText && `Skipped ${skippedText}.`, data.note].filter(Boolean).join(" "), at: "box" });
     router.refresh();
   }
 
@@ -86,12 +87,12 @@ export function CampaignTools({
     };
     setRefreshing(false);
     if (!res.ok || data.errors?.length) {
-      setMessage({ text: data.error ?? data.errors?.join(" ") ?? "Refresh failed.", error: true });
+      setMessage({ text: data.error ?? data.errors?.join(" ") ?? "Refresh failed.", error: true, at: "actions" });
     } else {
       const missed = data.missed?.length ? ` ${data.missed.length} couldn't be read.` : "";
       const linked = data.creatorsMatched ? ` Linked ${data.creatorsMatched} to creators.` : "";
       const added = data.creatorsCreated ? ` Added ${data.creatorsCreated} new creators to the roster.` : "";
-      setMessage({ text: `Updated ${data.updated ?? 0} posts.${linked}${added}${missed}` });
+      setMessage({ text: `Updated ${data.updated ?? 0} posts.${linked}${added}${missed}`, at: "actions" });
     }
     router.refresh();
   }
@@ -104,6 +105,25 @@ export function CampaignTools({
   }
 
   return (
+    <div className="space-y-4">
+      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-3">
+        <button onClick={refresh} disabled={sample || refreshing} className={BUTTON}>
+          {refreshing ? "Refreshing stats" : "Refresh stats now"}
+        </button>
+        {shareUrl ? (
+          <button onClick={copyShare} className={BUTTON}>
+            {copied ? "Share link copied" : "Copy partner share link"}
+          </button>
+        ) : (
+          <span className="text-sm">Tick “Partner link on” in Edit campaign to get a partner link.</span>
+        )}
+        <span className="text-sm text-fb-black/70">Stats last updated {timeAgo(lastRefreshed)}</span>
+      </div>
+      {message?.at === "actions" && (
+        <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
+          {message.text}
+        </p>
+      )}
     <section aria-label="Campaign tools" className="border-2 border-fb-black p-6 max-sm:p-4">
       <form onSubmit={addPost} className="grid gap-3 md:grid-cols-[1fr_220px_auto] items-end">
         <label className="block">
@@ -144,30 +164,13 @@ export function CampaignTools({
         </button>
       </form>
 
-      <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-        <button
-          onClick={refresh}
-          disabled={sample || refreshing}
-          className="font-bold underline underline-offset-4 hover:text-fb-red disabled:opacity-50 disabled:no-underline"
-        >
-          {refreshing ? "Refreshing stats" : "Refresh stats now"}
-        </button>
-        {shareUrl ? (
-          <button onClick={copyShare} className="font-bold underline underline-offset-4 hover:text-fb-red">
-            {copied ? "Share link copied" : "Copy client share link"}
-          </button>
-        ) : (
-          <span>Tick “Sharing Enabled” on this campaign in Airtable to get a client link.</span>
-        )}
-        <span className="text-fb-black/70">Stats last updated {timeAgo(lastRefreshed)}</span>
-      </div>
-
       {sample && <p className="mt-4 text-sm">Adding posts and refreshing stats turn on once Airtable and Apify are connected.</p>}
-      {message && (
+      {message?.at === "box" && (
         <p role="status" className={`mt-4 text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
           {message.text}
         </p>
       )}
     </section>
+    </div>
   );
 }
