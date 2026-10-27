@@ -31,7 +31,14 @@ const reach = (c: Creator) => c.instagramFollowers + c.tiktokFollowers;
  */
 export function RosterShowcase({ creators, requestUrl, showRates }: { creators: Creator[]; requestUrl: string; showRates: boolean }) {
   const [query, setQuery] = useState("");
-  const [tag, setTag] = useState<string>();
+  // Several tags can be picked. "any" = creators with at least one; "all" = creators with every one.
+  const [picked, setPicked] = useState<string[]>([]);
+  const [matchAll, setMatchAll] = useState(false);
+  const toggleTag = (t: string) => setPicked((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
+  const clearTags = () => {
+    setPicked([]);
+    setMatchAll(false);
+  };
   const [view, setView] = useState<View>("cards");
   const [platform, setPlatform] = useState<Platform>("any");
   const [minFollowers, setMinFollowers] = useState(0);
@@ -129,7 +136,8 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
       platform === "tiktok" ? c.tiktokFollowers : platform === "instagram" ? c.instagramFollowers : reach(c);
     return creators
       .filter((c) => {
-        if (tag && !c.tags.includes(tag)) return false;
+        if (picked.length && !(matchAll ? picked.every((t) => c.tags.includes(t)) : picked.some((t) => c.tags.includes(t))))
+          return false;
         if (platform === "tiktok" && !c.tiktok) return false;
         if (platform === "instagram" && !c.instagram) return false;
         if (minFollowers && followersOn(c) < minFollowers) return false;
@@ -146,18 +154,21 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               ? (a.rate ?? Infinity) - (b.rate ?? Infinity)
               : reach(b) - reach(a),
       );
-  }, [creators, query, tag, platform, minFollowers, minViews, sort]);
+  }, [creators, query, picked, matchAll, platform, minFollowers, minViews, sort]);
 
+  // Cards: one row per tag. With "all" (or a single tag), one grid of the matching creators.
+  const asGrid = picked.length === 1 || (matchAll && picked.length > 1);
   const sections = useMemo(() => {
-    const groups = (tag ? [tag] : tags).map((t) => ({ title: t, creators: filtered.filter((c) => c.tags.includes(t)) }));
-    if (!tag) {
+    if (asGrid) return [{ title: picked.join(" + "), creators: filtered }].filter((g) => g.creators.length);
+    const groups = (picked.length ? picked : tags).map((t) => ({ title: t, creators: filtered.filter((c) => c.tags.includes(t)) }));
+    if (!picked.length) {
       const untagged = filtered.filter((c) => !c.tags.length);
       if (untagged.length) groups.push({ title: UNTAGGED, creators: untagged });
     }
     return groups.filter((g) => g.creators.length);
-  }, [filtered, tags, tag]);
+  }, [filtered, tags, picked, asGrid]);
 
-  const filtersOn = Boolean(query || tag || platform !== "any" || minFollowers || minViews);
+  const filtersOn = Boolean(query || picked.length || platform !== "any" || minFollowers || minViews);
   const showBar = Boolean(active && (members.length > 0 || panelOpen));
 
   return (
@@ -189,13 +200,13 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               className="w-full border-2 border-fb-white bg-fb-black px-4 py-3 text-fb-white placeholder:text-fb-white outline-none focus:border-fb-red"
             />
           </label>
-          <div role="group" aria-label="Filter by tag" className="mt-4 flex flex-wrap gap-2">
+          <div role="group" aria-label="Filter by tag (pick as many as you like)" className="mt-4 flex flex-wrap items-center gap-2">
             {[undefined, ...tags].map((t) => {
-              const on = tag === t;
+              const on = t === undefined ? picked.length === 0 : picked.includes(t);
               return (
                 <button
                   key={t ?? "all"}
-                  onClick={() => setTag(t)}
+                  onClick={() => (t === undefined ? clearTags() : toggleTag(t))}
                   aria-pressed={on}
                   className={`subtitle px-4 py-2 text-xs border-2 transition-colors ${
                     on ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-white text-fb-white hover:bg-fb-white hover:text-fb-black"
@@ -205,7 +216,29 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
                 </button>
               );
             })}
+            {picked.length > 0 && (
+              <button onClick={clearTags} className="ml-2 text-sm underline underline-offset-4 hover:text-fb-red">
+                Clear tags ({picked.length})
+              </button>
+            )}
           </div>
+          {picked.length > 1 && (
+            <div role="group" aria-label="Match tags" className="mt-3 flex items-center gap-3 text-sm">
+              <span>Show creators with</span>
+              {([false, true] as const).map((all) => (
+                <button
+                  key={String(all)}
+                  onClick={() => setMatchAll(all)}
+                  aria-pressed={matchAll === all}
+                  className={`subtitle px-3 py-1 text-xs border-2 ${
+                    matchAll === all ? "bg-fb-white border-fb-white text-fb-black" : "border-fb-white text-fb-white"
+                  }`}
+                >
+                  {all ? `All ${picked.length} tags` : "Any of these tags"}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="mt-5 flex flex-wrap items-end gap-x-6 gap-y-4 pb-5">
             <DarkSelect
@@ -245,7 +278,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               <button
                 onClick={() => {
                   setQuery("");
-                  setTag(undefined);
+                  clearTags();
                   setPlatform("any");
                   setMinFollowers(0);
                   setMinViews(0);
@@ -287,11 +320,11 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               </div>
               <ul
                 className={`mt-6 px-[57px] max-sm:px-6 ${
-                  tag ? "grid gap-6 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]" : "flex gap-6 overflow-x-auto pb-4 snap-x"
+                  asGrid ? "grid gap-6 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]" : "flex gap-6 overflow-x-auto pb-4 snap-x"
                 }`}
               >
                 {s.creators.map((c) => (
-                  <li key={c.id} className={tag ? "" : "w-[220px] shrink-0 snap-start"}>
+                  <li key={c.id} className={asGrid ? "" : "w-[220px] shrink-0 snap-start"}>
                     <CreatorTile creator={c} showRates={showRates} added={inList(c.id)} onToggle={() => toggle(c.id)} />
                   </li>
                 ))}
