@@ -69,3 +69,25 @@ export function typicalVsUsual(posts: { views: number; creator?: { avgViews?: nu
   const median = ratios.length % 2 ? ratios[mid] : (ratios[mid - 1] + ratios[mid]) / 2;
   return times(median, 1);
 }
+
+/**
+ * Expected cost per 1,000 views: total cost per post ÷ total average views per post × 1,000, using only
+ * creators with both. Weighted, so a big, expensive creator counts in proportion.
+ */
+export function expectedCpm(items: { cost?: number; avgViews?: number }[]): { cpm?: number; counted: number; total: number } {
+  const both = items.filter((i) => i.cost && i.avgViews);
+  const views = both.reduce((t, i) => t + i.avgViews!, 0);
+  const cost = both.reduce((t, i) => t + i.cost!, 0);
+  return { cpm: views ? (cost / views) * 1000 : undefined, counted: both.length, total: items.length };
+}
+
+/**
+ * Current CPM against expected: how far under (cheaper, better) or over (dearer) it is.
+ * Returns undefined unless both are known.
+ */
+export function cpmVsExpected(current?: number, expected?: number): { under: boolean; text: string } | undefined {
+  if (current === undefined || expected === undefined || !expected) return undefined;
+  const diff = (current - expected) / expected;
+  if (Math.abs(diff) < 0.005) return { under: true, text: "On expected" };
+  return { under: diff < 0, text: `${Math.round(Math.abs(diff) * 100)}% ${diff < 0 ? "under" : "over"} expected` };
+}

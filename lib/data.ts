@@ -10,6 +10,7 @@ import {
   isSampleMode,
 } from "./config";
 import { detectPlatform } from "./social";
+import { expectedCpm } from "./format";
 import { CAMPAIGN_TYPES } from "./types";
 import {
   sampleAssignments,
@@ -282,6 +283,15 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
     roster.filter((a) => a.status === "Approved" && a.creatorId && a.fee).map((a) => [a.creatorId!, a.fee!]),
   );
   const fees = [...feeByCreator.values()].reduce((t, f) => t + f, 0);
+  const creatorById = new Map(creators.map((c) => [c.id, c]));
+  const expected = expectedCpm(
+    roster
+      .filter((a) => a.status === "Approved")
+      .map((a) => {
+        const c = a.creatorId ? creatorById.get(a.creatorId) : undefined;
+        return { cost: a.fee ?? c?.rate, avgViews: c?.avgViews };
+      }),
+  );
   const byId = new Map(creators.map((c) => [c.id, c]));
   const posts = allPosts
     .filter((p) => p.campaignId === campaign.id && p.status === "Live")
@@ -311,6 +321,7 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
     lastRefreshed,
     benchmark: benchmarkOf(posts),
     spend: fees ? { amount: fees, basis: "fees" } : campaign.budget ? { amount: campaign.budget, basis: "budget" } : undefined,
+    expected: expected.total ? expected : undefined,
   };
 }
 

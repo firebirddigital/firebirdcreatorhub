@@ -1,9 +1,9 @@
-import { compact, full, money, pct, times, typicalVsUsual } from "@/lib/format";
+import { compact, cpmVsExpected, full, money, pct, times, typicalVsUsual } from "@/lib/format";
 import { PLATFORM_LABEL } from "@/lib/social";
 import type { CampaignStreams } from "@/lib/streams";
 import { streamsLift } from "@/lib/streams-lift";
 import type { CampaignView } from "@/lib/types";
-import { HeroFigure, HeroStats } from "./campaign/Shell";
+import { HeroFigure, HeroStats, type HeroStat } from "./campaign/Shell";
 import { PostGrid } from "./PostGrid";
 import { StreamsChart } from "./StreamsChart";
 import { ViewsChart } from "./ViewsChart";
@@ -16,6 +16,10 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
   const { totals, spend } = view;
   const cpm = spend && totals.views ? (spend.amount / totals.views) * 1000 : undefined;
   const vsUsual = typicalVsUsual(view.posts);
+  // Current against expected CPM. The team sees green (cheaper) or red (dearer); partner pages keep to
+  // brand colours: red when dearer, white with ↓ when cheaper.
+  const vs = cpmVsExpected(cpm, view.expected?.cpm);
+  const tone = vs ? (vs.under ? (internal ? "good" : "under") : "bad") : undefined;
   return (
     <>
       <HeroFigure
@@ -39,13 +43,29 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
             : []),
           internal || spend
             ? {
-                label: "Cost per 1K views",
+                label: "Current CPM",
                 value: cpm !== undefined ? money(cpm, 2) : "—",
                 note: [spend ? (spend.basis === "fees" ? "From approved fees" : "From the budget") : "Add fees or a budget", internal ? "Team only" : ""]
                   .filter(Boolean)
                   .join(". "),
-              }
+                tone,
+                sub: vs?.text,
+              } as HeroStat
             : { label: "Avg views per post", value: totals.posts ? compact(totals.views / totals.posts) : "—" },
+          ...(internal || view.expected
+            ? [
+              {
+                label: "Expected CPM",
+                value: view.expected?.cpm !== undefined ? money(view.expected.cpm, 2) : "—",
+                note:
+                  view.expected?.cpm === undefined
+                    ? "Needs fees or rates, and avg views"
+                    : view.expected.counted < view.expected.total
+                      ? `From ${view.expected.counted} of ${view.expected.total} approved creators`
+                      : "Cost per post ÷ avg views × 1,000",
+              },
+              ]
+            : []),
         ]}
       />
     </>

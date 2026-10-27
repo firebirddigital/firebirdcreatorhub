@@ -155,4 +155,6 @@ export interface CampaignView {
   benchmark?: Benchmark;
   /** What the campaign cost: approved creator fees when entered, otherwise the budget. Team only. */
   spend?: { amount: number; basis: "fees" | "budget" };
+  /** Approved creators' cost per post ÷ their avg views × 1,000. Team only (partners with rates shown). */
+  expected?: { cpm?: number; counted: number; total: number };
 }

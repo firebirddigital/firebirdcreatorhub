@@ -1,4 +1,4 @@
-import { compact, money } from "@/lib/format";
+import { compact, expectedCpm, money } from "@/lib/format";
 import type { Assignment, AssignmentStatus, TrackRecord } from "@/lib/types";
 import { trackRecordText } from "../TrackRecordLine";
 import { HeroFigure, HeroStats } from "./Shell";
@@ -13,6 +13,8 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
   const awaiting = roster.filter((a) => a.status === "Proposed").length;
   const avgs = active.map((a) => a.creator?.avgViews ?? 0).filter(Boolean);
   const fees = approved.reduce((t, a) => t + (a.fee ?? 0), 0);
+  // Cost per post is the campaign fee, or the creator's general rate when no fee is set yet.
+  const expected = expectedCpm(active.map((a) => ({ cost: a.fee ?? a.creator?.rate, avgViews: a.creator?.avgViews })));
   return (
     <>
       <HeroFigure
@@ -31,7 +33,21 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
             label: "Avg views, last 20 posts",
             value: avgs.length ? compact(avgs.reduce((a, b) => a + b, 0) / avgs.length) : "—",
           },
-          ...(showFees ? [{ label: "Approved fees", value: fees ? money(fees) : "—" }] : []),
+          ...(showFees
+            ? [
+                { label: "Approved fees", value: fees ? money(fees) : "—" },
+                {
+                  label: "Expected CPM",
+                  value: expected.cpm !== undefined ? money(expected.cpm, 2) : "—",
+                  note:
+                    expected.cpm === undefined
+                      ? "Needs fees or rates, and avg views"
+                      : expected.counted < expected.total
+                        ? `From ${expected.counted} of ${expected.total} creators`
+                        : "Cost per post ÷ avg views × 1,000",
+                },
+              ]
+            : []),
         ]}
       />
     </>
@@ -166,9 +182,17 @@ function RosterCard({ assignment: a, showFee, trackRecord }: { assignment: Assig
         {showFee && (
           <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
             <dt className="text-sm">Fee</dt>
-            <dd className="figure text-lg">{a.fee ? money(a.fee) : "—"}</dd>
+            <dd className="figure text-lg">
+              {a.fee ? money(a.fee) : c?.rate ? <span title="No fee set yet; their general rate">{money(c.rate)} rate</span> : "—"}
+            </dd>
           </div>
         )}
+        {showFee && (a.fee ?? c?.rate) && c?.avgViews ? (
+          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2" title="Cost per post ÷ avg views × 1,000">
+            <dt className="text-sm">Expected CPM</dt>
+            <dd className="figure text-lg">{money((((a.fee ?? c.rate) as number) / c.avgViews) * 1000, 2)}</dd>
+          </div>
+        ) : null}
       </dl>
 
       {!!c?.tags.length && (

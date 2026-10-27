@@ -31,6 +31,7 @@ export function partnerView(view: CampaignView, showFees: boolean): CampaignView
       fee: showFees ? c.fee : undefined,
     })),
     spend: showFees && view.spend?.basis === "fees" ? view.spend : undefined,
+    expected: showFees ? view.expected : undefined,
   };
 }
 

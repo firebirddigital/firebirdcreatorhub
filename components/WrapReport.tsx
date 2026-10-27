@@ -1,4 +1,4 @@
-import { compact, dateRange, full, money, pct, shortDate, times, typicalVsUsual } from "@/lib/format";
+import { compact, cpmVsExpected, dateRange, full, money, pct, shortDate, times, typicalVsUsual } from "@/lib/format";
 import { PLATFORM_LABEL } from "@/lib/social";
 import type { CampaignStreams } from "@/lib/streams";
 import { streamsLift } from "@/lib/streams-lift";
@@ -30,7 +30,11 @@ export function WrapReport({
   const topPosts = [...view.posts].sort((a, b) => b.views - a.views).slice(0, 6);
   const generated = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-  const stats: { label: string; value: string; note?: string }[] = [
+  // Current against expected CPM: the team version uses green/red; the partner version stays on-brand
+  // (red when dearer, black with ↓ when cheaper).
+  const vs = cpmVsExpected(cpm, view.expected?.cpm);
+  const vsClass = vs ? (vs.under ? (audience === "team" ? "text-green-700" : "") : "text-fb-red") : "";
+  const stats: { label: string; value: string; note?: string; className?: string; sub?: string }[] = [
     { label: "Posts", value: String(totals.posts) },
     { label: "Creators", value: String(totals.creators) },
     { label: "Engagement rate", value: pct(totals.engagementRate) },
@@ -39,7 +43,24 @@ export function WrapReport({
     { label: "Shares", value: compact(totals.shares) },
     ...(vsUsual ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-20-post average" }] : []),
     ...(cpm !== undefined
-      ? [{ label: "Cost per 1K views", value: money(cpm, 2), note: spend?.basis === "fees" ? "From approved creator fees" : "From the campaign budget" }]
+      ? [
+          {
+            label: "Current CPM",
+            value: `${vs?.under && audience !== "team" ? "↓ " : ""}${money(cpm, 2)}`,
+            note: spend?.basis === "fees" ? "From approved creator fees" : "From the campaign budget",
+            className: vsClass,
+            sub: vs?.text,
+          },
+        ]
+      : []),
+    ...(view.expected?.cpm !== undefined
+      ? [
+          {
+            label: "Expected CPM",
+            value: money(view.expected.cpm, 2),
+            note: "Fees or rates ÷ creators' avg views × 1,000, before the campaign",
+          },
+        ]
       : []),
   ];
 
@@ -79,7 +100,8 @@ export function WrapReport({
           {stats.map((s) => (
             <div key={s.label} className="border-b border-fb-black py-4 pr-4">
               <dt className="text-sm">{s.label}</dt>
-              <dd className="figure mt-1 text-3xl">{s.value}</dd>
+              <dd className={`figure mt-1 text-3xl ${s.className ?? ""}`}>{s.value}</dd>
+              {s.sub && <p className={`mt-1 text-xs font-bold ${s.className ?? ""}`}>{s.sub}</p>}
               {s.note && <p className="mt-1 text-xs">{s.note}</p>}
             </div>
           ))}

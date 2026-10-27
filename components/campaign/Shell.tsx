@@ -91,7 +91,23 @@ export function HeroFigure({ value, caption, title }: { value: string; caption: 
   );
 }
 
-export function HeroStats({ items }: { items: { label: string; value: string; note?: string }[] }) {
+export interface HeroStat {
+  label: string;
+  value: string;
+  note?: string;
+  /** Colours the value: "good" green and "bad" red for the team; partner pages use "bad" or "under" (white, ↓) to stay on-brand. */
+  tone?: "good" | "bad" | "under";
+  /** A short line under the value, e.g. "18% under expected". */
+  sub?: string;
+}
+
+const HERO_TONE: Record<NonNullable<HeroStat["tone"]>, string> = {
+  good: "text-green-400",
+  bad: "text-fb-red",
+  under: "",
+};
+
+export function HeroStats({ items }: { items: HeroStat[] }) {
   return (
     <dl className="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-t border-fb-white/40">
       {items.map((it) => (
@@ -100,7 +116,11 @@ export function HeroStats({ items }: { items: { label: string; value: string; no
             {it.label}
             {it.note && <span className="ml-2 text-xs text-fb-red">{it.note}</span>}
           </dt>
-          <dd className="figure mt-2 text-3xl">{it.value}</dd>
+          <dd className={`figure mt-2 text-3xl ${it.tone ? HERO_TONE[it.tone] : ""}`}>
+            {it.tone === "under" && <span aria-hidden>↓ </span>}
+            {it.value}
+          </dd>
+          {it.sub && <p className={`mt-1 text-xs font-bold ${it.tone ? HERO_TONE[it.tone] : ""}`}>{it.sub}</p>}
         </div>
       ))}
     </dl>
