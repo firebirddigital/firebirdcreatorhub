@@ -8,6 +8,14 @@ export const maxDuration = 300;
 
 const MAX_ROWS = 5000;
 const str = (v: unknown) => (typeof v === "string" ? v.slice(0, 2000) : undefined);
+const pairs = (v: unknown) =>
+  Array.isArray(v)
+    ? v
+        .map((p) => (p ?? {}) as { label?: unknown; value?: unknown })
+        .filter((p): p is { label: string; value: string } => typeof p.label === "string" && typeof p.value === "string")
+        .map((p) => ({ label: p.label.slice(0, 60), value: p.value.slice(0, 300) }))
+        .slice(0, 40)
+    : undefined;
 const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 500)).slice(0, 50) : undefined);
 
 // Team only (middleware). Previews (dryRun) or imports a batch of creators from a CSV.
@@ -33,6 +41,9 @@ export async function POST(req: Request) {
       notes: str(o.notes),
       instagramFollowers: str(o.instagramFollowers),
       tiktokFollowers: str(o.tiktokFollowers),
+      extras: pairs(o.extras),
+      platformRates: pairs(o.platformRates),
+      currency: str(o.currency)?.slice(0, 10),
     };
   });
 

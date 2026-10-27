@@ -51,7 +51,10 @@ export type ImportField =
   | "rate"
   | "notes"
   | "instagramFollowers"
-  | "tiktokFollowers";
+  | "tiktokFollowers"
+  | "note"
+  | "platformRate"
+  | "currency";
 
 export const FIELD_LABELS: Record<ImportField, string> = {
   skip: "Don't import",
@@ -66,10 +69,18 @@ export const FIELD_LABELS: Record<ImportField, string> = {
   notes: "Notes",
   instagramFollowers: "Instagram followers",
   tiktokFollowers: "TikTok followers",
+  note: "Add to notes (with its heading)",
+  platformRate: "A platform rate (goes in notes)",
+  currency: "Currency of the rates",
 };
 
 // Header words that point at each field. Checked in this order, so "tiktok followers" wins over "tiktok".
 const HEADER_HINTS: [ImportField, RegExp][] = [
+  // Rates for one platform or format, e.g. "TikTok Video Rate", "Instagram Story Rate", "Twitter / X Post Rate"
+  ["platformRate", /^(tik ?tok|tt|instagram|insta|ig|youtube|yt|twitter|x|twitter x)\b.*\b(rate|price|fee)$/],
+  ["currency", /^currency$/],
+  // Details with no field of their own in Airtable: kept in Notes with their heading
+  ["note", /^(youtube|yt|twitter|x|twitter x|gender|phone|phone number|mobile|primary platform|tik ?tok \d+|instagram \d+|tiktok backup|secondary tiktok)$/],
   ["instagramFollowers", /^(ig|insta(gram)?)\s*(followers|follower count|fans)$/],
   ["tiktokFollowers", /^(tt|tik ?tok)\s*(followers|follower count|fans)$/],
   ["instagram", /^(ig|insta(gram)?)(\s*(handle|link|url|profile|username|account))?$/],
@@ -84,7 +95,14 @@ const HEADER_HINTS: [ImportField, RegExp][] = [
 ];
 
 export function guessField(header: string): ImportField {
-  const h = header.trim().toLowerCase().replace(/[_:]+/g, " ").replace(/\s+/g, " ");
+  // "Instagram (Handle or URL)" → "instagram", "Twitter / X" → "twitter x", "TikTok #2" → "tiktok 2"
+  const h = header
+    .trim()
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[_:/#]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return HEADER_HINTS.find(([, re]) => re.test(h))?.[0] ?? "skip";
 }
 
@@ -101,6 +119,11 @@ export interface RawCreatorRow {
   notes?: string;
   instagramFollowers?: string;
   tiktokFollowers?: string;
+  /** Columns kept in Notes, as "Heading: value". */
+  extras?: { label: string; value: string }[];
+  /** Per-platform rates, kept in Notes on one line. */
+  platformRates?: { label: string; value: string }[];
+  currency?: string;
 }
 
 /** Tags in a cell can be separated by commas, semicolons, pipes or line breaks. */
@@ -110,7 +133,13 @@ export const splitTags = (v: string) =>
     .map((t) => t.trim())
     .filter(Boolean);
 
-export function toRawRows(rows: string[][], mapping: ImportField[]): RawCreatorRow[] {
+/** "Instagram (Handle or URL)" → "Instagram", "TikTok Video Rate" → "TikTok Video". */
+const cleanLabel = (h: string, dropRate = false) => {
+  const l = h.replace(/\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+  return dropRate ? l.replace(/\s*(rate|price|fee)$/i, "").trim() : l;
+};
+
+export function toRawRows(rows: string[][], mapping: ImportField[], headers: string[] = []): RawCreatorRow[] {
   return rows.map((cells) => {
     const out: RawCreatorRow = {};
     mapping.forEach((field, i) => {
@@ -118,6 +147,9 @@ export function toRawRows(rows: string[][], mapping: ImportField[]): RawCreatorR
       if (!v || field === "skip") return;
       if (field === "tags") out.tags = [...(out.tags ?? []), ...splitTags(v)];
       else if (field === "link") out.links = [...(out.links ?? []), ...v.split(/[\s,]+/).filter(Boolean)];
+      else if (field === "note") out.extras = [...(out.extras ?? []), { label: cleanLabel(headers[i] ?? `Column ${i + 1}`), value: v }];
+      else if (field === "platformRate")
+        out.platformRates = [...(out.platformRates ?? []), { label: cleanLabel(headers[i] ?? `Column ${i + 1}`, true), value: v }];
       else out[field] = v;
     });
     return out;
@@ -125,8 +157,8 @@ export function toRawRows(rows: string[][], mapping: ImportField[]): RawCreatorR
 }
 
 export const TEMPLATE_CSV =
-  "Name,Instagram,TikTok,Email,Tags,Location,Rate,Notes\n" +
-  'Jane Example,instagram.com/janeexample,@janeexample,jane@example.com,"Country, Lifestyle","Nashville, TN",500,Met at CMA Fest\n';
+  "Profile URL,Primary Platform,Instagram (Handle or URL),TikTok (Handle or URL),YouTube (Channel or URL),Twitter / X (Handle or URL),Name,Gender,Email,Phone,TikTok #2 (Handle or URL),Location,Notes,Tags,Rate (General / Base),TikTok Rate,TikTok Video Rate,TikTok Story Rate,TikTok Song Promo Rate,TikTok Brand Promo Rate,Instagram Rate,Instagram Reel Rate,Instagram Story Rate,Instagram Feed Post Rate,YouTube Rate,YouTube Video Rate,YouTube Short Rate,YouTube Integrated Rate,Twitter / X Post Rate,Currency\n" +
+  'https://instagram.com/creator_handle,TikTok,creator_ig,@creator_tt,creator_yt,creator_x,Jane Doe,Female,jane@example.com,+1-555-0100,@creator_tt_backup,"Los Angeles, CA, USA",Prefers email,"fitness, lifestyle",1500,1200,1500,500,800,1800,1000,1400,450,900,3000,3500,1200,2000,350,USD\n';
 
 /**
  * Daily streams from a Spotify for Artists export (or any sheet with a date column and a streams column).

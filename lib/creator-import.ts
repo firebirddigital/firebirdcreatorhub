@@ -82,11 +82,36 @@ function clean(raw: RawCreatorRow): { c: Clean; warnings: string[] } {
     else warnings.push(`Skipped the email “${e.slice(0, 60)}” (doesn't look like an email).`);
   }
   c.location = raw.location?.trim().slice(0, 100) || undefined;
-  c.notes = raw.notes?.trim().slice(0, 2000) || undefined;
+
+  // Base rate, or the first platform rate (TikTok, then Instagram, then anything) when there isn't one.
+  const currency = raw.currency?.trim().toUpperCase();
+  const rates = (raw.platformRates ?? []).map((r) => ({ label: r.label, amount: number(r.value), raw: r.value }));
+  rates.filter((r) => !r.amount).forEach((r) => warnings.push(`Skipped the ${r.label} rate “${r.raw.slice(0, 30)}” (not a number).`));
   if (raw.rate) {
     c.rate = number(raw.rate);
     if (!c.rate) warnings.push(`Skipped the rate “${raw.rate.slice(0, 30)}” (not a number).`);
   }
+  const fallback =
+    rates.find((r) => r.amount && /^(tik ?tok|tt)$/i.test(r.label)) ??
+    rates.find((r) => r.amount && /^(instagram|ig)$/i.test(r.label)) ??
+    rates.find((r) => r.amount);
+  if (!c.rate && fallback?.amount) c.rate = fallback.amount;
+  if (currency && currency !== "USD" && (c.rate || rates.some((r) => r.amount))) {
+    warnings.push(`Rates are in ${currency}; the Rate field shows dollars, so check it after importing.`);
+  }
+
+  // Notes: their own notes, then the details that have no field of their own, then all platform rates on one line.
+  const lines = [
+    raw.notes?.trim(),
+    ...(raw.extras ?? []).map((e) => `${e.label}: ${e.value.trim()}`),
+    rates.some((r) => r.amount)
+      ? `Rates (${currency || "USD"}): ${rates
+          .filter((r) => r.amount)
+          .map((r) => `${r.label} ${r.amount!.toLocaleString("en-US")}`)
+          .join(" · ")}`
+      : "",
+  ].filter(Boolean) as string[];
+  c.notes = lines.join("\n").slice(0, 4000) || undefined;
   c.instagramFollowers = number(raw.instagramFollowers);
   c.tiktokFollowers = number(raw.tiktokFollowers);
   return { c, warnings };
@@ -130,6 +155,13 @@ function fillFields(existing: Creator, c: Clean): { fields: Record<string, unkno
   fill(existing.rate, CRF.rate, c.rate, "rate");
   fill(existing.instagramFollowers, CRF.instagramFollowers, (existing.instagram || c.instagram) && c.instagramFollowers, "Instagram followers");
   fill(existing.tiktokFollowers, CRF.tiktokFollowers, (existing.tiktok || c.tiktok) && c.tiktokFollowers, "TikTok followers");
+  // Notes are added to, never replaced: only lines the creator doesn't already have.
+  const have = new Set((existing.notes ?? "").split("\n").map((l) => l.trim()));
+  const newLines = (c.notes ?? "").split("\n").map((l) => l.trim()).filter((l) => l && !have.has(l));
+  if (newLines.length) {
+    fields[CRF.notes] = [existing.notes?.trim(), ...newLines].filter(Boolean).join("\n");
+    filled.push("notes");
+  }
   return { fields, filled };
 }
 
@@ -199,7 +231,7 @@ export async function importCreators(
       return;
     }
 
-    const result: ImportRowResult = { row, action: "create", name: c.name, warnings };
+    const result: ImportRowResult = { row, action: "create", name: c.name, detail: createSummary(c), warnings };
     pendingCreates.push({ clean: c, row, result });
     keys.forEach((k) => createdByKey.set(k, pendingCreates.length - 1));
     results.push(result);
@@ -216,6 +248,21 @@ export async function importCreators(
   const counts = { create: 0, update: 0, unchanged: 0, duplicate: 0, skip: 0 } as Record<ImportAction, number>;
   results.forEach((r) => counts[r.action]++);
   return { results, counts };
+}
+
+/** What a new creator will be saved with, for the preview. */
+function createSummary(c: Clean): string {
+  const noteLines = c.notes ? c.notes.split("\n").filter(Boolean).length : 0;
+  const parts = [
+    c.instagram && `Instagram @${c.instagram}`,
+    c.tiktok && `TikTok @${c.tiktok}`,
+    c.email && "email",
+    c.location && "location",
+    c.tags.length && `${c.tags.length} ${c.tags.length === 1 ? "tag" : "tags"}`,
+    c.rate && `rate ${c.rate.toLocaleString("en-US")}`,
+    noteLines && `notes (${noteLines} ${noteLines === 1 ? "line" : "lines"})`,
+  ].filter(Boolean);
+  return parts.length ? `Saves ${parts.join(", ")}.` : "";
 }
 
 /** Earlier row's details win; the later row fills gaps and adds tags. */
@@ -245,5 +292,6 @@ function creatorFromFields(existing: Creator, f: Record<string, unknown>): Parti
     ...(f[CRF.rate] ? { rate: f[CRF.rate] as number } : {}),
     ...(f[CRF.instagramFollowers] ? { instagramFollowers: f[CRF.instagramFollowers] as number } : {}),
     ...(f[CRF.tiktokFollowers] ? { tiktokFollowers: f[CRF.tiktokFollowers] as number } : {}),
+    ...(f[CRF.notes] ? { notes: f[CRF.notes] as string } : {}),
   };
 }

@@ -60,7 +60,7 @@ export function CreatorImport() {
   const [newIds, setNewIds] = useState<string[]>([]);
   const [stats, setStats] = useState<{ state: "pulling" | "done"; done: number; text?: string }>();
 
-  const rawRows = useMemo(() => toRawRows(body, mapping), [body, mapping]);
+  const rawRows = useMemo(() => toRawRows(body, mapping, headers), [body, mapping, headers]);
   const hasIdentity = mapping.some((m) => m === "name" || m === "instagram" || m === "tiktok" || m === "link");
 
   function reset() {
