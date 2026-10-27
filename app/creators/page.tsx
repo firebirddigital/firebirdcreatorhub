@@ -10,8 +10,15 @@ import { siteOrigin } from "@/lib/origin";
 export const revalidate = 300;
 
 export default async function CreatorsPage() {
-  const [creators, trackRecords, origin, sig] = await Promise.all([getCreators(), getTrackRecords(), siteOrigin(), rosterSignature()]);
+  const [creators, trackRecords, origin, sig, ratesSig] = await Promise.all([
+    getCreators(),
+    getTrackRecords(),
+    siteOrigin(),
+    rosterSignature(),
+    rosterSignature({ rates: true }),
+  ]);
   const rosterUrl = `${origin}/roster/${sig}`;
+  const rosterRatesUrl = `${origin}/roster/${ratesSig}`;
 
   return (
     <>
@@ -26,11 +33,13 @@ export default async function CreatorsPage() {
             Preview shareable page
           </a>
           <CopyButton text={rosterUrl} label="Copy shareable link" copiedLabel="Link copied" variant="button" />
+          <CopyButton text={rosterRatesUrl} label="Copy link with rates" copiedLabel="Link with rates copied" variant="button" />
           {!isSampleMode() && <CreatorImport />}
         </div>
         <p className="mt-4 max-w-prose text-sm">
-          The shareable link shows partners this list with a Request a campaign button. It never shows emails, notes, rates
-          or track records, and can&apos;t be downloaded.
+          The shareable link shows partners this list with a Request a campaign button, and lets them build their own
+          shortlists. It never shows emails, notes or track records. Rates and spend totals only appear on the link with
+          rates; send that one only to partners you&apos;re happy to show pricing to.
         </p>
         <p className="mt-4 max-w-prose">
           Every influencer we work with, tagged and filterable. Tag creators right here: click + Tag on a row, or tick

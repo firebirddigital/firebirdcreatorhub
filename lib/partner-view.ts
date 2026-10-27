@@ -34,9 +34,12 @@ export function partnerView(view: CampaignView, showFees: boolean): CampaignView
   };
 }
 
-/** Creators on the shareable roster link: no email, notes, rate or internal stats dates. */
-export function rosterCreator(c: Creator): Creator {
+/**
+ * Creators on the shareable roster link: no email, notes or internal stats dates, and the rate only
+ * on the link the team sent "with rates".
+ */
+export function rosterCreator(c: Creator, opts: { rates?: boolean } = {}): Creator {
   // Leave the fields out entirely rather than sending them blank.
-  const { email: _email, notes: _notes, rate: _rate, statsUpdated: _updated, ...rest } = c;
-  return rest;
+  const { email: _email, notes: _notes, rate, statsUpdated: _updated, ...rest } = c;
+  return opts.rates && rate ? { ...rest, rate } : rest;
 }

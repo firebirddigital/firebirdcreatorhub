@@ -1,62 +1,180 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { compact } from "@/lib/format";
+import { useEffect, useMemo, useState } from "react";
+import { compact, money } from "@/lib/format";
+import {
+  downloadCsv,
+  listTotals,
+  loadLists,
+  newListId,
+  requestUrlFor,
+  saveLists,
+  shareUrlFor,
+  type RosterList,
+} from "@/lib/roster-lists";
 import type { Creator } from "@/lib/types";
 
 const UNTAGGED = "More creators";
+type View = "cards" | "list";
+type Platform = "any" | "tiktok" | "instagram";
+type Sort = "reach" | "avgViews" | "name" | "rate";
+
+const FOLLOWER_OPTIONS = [0, 10_000, 50_000, 100_000, 500_000, 1_000_000];
+const VIEW_OPTIONS = [0, 5_000, 10_000, 50_000, 100_000, 500_000];
+
+const reach = (c: Creator) => c.instagramFollowers + c.tiktokFollowers;
 
 /**
- * The shareable creators page for partners: black, one row of creator tiles per tag, a search bar and
- * tag pills. Tapping a creator opens their main profile. Data arrives already stripped of anything private.
+ * The shareable creators page for partners: black, cards (a row per tag) or a metrics list, filters,
+ * and shortlists the partner builds themselves with running totals. Data arrives already stripped of
+ * anything private; rates only on the link the team sent "with rates".
  */
-export function RosterShowcase({ creators, requestUrl }: { creators: Creator[]; requestUrl: string }) {
+export function RosterShowcase({ creators, requestUrl, showRates }: { creators: Creator[]; requestUrl: string; showRates: boolean }) {
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<string>();
+  const [view, setView] = useState<View>("cards");
+  const [platform, setPlatform] = useState<Platform>("any");
+  const [minFollowers, setMinFollowers] = useState(0);
+  const [minViews, setMinViews] = useState(0);
+  const [sort, setSort] = useState<Sort>("reach");
 
-  // Tags by how many creators have them, so the biggest groups come first.
+  // ---- Shortlists (kept in this browser) ----
+  const [lists, setLists] = useState<RosterList[]>([]);
+  const [activeId, setActiveId] = useState<string>();
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let loaded = loadLists();
+    // A shared shortlist link (?list=ids&listName=…) opens with that list loaded.
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get("list");
+    let active = loaded[0]?.id;
+    if (shared) {
+      const known = new Set(creators.map((c) => c.id));
+      const ids = shared.split(",").filter((id) => known.has(id));
+      if (ids.length) {
+        const name = (params.get("listName") || "Shared list").slice(0, 60);
+        const existing = loaded.find((l) => l.name === name && l.creatorIds.join() === ids.join());
+        if (existing) active = existing.id;
+        else {
+          const list = { id: newListId(), name, creatorIds: ids };
+          loaded = [list, ...loaded];
+          saveLists(loaded);
+          active = list.id;
+        }
+        setPanelOpen(true);
+      }
+    }
+    setLists(loaded);
+    setActiveId(active);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const update = (next: RosterList[]) => {
+    setLists(next);
+    saveLists(next);
+  };
+  const active = lists.find((l) => l.id === activeId);
+  const byId = useMemo(() => new Map(creators.map((c) => [c.id, c])), [creators]);
+  const members = (active?.creatorIds ?? []).map((id) => byId.get(id)).filter((c): c is Creator => Boolean(c));
+  const totals = listTotals(members);
+  const inList = (id: string) => Boolean(active?.creatorIds.includes(id));
+
+  function toggle(id: string) {
+    if (!active) {
+      const list = { id: newListId(), name: "My shortlist", creatorIds: [id] };
+      update([list, ...lists]);
+      setActiveId(list.id);
+      return;
+    }
+    update(
+      lists.map((l) =>
+        l.id === active.id
+          ? { ...l, creatorIds: l.creatorIds.includes(id) ? l.creatorIds.filter((x) => x !== id) : [...l.creatorIds, id] }
+          : l,
+      ),
+    );
+  }
+  function newList() {
+    const name = window.prompt("Name your list", `Shortlist ${lists.length + 1}`)?.trim();
+    if (!name) return;
+    const list = { id: newListId(), name: name.slice(0, 60), creatorIds: [] };
+    update([list, ...lists]);
+    setActiveId(list.id);
+  }
+  function renameList() {
+    if (!active) return;
+    const name = window.prompt("Rename list", active.name)?.trim();
+    if (name) update(lists.map((l) => (l.id === active.id ? { ...l, name: name.slice(0, 60) } : l)));
+  }
+  function deleteList() {
+    if (!active || !window.confirm(`Delete “${active.name}”?`)) return;
+    const rest = lists.filter((l) => l.id !== active.id);
+    update(rest);
+    setActiveId(rest[0]?.id);
+    if (!rest.length) setPanelOpen(false);
+  }
+
+  // ---- Filtering ----
   const tags = useMemo(() => {
     const counts = new Map<string, number>();
     creators.forEach((c) => c.tags.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1)));
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([t]) => t);
   }, [creators]);
 
-  const matches = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase().replace(/^@/, "");
-    if (!q) return creators;
-    return creators.filter((c) =>
-      [c.name, c.instagram, c.tiktok, c.location, ...c.tags].some((v) => v?.toLowerCase().includes(q)),
-    );
-  }, [creators, query]);
-
-  const reach = (c: Creator) => c.instagramFollowers + c.tiktokFollowers;
-  const byReach = (list: Creator[]) => [...list].sort((a, b) => reach(b) - reach(a));
+    const followersOn = (c: Creator) =>
+      platform === "tiktok" ? c.tiktokFollowers : platform === "instagram" ? c.instagramFollowers : reach(c);
+    return creators
+      .filter((c) => {
+        if (tag && !c.tags.includes(tag)) return false;
+        if (platform === "tiktok" && !c.tiktok) return false;
+        if (platform === "instagram" && !c.instagram) return false;
+        if (minFollowers && followersOn(c) < minFollowers) return false;
+        if (minViews && (c.avgViews ?? 0) < minViews) return false;
+        if (!q) return true;
+        return [c.name, c.instagram, c.tiktok, c.location, ...c.tags].some((v) => v?.toLowerCase().includes(q));
+      })
+      .sort((a, b) =>
+        sort === "name"
+          ? a.name.localeCompare(b.name)
+          : sort === "avgViews"
+            ? (b.avgViews ?? 0) - (a.avgViews ?? 0)
+            : sort === "rate"
+              ? (a.rate ?? Infinity) - (b.rate ?? Infinity)
+              : reach(b) - reach(a),
+      );
+  }, [creators, query, tag, platform, minFollowers, minViews, sort]);
 
   const sections = useMemo(() => {
-    const groups = (tag ? [tag] : tags).map((t) => ({ title: t, creators: byReach(matches.filter((c) => c.tags.includes(t))) }));
+    const groups = (tag ? [tag] : tags).map((t) => ({ title: t, creators: filtered.filter((c) => c.tags.includes(t)) }));
     if (!tag) {
-      const untagged = matches.filter((c) => !c.tags.length);
-      if (untagged.length) groups.push({ title: UNTAGGED, creators: byReach(untagged) });
+      const untagged = filtered.filter((c) => !c.tags.length);
+      if (untagged.length) groups.push({ title: UNTAGGED, creators: untagged });
     }
     return groups.filter((g) => g.creators.length);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches, tags, tag]);
+  }, [filtered, tags, tag]);
+
+  const filtersOn = Boolean(query || tag || platform !== "any" || minFollowers || minViews);
+  const showBar = Boolean(active && (members.length > 0 || panelOpen));
 
   return (
-    <div className="bg-fb-black text-fb-white">
+    <div className={`bg-fb-black text-fb-white ${showBar ? "pb-24" : ""}`}>
       <div className="px-[57px] max-sm:px-6">
         <section className="mt-10 flex flex-wrap items-center justify-between gap-6 border-2 border-fb-red p-8 max-sm:p-5">
           <div>
             <h2 className="headline text-4xl max-sm:text-3xl">Want creators like these?</h2>
-            <p className="mt-2">Pick the creators you like, then send us a request. We&apos;ll take it from there.</p>
+            <p className="mt-2">Add creators to a list as you browse, then send us a request with it. We&apos;ll take it from there.</p>
           </div>
           <a
-            href={requestUrl}
+            href={active && members.length ? requestUrlFor(requestUrl, active, members, showRates) : requestUrl}
             target="_blank"
             rel="noreferrer"
             className="subtitle bg-fb-red px-7 py-4 text-sm text-fb-white hover:bg-fb-white hover:text-fb-black transition-colors"
           >
-            Request a campaign
+            {active && members.length ? "Request with my list" : "Request a campaign"}
           </a>
         </section>
 
@@ -71,7 +189,7 @@ export function RosterShowcase({ creators, requestUrl }: { creators: Creator[]; 
               className="w-full border-2 border-fb-white bg-fb-black px-4 py-3 text-fb-white placeholder:text-fb-white outline-none focus:border-fb-red"
             />
           </label>
-          <div role="group" aria-label="Filter by tag" className="mt-4 flex flex-wrap gap-2 pb-4">
+          <div role="group" aria-label="Filter by tag" className="mt-4 flex flex-wrap gap-2">
             {[undefined, ...tags].map((t) => {
               const on = tag === t;
               return (
@@ -88,12 +206,76 @@ export function RosterShowcase({ creators, requestUrl }: { creators: Creator[]; 
               );
             })}
           </div>
+
+          <div className="mt-5 flex flex-wrap items-end gap-x-6 gap-y-4 pb-5">
+            <DarkSelect
+              label="Platform"
+              value={platform}
+              onChange={(v) => setPlatform(v as Platform)}
+              options={[
+                ["any", "Any platform"],
+                ["tiktok", "TikTok"],
+                ["instagram", "Instagram"],
+              ]}
+            />
+            <DarkSelect
+              label="Followers"
+              value={String(minFollowers)}
+              onChange={(v) => setMinFollowers(Number(v))}
+              options={FOLLOWER_OPTIONS.map((v) => [String(v), v ? `${compact(v)}+` : "Any"])}
+            />
+            <DarkSelect
+              label="Avg views (last 20 posts)"
+              value={String(minViews)}
+              onChange={(v) => setMinViews(Number(v))}
+              options={VIEW_OPTIONS.map((v) => [String(v), v ? `${compact(v)}+` : "Any"])}
+            />
+            <DarkSelect
+              label="Sort"
+              value={sort}
+              onChange={(v) => setSort(v as Sort)}
+              options={[
+                ["reach", "Most followers"],
+                ["avgViews", "Most avg views"],
+                ...(showRates ? ([["rate", "Lowest rate"]] as [string, string][]) : []),
+                ["name", "Name"],
+              ]}
+            />
+            {filtersOn && (
+              <button
+                onClick={() => {
+                  setQuery("");
+                  setTag(undefined);
+                  setPlatform("any");
+                  setMinFollowers(0);
+                  setMinViews(0);
+                }}
+                className="pb-2 text-sm underline underline-offset-4 hover:text-fb-red"
+              >
+                Clear filters
+              </button>
+            )}
+            <div role="group" aria-label="View" className="ml-auto flex border-2 border-fb-white">
+              {(["cards", "list"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  aria-pressed={view === v}
+                  className={`subtitle px-4 py-2 text-xs ${view === v ? "bg-fb-white text-fb-black" : "text-fb-white"}`}
+                >
+                  {v === "cards" ? "Cards" : "List"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="border-t-2 border-fb-red pb-24">
-        {sections.length === 0 ? (
-          <p className="px-[57px] max-sm:px-6 pt-10">No creators match that search.</p>
+        {filtered.length === 0 ? (
+          <p className="px-[57px] max-sm:px-6 pt-10">No creators match those filters.</p>
+        ) : view === "list" ? (
+          <ListView creators={filtered} showRates={showRates} inList={inList} onToggle={toggle} />
         ) : (
           sections.map((s) => (
             <section key={s.title} className="pt-10">
@@ -110,7 +292,7 @@ export function RosterShowcase({ creators, requestUrl }: { creators: Creator[]; 
               >
                 {s.creators.map((c) => (
                   <li key={c.id} className={tag ? "" : "w-[220px] shrink-0 snap-start"}>
-                    <CreatorTile creator={c} />
+                    <CreatorTile creator={c} showRates={showRates} added={inList(c.id)} onToggle={() => toggle(c.id)} />
                   </li>
                 ))}
               </ul>
@@ -118,11 +300,295 @@ export function RosterShowcase({ creators, requestUrl }: { creators: Creator[]; 
           ))
         )}
       </div>
+
+      {/* Running totals for the active list */}
+      {showBar && active && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-fb-red bg-fb-black text-fb-white">
+          {panelOpen && (
+            <ListPanel
+              totals={<Totals totals={totals} showRates={showRates} />}
+              lists={lists}
+              active={active}
+              members={members}
+              showRates={showRates}
+              onSwitch={setActiveId}
+              onNew={newList}
+              onRename={renameList}
+              onDelete={deleteList}
+              onRemove={toggle}
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-[57px] max-sm:px-6 py-2.5">
+            <button onClick={() => setPanelOpen((o) => !o)} className="subtitle text-sm underline underline-offset-4 hover:text-fb-red">
+              {panelOpen ? "Hide list" : `${active.name} (${members.length})`}
+            </button>
+            {/* Full totals on wide screens; one line elsewhere so the bar never covers the page */}
+            {!panelOpen && (
+              <>
+                <div className="hidden xl:block">
+                  <Totals totals={totals} showRates={showRates} />
+                </div>
+                <p className="text-sm xl:hidden">
+                  {[
+                    `${compact(totals.followers)} followers`,
+                    totals.withViews ? `${compact(totals.combinedViews)} combined avg views` : "",
+                    showRates && totals.withRates ? `${money(totals.spend)} spend` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </>
+            )}
+            <div className="ml-auto flex flex-wrap gap-2">
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(shareUrlFor(active));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  } catch {}
+                }}
+                disabled={!members.length}
+                className="subtitle border-2 border-fb-white px-3 py-2 text-xs hover:bg-fb-white hover:text-fb-black disabled:opacity-50"
+              >
+                {copied ? "Link copied" : "Share list"}
+              </button>
+              <button
+                onClick={() => downloadCsv(active, members, showRates)}
+                disabled={!members.length}
+                className="subtitle border-2 border-fb-white px-3 py-2 text-xs hover:bg-fb-white hover:text-fb-black disabled:opacity-50"
+              >
+                Download
+              </button>
+              <a
+                href={members.length ? requestUrlFor(requestUrl, active, members, showRates) : requestUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="subtitle bg-fb-red px-3 py-2 text-xs text-fb-white hover:bg-fb-white hover:text-fb-black"
+              >
+                Request with this list
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function CreatorTile({ creator: c }: { creator: Creator }) {
+function Totals({ totals: t, showRates }: { totals: ReturnType<typeof listTotals>; showRates: boolean }) {
+  const items: { label: string; value: string; note?: string }[] = [
+    { label: "Followers", value: compact(t.followers) },
+    {
+      label: "Combined avg views",
+      value: t.withViews ? compact(t.combinedViews) : "—",
+      note: t.withViews ? "if every creator posts once" : undefined,
+    },
+    { label: "Avg views per creator", value: t.avgViews ? compact(t.avgViews) : "—" },
+  ];
+  if (showRates) {
+    items.push({
+      label: "Total spend",
+      value: t.withRates ? money(t.spend) : "—",
+      note: t.withRates && t.withRates < t.creators ? `from ${t.withRates} of ${t.creators} with rates` : undefined,
+    });
+    items.push({ label: "Cost per 1K views", value: t.costPer1k !== undefined ? money(t.costPer1k, 2) : "—" });
+  }
+  return (
+    <dl className="flex flex-wrap gap-x-6 gap-y-1">
+      {items.map((i) => (
+        <div key={i.label}>
+          <dt className="text-xs">{i.label}</dt>
+          <dd className="figure text-lg leading-tight">
+            {i.value}
+            {i.note && <span className="ml-1 font-sans text-xs font-normal">({i.note})</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ListPanel({
+  totals,
+  lists,
+  active,
+  members,
+  showRates,
+  onSwitch,
+  onNew,
+  onRename,
+  onDelete,
+  onRemove,
+}: {
+  totals: React.ReactNode;
+  lists: RosterList[];
+  active: RosterList;
+  members: Creator[];
+  showRates: boolean;
+  onSwitch: (id: string) => void;
+  onNew: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div className="max-h-[60vh] overflow-y-auto border-b-2 border-fb-white px-[57px] max-sm:px-6 py-5">
+      <div className="mb-5">{totals}</div>
+      <div className="flex flex-wrap items-end gap-4">
+        <label>
+          <span className="text-xs font-bold">Your lists</span>
+          <select
+            value={active.id}
+            onChange={(e) => onSwitch(e.target.value)}
+            className="mt-1 block border-b-2 border-fb-white bg-fb-black py-1.5 pr-6 font-bold text-fb-white outline-none focus:border-fb-red"
+          >
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} ({l.creatorIds.length})
+              </option>
+            ))}
+          </select>
+        </label>
+        <button onClick={onNew} className="text-sm underline underline-offset-4 hover:text-fb-red">
+          New list
+        </button>
+        <button onClick={onRename} className="text-sm underline underline-offset-4 hover:text-fb-red">
+          Rename
+        </button>
+        <button onClick={onDelete} className="text-sm underline underline-offset-4 hover:text-fb-red">
+          Delete
+        </button>
+        <span className="text-xs">Lists are saved in this browser. Use Share list to send one to a colleague.</span>
+      </div>
+      {members.length === 0 ? (
+        <p className="mt-4 text-sm">This list is empty. Use “Add to list” on any creator.</p>
+      ) : (
+        <table className="mt-4 w-full text-sm">
+          <thead>
+            <tr className="border-b-2 border-fb-white text-left text-xs">
+              <th className="py-2 pr-4">Creator</th>
+              <th className="py-2 pr-4 text-right">Followers</th>
+              <th className="py-2 pr-4 text-right">Avg views</th>
+              {showRates && <th className="py-2 pr-4 text-right">Rate</th>}
+              <th className="py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((c) => (
+              <tr key={c.id} className="border-b border-fb-white">
+                <td className="py-2 pr-4 font-bold">{c.name}</td>
+                <td className="py-2 pr-4 text-right figure text-base">{compact(reach(c))}</td>
+                <td className="py-2 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
+                {showRates && <td className="py-2 pr-4 text-right">{c.rate ? money(c.rate) : "—"}</td>}
+                <td className="py-2 text-right">
+                  <button onClick={() => onRemove(c.id)} className="text-xs underline underline-offset-2 hover:text-fb-red">
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function ListView({
+  creators,
+  showRates,
+  inList,
+  onToggle,
+}: {
+  creators: Creator[];
+  showRates: boolean;
+  inList: (id: string) => boolean;
+  onToggle: (id: string) => void;
+}) {
+  const th = "py-3 pr-4 text-left text-xs font-bold whitespace-nowrap";
+  return (
+    <div className="overflow-x-auto px-[57px] max-sm:px-6 pt-6">
+      <table className="w-full min-w-[860px] text-sm">
+        <thead>
+          <tr className="border-b-2 border-fb-white">
+            <th className={th}>Creator</th>
+            <th className={`${th} text-right`}>TikTok</th>
+            <th className={`${th} text-right`}>Instagram</th>
+            <th className={`${th} text-right`}>
+              Avg views<span className="block font-normal">last 20 posts</span>
+            </th>
+            {showRates && <th className={`${th} text-right`}>Rate</th>}
+            <th className={th}>Tags</th>
+            <th className={th} />
+          </tr>
+        </thead>
+        <tbody>
+          {creators.map((c) => (
+            <tr key={c.id} className="border-b border-fb-white align-top">
+              <td className="py-3 pr-4">
+                <p className="font-bold">{c.name}</p>
+                {c.location && <p className="text-xs">{c.location}</p>}
+              </td>
+              <td className="py-3 pr-4 text-right whitespace-nowrap">
+                {c.tiktok ? (
+                  <a href={`https://www.tiktok.com/@${c.tiktok}`} target="_blank" rel="noreferrer" className="hover:text-fb-red">
+                    <span className="figure text-base">{c.tiktokFollowers ? compact(c.tiktokFollowers) : "—"}</span>
+                    <span className="block text-xs">@{c.tiktok}</span>
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="py-3 pr-4 text-right whitespace-nowrap">
+                {c.instagram ? (
+                  <a href={`https://www.instagram.com/${c.instagram}/`} target="_blank" rel="noreferrer" className="hover:text-fb-red">
+                    <span className="figure text-base">{c.instagramFollowers ? compact(c.instagramFollowers) : "—"}</span>
+                    <span className="block text-xs">@{c.instagram}</span>
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
+              {showRates && <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>}
+              <td className="py-3 pr-4 text-xs">{c.tags.join(", ")}</td>
+              <td className="py-3 text-right">
+                <AddButton added={inList(c.id)} onClick={() => onToggle(c.id)} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AddButton({ added, onClick }: { added: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={added}
+      className={`subtitle whitespace-nowrap px-3 py-1.5 text-xs border-2 transition-colors ${
+        added ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-white text-fb-white hover:bg-fb-white hover:text-fb-black"
+      }`}
+    >
+      {added ? "✓ In list" : "+ Add to list"}
+    </button>
+  );
+}
+
+function CreatorTile({
+  creator: c,
+  showRates,
+  added,
+  onToggle,
+}: {
+  creator: Creator;
+  showRates: boolean;
+  added: boolean;
+  onToggle: () => void;
+}) {
   // Tap opens their bigger platform, so partners see the creator's actual content.
   const tiktokFirst = c.tiktok && (!c.instagram || c.tiktokFollowers >= c.instagramFollowers);
   const href = tiktokFirst
@@ -131,7 +597,6 @@ function CreatorTile({ creator: c }: { creator: Creator }) {
       ? `https://www.instagram.com/${c.instagram}/`
       : undefined;
   const handle = tiktokFirst ? c.tiktok : c.instagram;
-  const followers = c.instagramFollowers + c.tiktokFollowers;
   const initials = c.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -139,50 +604,90 @@ function CreatorTile({ creator: c }: { creator: Creator }) {
     .slice(0, 2)
     .join("");
 
-  const body = (
-    <article className="group">
-      <div className={`relative aspect-[4/5] overflow-hidden bg-fb-black ${c.photo ? "" : "border-2 border-fb-white"}`}>
-        {c.photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={c.photo} alt="" className="bw absolute inset-0 h-full w-full object-cover" loading="lazy" />
-        ) : (
-          // White initials (the headline style is red by default)
-          <span aria-hidden className="absolute inset-0 flex items-end p-4 pb-6 headline text-6xl" style={{ color: "#ffffff" }}>
-            {initials}
-          </span>
-        )}
-        {href && (
-          <span
-            aria-hidden
-            className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-full bg-fb-red text-fb-white transition-transform group-hover:scale-110"
-          >
-            <svg viewBox="0 0 24 24" className="size-4 fill-current">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </span>
-        )}
-        <span aria-hidden className="absolute inset-x-0 bottom-0 h-1.5 bg-fb-red" />
-      </div>
+  const picture = (
+    <div className={`group relative aspect-[4/5] overflow-hidden bg-fb-black ${c.photo ? "" : "border-2 border-fb-white"}`}>
+      {c.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={c.photo} alt="" className="bw absolute inset-0 h-full w-full object-cover" loading="lazy" />
+      ) : (
+        // White initials (the headline style is red by default)
+        <span aria-hidden className="absolute inset-0 flex items-end p-4 pb-6 headline text-6xl" style={{ color: "#ffffff" }}>
+          {initials}
+        </span>
+      )}
+      {href && (
+        <span
+          aria-hidden
+          className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-full bg-fb-red text-fb-white transition-transform group-hover:scale-110"
+        >
+          <svg viewBox="0 0 24 24" className="size-4 fill-current">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </span>
+      )}
+      <span aria-hidden className="absolute inset-x-0 bottom-0 h-1.5 bg-fb-red" />
+    </div>
+  );
+
+  return (
+    <article>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" aria-label={`${c.name} on ${tiktokFirst ? "TikTok" : "Instagram"}`}>
+          {picture}
+        </a>
+      ) : (
+        picture
+      )}
       <h3 className="subtitle mt-3 text-base leading-tight">{c.name}</h3>
       {handle && <p className="text-sm">@{handle}</p>}
-      <dl className="mt-2 flex gap-5 text-sm">
+      <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <div>
           <dt className="text-xs">Followers</dt>
-          <dd className="figure text-lg">{followers ? compact(followers) : "—"}</dd>
+          <dd className="figure text-lg">{reach(c) ? compact(reach(c)) : "—"}</dd>
         </div>
         <div>
           <dt className="text-xs">Avg views</dt>
           <dd className="figure text-lg">{c.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
+        {showRates && (
+          <div>
+            <dt className="text-xs">Rate</dt>
+            <dd className="figure text-lg">{c.rate ? money(c.rate) : "—"}</dd>
+          </div>
+        )}
       </dl>
+      <div className="mt-3">
+        <AddButton added={added} onClick={onToggle} />
+      </div>
     </article>
   );
+}
 
-  return href ? (
-    <a href={href} target="_blank" rel="noreferrer" aria-label={`${c.name} on ${tiktokFirst ? "TikTok" : "Instagram"}`}>
-      {body}
-    </a>
-  ) : (
-    body
+function DarkSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 block border-b-2 border-fb-white bg-fb-black py-2 pr-6 font-bold text-fb-white outline-none focus:border-fb-red"
+      >
+        {options.map(([v, l]) => (
+          <option key={v} value={v}>
+            {l}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

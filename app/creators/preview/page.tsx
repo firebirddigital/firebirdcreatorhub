@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Preview: shareable creators page", robots: { index: false, follow: false } };
 
 // Team only (behind the login): the shareable creators page exactly as partners see it.
-export default async function RosterPreviewPage() {
-  return <RosterPage creators={(await getCreators()).map(rosterCreator)} preview />;
+// ?rates=1 previews the "with rates" link.
+export default async function RosterPreviewPage({ searchParams }: { searchParams: Promise<{ rates?: string }> }) {
+  const rates = (await searchParams).rates === "1";
+  return <RosterPage creators={(await getCreators()).map((c) => rosterCreator(c, { rates }))} showRates={rates} preview />;
 }

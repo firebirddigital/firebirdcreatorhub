@@ -63,10 +63,14 @@ export async function isValidSubmit(assignmentId: string, sig: string): Promise<
  * Signature for the shareable creators link: /roster/<sig>. Change ROSTER_LINK_VERSION (any new value)
  * to switch off every roster link already sent, without touching campaign links.
  */
-export async function rosterSignature(): Promise<string> {
-  return (await hmac(`roster:${process.env.ROSTER_LINK_VERSION ?? "1"}`)).slice(0, 24);
+export async function rosterSignature(opts: { rates?: boolean } = {}): Promise<string> {
+  const kind = opts.rates ? "roster-rates" : "roster";
+  return (await hmac(`${kind}:${process.env.ROSTER_LINK_VERSION ?? "1"}`)).slice(0, 24);
 }
 
-export async function isValidRoster(sig: string): Promise<boolean> {
-  return safeEqual(sig, await rosterSignature());
+/** Which roster link this is: the standard one, the one that shows rates, or neither. */
+export async function rosterLinkKind(sig: string): Promise<"standard" | "rates" | undefined> {
+  if (safeEqual(sig, await rosterSignature())) return "standard";
+  if (safeEqual(sig, await rosterSignature({ rates: true }))) return "rates";
+  return undefined;
 }
