@@ -2,13 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
-import { compact, money } from "@/lib/format";
+import { compact, money, timeAgo } from "@/lib/format";
 import { pullStatsInBatches } from "@/lib/pull-stats";
 import type { Creator, TrackRecord } from "@/lib/types";
 import { trackRecordRatio, trackRecordText } from "./TrackRecordLine";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
-type Sort = "reach" | "avgViews" | "track" | "name" | "rate";
+type Sort = "reach" | "avgViews" | "track" | "stale" | "name" | "rate";
 type View = "cards" | "table";
 
 const REACH_OPTIONS = [
@@ -131,7 +131,9 @@ export function CreatorBrowser({
               : sort === "track"
                 ? trackRecordRatio(trackRecords[b.id]) - trackRecordRatio(trackRecords[a.id]) ||
                   (trackRecords[b.id]?.views ?? 0) - (trackRecords[a.id]?.views ?? 0)
-              : reach(b, platform) - reach(a, platform),
+                : sort === "stale"
+                  ? (a.statsUpdated ?? "").localeCompare(b.statsUpdated ?? "")
+                  : reach(b, platform) - reach(a, platform),
       );
   }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, location, sort, trackRecords]);
 
@@ -257,6 +259,7 @@ export function CreatorBrowser({
               ...(team
                 ? [
                     { label: "Best track record", value: "track" },
+                    { label: "Oldest stats first", value: "stale" },
                     { label: "Lowest rate", value: "rate" },
                   ]
                 : []),
@@ -307,9 +310,12 @@ export function CreatorBrowser({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-        <p className="figure text-2xl">
-          {shown.length} <span className="font-sans font-normal text-base tracking-normal">of {creators.length} creators</span>
-        </p>
+        <div>
+          <p className="figure text-2xl">
+            {shown.length} <span className="font-sans font-normal text-base tracking-normal">of {creators.length} creators</span>
+          </p>
+          {team && <StatsFreshness creators={creators} />}
+        </div>
         <div className="flex flex-wrap items-center gap-6 text-sm">
           {filtersOn && (
             <button onClick={clearFilters} className="underline underline-offset-4 hover:text-fb-red">
@@ -503,7 +509,7 @@ function CreatorTable({
   const th = "py-2 pr-4 text-left text-xs font-bold whitespace-nowrap";
   return (
     <div className="mt-6 overflow-x-auto">
-      <table className="w-full min-w-[1040px] border-t-2 border-fb-black text-sm">
+      <table className="w-full min-w-[1160px] border-t-2 border-fb-black text-sm">
         <thead>
           <tr className="border-b-2 border-fb-black">
             {editable && (
@@ -523,6 +529,11 @@ function CreatorTable({
             <th className={`${th} text-right`} title="Average views across their last 20 posts">Avg views<span className="block font-normal">last 20 posts</span></th>
             {team && <th className={`${th} text-right`}>Rate</th>}
             {team && <th className={th} title="Across all Firebird campaigns">Track record</th>}
+            {team && (
+              <th className={th} title="Followers and average views. Refreshed automatically every night, oldest first.">
+                Stats updated
+              </th>
+            )}
             <th className={th}>Tags</th>
           </tr>
         </thead>
@@ -567,6 +578,11 @@ function CreatorTable({
               <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
               {team && <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>}
               {team && <td className="py-3 pr-4 text-xs">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>}
+              {team && (
+                <td className="py-3 pr-4 text-xs whitespace-nowrap" title={c.statsUpdated ? new Date(c.statsUpdated).toLocaleString("en-US") : undefined}>
+                  {c.tiktok || c.instagram ? (c.statsUpdated ? updatedLabel(c.statsUpdated) : "Never") : "No handle"}
+                </td>
+              )}
               <td className="py-3 min-w-64">
                 <TagCell creator={c} activeTags={activeTags} allTags={allTags} editable={editable} onTags={onTags} />
               </td>
@@ -726,6 +742,7 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
       </ul>
       {c.rate && <p className="mt-3 text-sm">Rate {money(c.rate)} per post</p>}
       {trackRecord && <p className="mt-1 text-sm">Track record: {trackRecord}</p>}
+      {c.statsUpdated && <p className="mt-1 text-xs">Stats updated {updatedLabel(c.statsUpdated)}</p>}
     </article>
   );
 }
@@ -740,6 +757,26 @@ function Handle({ platform, handle, followers, href }: { platform: string; handl
       </dt>
       <dd className="figure text-lg">{followers ? compact(followers) : "—"}</dd>
     </div>
+  );
+}
+
+/** "today", "yesterday", "3d ago". */
+function updatedLabel(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  return days <= 0 ? "today" : days === 1 ? "yesterday" : timeAgo(iso);
+}
+
+/** How current the roster's stats are, for the team. */
+function StatsFreshness({ creators }: { creators: Creator[] }) {
+  const withHandles = creators.filter((c) => c.tiktok || c.instagram);
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const fresh = withHandles.filter((c) => c.statsUpdated && new Date(c.statsUpdated).getTime() >= weekAgo).length;
+  const never = withHandles.filter((c) => !c.statsUpdated).length;
+  return (
+    <p className="mt-1 text-xs" title="About 3am Nashville time: creators never updated or not updated in 14 days, oldest first, within the Apify budget.">
+      Stats refresh automatically every night, oldest first. {fresh} of {withHandles.length} updated this week
+      {never ? `, ${never} never updated` : ""}.
+    </p>
   );
 }
 
