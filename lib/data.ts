@@ -10,6 +10,7 @@ import {
   isSampleMode,
 } from "./config";
 import { detectPlatform } from "./social";
+import { CAMPAIGN_TYPES } from "./types";
 import {
   sampleAssignments,
   sampleCampaigns,
@@ -78,6 +79,7 @@ export async function getCampaigns(opts: { fresh?: boolean } = {}): Promise<Camp
     stage: toStage(str(r.fields[CF.stage])),
     brief: str(r.fields[CF.brief]),
     showRates: r.fields[CF.showRates] === true,
+    type: CAMPAIGN_TYPES.find((t) => t.toLowerCase() === str(r.fields[CF.type])?.toLowerCase()),
   }));
 }
 

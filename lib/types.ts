@@ -34,6 +34,17 @@ export interface Campaign {
   stage?: Stage;
   brief?: string;
   showRates: boolean;
+  /** From the Type field. Empty when it isn't set (or the field doesn't exist yet); see campaignType(). */
+  type?: CampaignType;
+}
+
+export type CampaignType = "Influencer" | "Content Seeding";
+export const CAMPAIGN_TYPES: CampaignType[] = ["Influencer", "Content Seeding"];
+
+/** Influencer or Content Seeding: the Type field if set, otherwise "seeding" in the name or song means Content Seeding. */
+export function campaignType(c: Pick<Campaign, "type" | "name" | "song">): CampaignType {
+  if (c.type) return c.type;
+  return /seed/i.test(`${c.name} ${c.song ?? ""}`) ? "Content Seeding" : "Influencer";
 }
 
 export type AssignmentStatus = "Proposed" | "Approved" | "Changes requested" | "Declined";

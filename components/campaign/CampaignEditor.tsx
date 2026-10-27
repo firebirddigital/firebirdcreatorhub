@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { Campaign, CampaignStatus, Stage } from "@/lib/types";
+import { CAMPAIGN_TYPES, campaignType, type Campaign, type CampaignStatus, type CampaignType, type Stage } from "@/lib/types";
 
 interface FormState {
+  type: CampaignType;
   name: string;
   artist: string;
   song: string;
@@ -18,7 +19,8 @@ interface FormState {
   showRates: boolean;
 }
 
-const fromCampaign = (c?: Campaign, stage?: Stage): FormState => ({
+const fromCampaign = (c?: Campaign, stage?: Stage, type?: CampaignType): FormState => ({
+  type: c ? campaignType(c) : (type ?? "Influencer"),
   name: c?.name ?? "",
   artist: c?.artist ?? "",
   song: c?.song ?? "",
@@ -44,6 +46,29 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
     "mt-1 block w-full border-b-2 border-fb-black bg-transparent py-2 outline-none focus:border-fb-red";
   return (
     <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+      <fieldset className="md:col-span-2">
+        <legend className="text-sm font-bold">Type</legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {CAMPAIGN_TYPES.map((t) => (
+            <label
+              key={t}
+              className={`cursor-pointer px-4 py-2 text-sm font-bold border-2 transition-colors ${
+                f.type === t ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+              }`}
+            >
+              <input
+                type="radio"
+                name="campaign-type"
+                value={t}
+                checked={f.type === t}
+                onChange={() => set({ type: t })}
+                className="sr-only"
+              />
+              {t}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <label className="md:col-span-2">
         <span className="text-sm font-bold">Campaign name</span>
         <input required value={f.name} onChange={(e) => set({ name: e.target.value })} className={`${input} text-lg`} />
@@ -140,7 +165,7 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
   const [f, setF] = useState<FormState>(() => fromCampaign(campaign, stage));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<boolean | "type-missing">(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -151,15 +176,15 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(toPayload(f)),
     });
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    const data = (await res.json().catch(() => ({}))) as { error?: string; typeSaved?: boolean };
     setBusy(false);
     if (!res.ok) {
       setError(data.error ?? "Changes didn't save. Try again.");
       return;
     }
     setOpen(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaved(data.typeSaved === false ? "type-missing" : true);
+    setTimeout(() => setSaved(false), data.typeSaved === false ? 8000 : 3000);
     router.refresh();
   }
 
@@ -177,7 +202,9 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
         </button>
         {saved && (
           <span role="status" className="text-sm">
-            Campaign saved.
+            {saved === "type-missing"
+              ? "Campaign saved, except Type: add a single select field called Type to the Campaigns table in Airtable."
+              : "Campaign saved."}
           </span>
         )}
       </div>
@@ -210,10 +237,10 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
 }
 
 /** "New campaign" on the Campaigns list. Opens the new campaign once it's created. */
-export function NewCampaign({ sample }: { sample: boolean }) {
+export function NewCampaign({ sample, type }: { sample: boolean; type?: CampaignType }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState<FormState>(() => fromCampaign());
+  const [f, setF] = useState<FormState>(() => fromCampaign(undefined, undefined, type));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -238,7 +265,10 @@ export function NewCampaign({ sample }: { sample: boolean }) {
   if (!open) {
     return (
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setF(fromCampaign(undefined, undefined, type));
+          setOpen(true);
+        }}
         disabled={sample}
         title={sample ? "Connect Airtable to create campaigns" : undefined}
         className="subtitle bg-fb-red text-fb-white px-6 py-3.5 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"

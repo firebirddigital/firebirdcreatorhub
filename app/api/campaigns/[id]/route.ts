@@ -15,7 +15,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (error) return NextResponse.json({ error }, { status: 400 });
   if (!Object.keys(fields).length) return NextResponse.json({ ok: true });
 
-  await updateCampaign(id, fields);
+  const { typeSaved } = await updateCampaign(id, fields);
   revalidateTag("airtable");
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, typeSaved });
 }

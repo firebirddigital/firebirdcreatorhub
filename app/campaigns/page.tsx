@@ -5,11 +5,21 @@ import { StatusTag } from "@/components/StatusTag";
 import { isSampleMode } from "@/lib/config";
 import { getCampaignSummaries } from "@/lib/data";
 import { compact, dateRange, pct } from "@/lib/format";
+import { campaignType, type CampaignType } from "@/lib/types";
 
 export const revalidate = 300;
 
-export default async function CampaignsPage() {
-  const summaries = await getCampaignSummaries();
+const TABS: { key: string; type: CampaignType; label: string }[] = [
+  { key: "influencer", type: "Influencer", label: "Influencer Campaigns" },
+  { key: "seeding", type: "Content Seeding", label: "Content Seeding Campaigns" },
+];
+
+export default async function CampaignsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+  const [all, sp] = await Promise.all([getCampaignSummaries(), searchParams]);
+  const tab = TABS.find((t) => t.key === sp.type) ?? TABS[0];
+  const summaries = all.filter((s) => campaignType(s.campaign) === tab.type);
+  const count = (type: CampaignType) => all.filter((s) => campaignType(s.campaign) === type).length;
+  const typeFieldMissing = !isSampleMode() && all.length > 0 && all.every((s) => !s.campaign.type);
 
   return (
     <>
@@ -17,15 +27,39 @@ export default async function CampaignsPage() {
       <main className="px-[57px] max-sm:px-6 pb-24">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <h1 className="headline text-7xl max-sm:text-5xl">Campaigns</h1>
-          <NewCampaign sample={isSampleMode()} />
+          <NewCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
         </div>
+
+        <nav aria-label="Campaign type" className="mt-10 flex flex-wrap gap-x-8 gap-y-3 border-b-2 border-fb-black">
+          {TABS.map((t) => (
+            <Link
+              key={t.key}
+              href={`/campaigns?type=${t.key}`}
+              aria-current={t.key === tab.key ? "page" : undefined}
+              className={`subtitle -mb-0.5 pb-3 text-lg border-b-4 transition-colors ${
+                t.key === tab.key ? "border-fb-red" : "border-transparent hover:border-fb-black"
+              }`}
+            >
+              {t.label} <span className="font-sans font-normal text-base">{count(t.type)}</span>
+            </Link>
+          ))}
+        </nav>
+        {typeFieldMissing && (
+          <p className="mt-4 max-w-prose text-sm">
+            Sorted by name for now: anything with “seeding” in the name or song counts as Content Seeding. Add a single
+            select field called <span className="font-bold">Type</span> (Influencer, Content Seeding) to the Campaigns
+            table in Airtable to set it per campaign from Edit campaign.
+          </p>
+        )}
 
         {summaries.length === 0 ? (
           <p className="mt-10 max-w-prose">
-            No campaigns yet. Click New campaign to set up the first one.
+            {all.length
+              ? `No ${tab.label.toLowerCase()} yet. Click New campaign to set one up.`
+              : "No campaigns yet. Click New campaign to set up the first one."}
           </p>
         ) : (
-          <ul className="mt-12 border-t-2 border-fb-black">
+          <ul>
             {summaries.map(({ campaign, totals, posts, engagementRate }) => (
               <li key={campaign.id} className="border-b border-fb-black/20">
                 <Link

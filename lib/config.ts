@@ -37,6 +37,8 @@ export const CAMPAIGN_FIELDS = {
   stage: "Stage",
   brief: "Brief",
   showRates: "Show Rates",
+  // Optional single select: Influencer, Content Seeding. Without it the hub guesses from the name.
+  type: "Type",
 } as const;
 
 export const ASSIGNMENT_FIELDS = {

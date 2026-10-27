@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
 import { compact, money } from "@/lib/format";
 import type { Creator } from "@/lib/types";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
-type Sort = "reach" | "name" | "rate";
+type Sort = "reach" | "avgViews" | "name" | "rate";
+type View = "cards" | "table";
 
 const REACH_OPTIONS = [
   { label: "Any reach", value: 0 },
@@ -16,6 +18,24 @@ const REACH_OPTIONS = [
   { label: "1M+", value: 1_000_000 },
 ];
 
+const AVG_VIEWS_OPTIONS = [
+  { label: "Any views", value: 0 },
+  { label: "5K+", value: 5_000 },
+  { label: "10K+", value: 10_000 },
+  { label: "50K+", value: 50_000 },
+  { label: "100K+", value: 100_000 },
+  { label: "500K+", value: 500_000 },
+];
+
+const RATE_OPTIONS = [
+  { label: "Any rate", value: 0 },
+  { label: "Up to $250", value: 250 },
+  { label: "Up to $500", value: 500 },
+  { label: "Up to $1,000", value: 1_000 },
+  { label: "Up to $2,500", value: 2_500 },
+  { label: "Up to $5,000", value: 5_000 },
+];
+
 const reach = (c: Creator, platform: PlatformFilter) =>
   platform === "instagram"
     ? c.instagramFollowers
@@ -23,29 +43,66 @@ const reach = (c: Creator, platform: PlatformFilter) =>
       ? c.tiktokFollowers
       : c.instagramFollowers + c.tiktokFollowers;
 
-export function CreatorBrowser({ creators }: { creators: Creator[] }) {
+async function saveTags(updates: { id: string; tags: string[] }[]) {
+  const res = await fetch("/api/creators", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ updates }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error ?? "Tags didn't save. Try again.");
+}
+
+export function CreatorBrowser({ creators: initial, editable }: { creators: Creator[]; editable: boolean }) {
+  const router = useRouter();
+  // Tag edits show straight away; the server copy catches up on the next refresh.
+  const [tagEdits, setTagEdits] = useState<Record<string, string[]>>({});
+  const creators = useMemo(
+    () => initial.map((c) => (tagEdits[c.id] ? { ...c, tags: tagEdits[c.id] } : c)),
+    [initial, tagEdits],
+  );
+
+  const [view, setView] = useState<View>("table");
   const [query, setQuery] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [matchAll, setMatchAll] = useState(false);
+  const [untaggedOnly, setUntaggedOnly] = useState(false);
   const [platform, setPlatform] = useState<PlatformFilter>("any");
   const [minReach, setMinReach] = useState(0);
+  const [minAvgViews, setMinAvgViews] = useState(0);
+  const [maxRate, setMaxRate] = useState(0);
+  const [location, setLocation] = useState("");
   const [sort, setSort] = useState<Sort>("reach");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [message, setMessage] = useState<{ text: string; error?: boolean }>();
 
   const allTags = useMemo(() => {
     const counts = new Map<string, number>();
     creators.forEach((c) => c.tags.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1)));
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [creators]);
+  const untaggedCount = creators.filter((c) => !c.tags.length).length;
+
+  const locations = useMemo(
+    () => [...new Set(creators.map((c) => c.location).filter((l): l is string => Boolean(l)))].sort(),
+    [creators],
+  );
 
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase().replace(/^@/, "");
     return creators
       .filter((c) => {
-        if (tags.length && !tags.some((t) => c.tags.includes(t))) return false;
+        if (untaggedOnly && c.tags.length) return false;
+        if (tags.length && !(matchAll ? tags.every((t) => c.tags.includes(t)) : tags.some((t) => c.tags.includes(t))))
+          return false;
         if (platform === "instagram" && !c.instagram) return false;
         if (platform === "tiktok" && !c.tiktok) return false;
         if (reach(c, platform) < minReach) return false;
+        if (minAvgViews && (c.avgViews ?? 0) < minAvgViews) return false;
+        if (maxRate && (!c.rate || c.rate > maxRate)) return false;
+        if (location && c.location !== location) return false;
         if (!q) return true;
-        return [c.name, c.instagram, c.tiktok, c.location, ...c.tags]
+        return [c.name, c.instagram, c.tiktok, c.location, c.notes, ...c.tags]
           .filter(Boolean)
           .some((v) => v!.toLowerCase().includes(q));
       })
@@ -54,22 +111,55 @@ export function CreatorBrowser({ creators }: { creators: Creator[] }) {
           ? a.name.localeCompare(b.name)
           : sort === "rate"
             ? (a.rate ?? Infinity) - (b.rate ?? Infinity)
-            : reach(b, platform) - reach(a, platform),
+            : sort === "avgViews"
+              ? (b.avgViews ?? 0) - (a.avgViews ?? 0)
+              : reach(b, platform) - reach(a, platform),
       );
-  }, [creators, query, tags, platform, minReach, sort]);
+  }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, location, sort]);
 
-  const toggleTag = (t: string) => setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
-  const filtersOn = Boolean(query || tags.length || platform !== "any" || minReach);
+  const toggleTag = (t: string) => {
+    setUntaggedOnly(false);
+    setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
+  };
+  const filtersOn = Boolean(
+    query || tags.length || untaggedOnly || platform !== "any" || minReach || minAvgViews || maxRate || location,
+  );
+  const clearFilters = () => {
+    setQuery("");
+    setTags([]);
+    setUntaggedOnly(false);
+    setPlatform("any");
+    setMinReach(0);
+    setMinAvgViews(0);
+    setMaxRate(0);
+    setLocation("");
+  };
+
+  /** Applies tag changes locally, saves them, and rolls back if the save fails. */
+  async function applyTags(updates: { id: string; tags: string[] }[], done: string) {
+    const before = Object.fromEntries(updates.map((u) => [u.id, creators.find((c) => c.id === u.id)?.tags ?? []]));
+    setTagEdits((cur) => ({ ...cur, ...Object.fromEntries(updates.map((u) => [u.id, u.tags])) }));
+    setMessage(undefined);
+    try {
+      await saveTags(updates);
+      setMessage({ text: done });
+      router.refresh();
+    } catch (e) {
+      setTagEdits((cur) => ({ ...cur, ...before }));
+      setMessage({ text: e instanceof Error ? e.message : String(e), error: true });
+    }
+  }
 
   function exportCsv() {
     const rows = [
-      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Tags", "Location", "Rate", "Email"],
+      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Avg views", "Tags", "Location", "Rate", "Email"],
       ...shown.map((c) => [
         c.name,
         c.instagram ? `@${c.instagram}` : "",
         String(c.instagramFollowers || ""),
         c.tiktok ? `@${c.tiktok}` : "",
         String(c.tiktokFollowers || ""),
+        c.avgViews ? String(c.avgViews) : "",
         c.tags.join("; "),
         c.location ?? "",
         c.rate ? String(c.rate) : "",
@@ -84,9 +174,12 @@ export function CreatorBrowser({ creators }: { creators: Creator[] }) {
     URL.revokeObjectURL(a.href);
   }
 
+  const shownIds = shown.map((c) => c.id);
+  const selectedShown = selected.filter((id) => shownIds.includes(id));
+
   return (
     <div className="mt-12">
-      <div className="sticky top-0 z-10 bg-fb-white border-y-2 border-fb-black py-5 space-y-5">
+      <div className="md:sticky md:top-0 z-10 bg-fb-white border-y-2 border-fb-black py-5 space-y-5">
         <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
           <label className="flex-1 min-w-60">
             <span className="sr-only">Search creators</span>
@@ -94,7 +187,7 @@ export function CreatorBrowser({ creators }: { creators: Creator[] }) {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, handle or city"
+              placeholder="Search by name, handle, city or notes"
               className="w-full border-b-2 border-fb-black bg-transparent py-2 text-lg outline-none focus:border-fb-red"
             />
           </label>
@@ -115,33 +208,76 @@ export function CreatorBrowser({ creators }: { creators: Creator[] }) {
             options={REACH_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
           />
           <Select
+            label="Avg views"
+            value={String(minAvgViews)}
+            onChange={(v) => setMinAvgViews(Number(v))}
+            options={AVG_VIEWS_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
+          />
+          <Select
+            label="Rate"
+            value={String(maxRate)}
+            onChange={(v) => setMaxRate(Number(v))}
+            options={RATE_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
+          />
+          {locations.length > 0 && (
+            <Select
+              label="Location"
+              value={location}
+              onChange={setLocation}
+              options={[{ label: "Anywhere", value: "" }, ...locations.map((l) => ({ label: l, value: l }))]}
+            />
+          )}
+          <Select
             label="Sort"
             value={sort}
             onChange={(v) => setSort(v as Sort)}
             options={[
               { label: "Biggest reach", value: "reach" },
+              { label: "Most avg views", value: "avgViews" },
               { label: "Lowest rate", value: "rate" },
               { label: "Name", value: "name" },
             ]}
           />
         </div>
 
-        <div role="group" aria-label="Filter by niche" className="flex flex-wrap gap-2">
-          {allTags.map(([t, count]) => {
-            const on = tags.includes(t);
-            return (
+        <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Filter by tag" className="flex flex-wrap gap-2">
+            {allTags.map(([t, count]) => {
+              const on = tags.includes(t);
+              return (
+                <button
+                  key={t}
+                  onClick={() => toggleTag(t)}
+                  aria-pressed={on}
+                  className={`px-3 py-1.5 text-sm font-bold border-2 transition-colors ${
+                    on ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+                  }`}
+                >
+                  {t} <span className="font-normal">{count}</span>
+                </button>
+              );
+            })}
+            {untaggedCount > 0 && (
               <button
-                key={t}
-                onClick={() => toggleTag(t)}
-                aria-pressed={on}
-                className={`px-3 py-1.5 text-sm font-bold border-2 transition-colors ${
-                  on ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+                onClick={() => {
+                  setTags([]);
+                  setUntaggedOnly((v) => !v);
+                }}
+                aria-pressed={untaggedOnly}
+                className={`px-3 py-1.5 text-sm font-bold border-2 border-dashed transition-colors ${
+                  untaggedOnly ? "bg-fb-black border-fb-black text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
                 }`}
               >
-                {t} <span className="font-normal">{count}</span>
+                Needs tags <span className="font-normal">{untaggedCount}</span>
               </button>
-            );
-          })}
+            )}
+          </div>
+          {tags.length > 1 && (
+            <label className="ml-2 flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={matchAll} onChange={(e) => setMatchAll(e.target.checked)} className="size-4 accent-fb-red" />
+              Must have all {tags.length}
+            </label>
+          )}
         </div>
       </div>
 
@@ -149,27 +285,72 @@ export function CreatorBrowser({ creators }: { creators: Creator[] }) {
         <p className="figure text-2xl">
           {shown.length} <span className="font-sans font-normal text-base tracking-normal">of {creators.length} creators</span>
         </p>
-        <div className="flex gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-6 text-sm">
           {filtersOn && (
-            <button
-              onClick={() => {
-                setQuery("");
-                setTags([]);
-                setPlatform("any");
-                setMinReach(0);
-              }}
-              className="underline underline-offset-4 hover:text-fb-red"
-            >
+            <button onClick={clearFilters} className="underline underline-offset-4 hover:text-fb-red">
               Clear filters
             </button>
           )}
           <button onClick={exportCsv} disabled={!shown.length} className="font-bold underline underline-offset-4 hover:text-fb-red">
             Download this list
           </button>
+          <div role="group" aria-label="View" className="flex border-2 border-fb-black">
+            {(["table", "cards"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={`px-3 py-1 font-bold ${view === v ? "bg-fb-black text-fb-white" : "hover:bg-fb-black/10"}`}
+              >
+                {v === "table" ? "Table" : "Cards"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {shown.length ? (
+      {editable && view === "table" && selectedShown.length > 0 && (
+        <BulkTagBar
+          count={selectedShown.length}
+          allTags={allTags.map(([t]) => t)}
+          onApply={(tag, mode) => {
+            const updates = creators
+              .filter((c) => selectedShown.includes(c.id))
+              .map((c) => ({
+                id: c.id,
+                tags: mode === "add" ? [...new Set([...c.tags, tag])] : c.tags.filter((t) => t !== tag),
+              }));
+            applyTags(
+              updates,
+              `${mode === "add" ? "Added" : "Removed"} “${tag}” ${mode === "add" ? "to" : "from"} ${updates.length} ${
+                updates.length === 1 ? "creator" : "creators"
+              }.`,
+            );
+          }}
+          onClear={() => setSelected([])}
+        />
+      )}
+      {message && (
+        <p role="status" className={`mt-4 text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
+          {message.text}
+        </p>
+      )}
+
+      {!shown.length ? (
+        <p className="mt-10 max-w-prose">No creators match these filters. Remove a tag or loosen a filter.</p>
+      ) : view === "table" ? (
+        <CreatorTable
+          creators={shown}
+          activeTags={tags}
+          allTags={allTags.map(([t]) => t)}
+          editable={editable}
+          selected={selectedShown}
+          onSelect={(ids, on) =>
+            setSelected((cur) => (on ? [...new Set([...cur, ...ids])] : cur.filter((id) => !ids.includes(id))))
+          }
+          onTags={(c, next) => applyTags([{ id: c.id, tags: next }], `Saved tags for ${c.name}.`)}
+        />
+      ) : (
         <ul className="mt-8 grid gap-x-8 gap-y-12 grid-cols-[repeat(auto-fill,minmax(250px,1fr))]">
           {shown.map((c) => (
             <li key={c.id}>
@@ -177,10 +358,257 @@ export function CreatorBrowser({ creators }: { creators: Creator[] }) {
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="mt-10 max-w-prose">No creators match these filters. Remove a niche or lower the follower minimum.</p>
       )}
     </div>
+  );
+}
+
+function BulkTagBar({
+  count,
+  allTags,
+  onApply,
+  onClear,
+}: {
+  count: number;
+  allTags: string[];
+  onApply: (tag: string, mode: "add" | "remove") => void;
+  onClear: () => void;
+}) {
+  const [tag, setTag] = useState("");
+  const t = tag.trim();
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-4 border-2 border-fb-red p-4">
+      <p className="font-bold">
+        {count} selected
+      </p>
+      <label className="min-w-48 flex-1">
+        <span className="text-xs font-bold">Tag</span>
+        <input
+          list="creator-tag-options"
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+          placeholder="Pick or type a tag"
+          className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 outline-none focus:border-fb-red"
+        />
+        <datalist id="creator-tag-options">
+          {allTags.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
+      </label>
+      <button
+        disabled={!t}
+        onClick={() => onApply(t, "add")}
+        className="subtitle bg-fb-red text-fb-white px-4 py-2 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+      >
+        Add tag
+      </button>
+      <button
+        disabled={!t}
+        onClick={() => onApply(t, "remove")}
+        className="subtitle border-2 border-fb-black px-4 py-1.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
+      >
+        Remove tag
+      </button>
+      <button onClick={onClear} className="text-sm underline underline-offset-4">
+        Clear selection
+      </button>
+    </div>
+  );
+}
+
+function CreatorTable({
+  creators,
+  activeTags,
+  allTags,
+  editable,
+  selected,
+  onSelect,
+  onTags,
+}: {
+  creators: Creator[];
+  activeTags: string[];
+  allTags: string[];
+  editable: boolean;
+  selected: string[];
+  onSelect: (ids: string[], on: boolean) => void;
+  onTags: (c: Creator, tags: string[]) => void;
+}) {
+  const allOn = creators.every((c) => selected.includes(c.id));
+  const th = "py-2 pr-4 text-left text-xs font-bold whitespace-nowrap";
+  return (
+    <div className="mt-6 overflow-x-auto">
+      <table className="w-full min-w-[900px] border-t-2 border-fb-black text-sm">
+        <thead>
+          <tr className="border-b-2 border-fb-black">
+            {editable && (
+              <th className="py-2 pr-3 w-8">
+                <input
+                  type="checkbox"
+                  aria-label="Select all shown"
+                  checked={allOn}
+                  onChange={(e) => onSelect(creators.map((c) => c.id), e.target.checked)}
+                  className="size-4 accent-fb-red"
+                />
+              </th>
+            )}
+            <th className={th}>Creator</th>
+            <th className={`${th} text-right`}>TikTok</th>
+            <th className={`${th} text-right`}>Instagram</th>
+            <th className={`${th} text-right`}>Avg views</th>
+            <th className={`${th} text-right`}>Rate</th>
+            <th className={th}>Tags</th>
+          </tr>
+        </thead>
+        <tbody>
+          {creators.map((c) => (
+            <tr key={c.id} className="border-b border-fb-black/20 align-top">
+              {editable && (
+                <td className="py-3 pr-3">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${c.name}`}
+                    checked={selected.includes(c.id)}
+                    onChange={(e) => onSelect([c.id], e.target.checked)}
+                    className="size-4 accent-fb-red"
+                  />
+                </td>
+              )}
+              <td className="py-3 pr-4">
+                <p className="font-bold">{c.name}</p>
+                {c.location && <p className="text-xs">{c.location}</p>}
+              </td>
+              <td className="py-3 pr-4 text-right whitespace-nowrap">
+                {c.tiktok ? (
+                  <a href={`https://www.tiktok.com/@${c.tiktok}`} target="_blank" rel="noreferrer" className="hover:text-fb-red">
+                    <span className="figure text-base">{c.tiktokFollowers ? compact(c.tiktokFollowers) : "—"}</span>
+                    <span className="block text-xs">@{c.tiktok}</span>
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="py-3 pr-4 text-right whitespace-nowrap">
+                {c.instagram ? (
+                  <a href={`https://www.instagram.com/${c.instagram}/`} target="_blank" rel="noreferrer" className="hover:text-fb-red">
+                    <span className="figure text-base">{c.instagramFollowers ? compact(c.instagramFollowers) : "—"}</span>
+                    <span className="block text-xs">@{c.instagram}</span>
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
+              <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>
+              <td className="py-3 min-w-64">
+                <TagCell creator={c} activeTags={activeTags} allTags={allTags} editable={editable} onTags={onTags} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TagCell({
+  creator: c,
+  activeTags,
+  allTags,
+  editable,
+  onTags,
+}: {
+  creator: Creator;
+  activeTags: string[];
+  allTags: string[];
+  editable: boolean;
+  onTags: (c: Creator, tags: string[]) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  // Enter submits and the input then blurs as it closes; only the first one should save.
+  const committed = useRef(false);
+  const listId = `tags-${c.id}`;
+
+  function add() {
+    if (committed.current) return;
+    committed.current = true;
+    const t = draft.trim();
+    setDraft("");
+    setAdding(false);
+    if (t && !c.tags.includes(t)) onTags(c, [...c.tags, t]);
+  }
+
+  return (
+    <ul className="flex flex-wrap items-center gap-1.5">
+      {c.tags.map((t) => (
+        <li
+          key={t}
+          className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 ${
+            activeTags.includes(t) ? "bg-fb-red text-fb-white" : "border border-fb-black"
+          }`}
+        >
+          {t}
+          {editable && (
+            <button
+              onClick={() => onTags(c, c.tags.filter((x) => x !== t))}
+              aria-label={`Remove ${t} from ${c.name}`}
+              className="leading-none opacity-60 hover:opacity-100"
+            >
+              ×
+            </button>
+          )}
+        </li>
+      ))}
+      {!c.tags.length && <li className="text-xs italic">No tags</li>}
+      {editable && (
+        <li>
+          {adding ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                add();
+              }}
+            >
+              <input
+                autoFocus
+                list={listId}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={add}
+                onKeyDown={(e) => {
+                  if (e.key !== "Escape") return;
+                  committed.current = true;
+                  setDraft("");
+                  setAdding(false);
+                }}
+                placeholder="Tag"
+                aria-label={`Add a tag to ${c.name}`}
+                className="w-28 border-b-2 border-fb-black bg-transparent py-0.5 text-xs outline-none focus:border-fb-red"
+              />
+              <datalist id={listId}>
+                {allTags
+                  .filter((t) => !c.tags.includes(t))
+                  .map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+              </datalist>
+            </form>
+          ) : (
+            <button
+              onClick={() => {
+                committed.current = false;
+                setAdding(true);
+              }}
+              aria-label={`Add a tag to ${c.name}`}
+              className="text-xs font-bold px-2 py-0.5 border border-dashed border-fb-black hover:bg-fb-black hover:text-fb-white"
+            >
+              + Tag
+            </button>
+          )}
+        </li>
+      )}
+    </ul>
   );
 }
 
@@ -211,6 +639,12 @@ function CreatorCard({ creator: c, activeTags }: { creator: Creator; activeTags:
         {c.instagram && (
           <Handle platform="Instagram" handle={c.instagram} followers={c.instagramFollowers} href={`https://www.instagram.com/${c.instagram}/`} />
         )}
+        {c.avgViews ? (
+          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
+            <dt className="text-sm font-bold">Avg views</dt>
+            <dd className="figure text-lg">{compact(c.avgViews)}</dd>
+          </div>
+        ) : null}
       </dl>
 
       <ul className="mt-3 flex flex-wrap gap-1.5">
