@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { compact, money } from "@/lib/format";
+import { pullStatsInBatches } from "@/lib/pull-stats";
 import type { Creator } from "@/lib/types";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
@@ -74,6 +75,7 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
   const [location, setLocation] = useState("");
   const [sort, setSort] = useState<Sort>("reach");
   const [selected, setSelected] = useState<string[]>([]);
+  const [pulling, setPulling] = useState<{ done: number; total: number }>();
   const [message, setMessage] = useState<{ text: string; error?: boolean }>();
 
   const allTags = useMemo(() => {
@@ -152,7 +154,7 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
 
   function exportCsv() {
     const rows = [
-      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Avg views", "Tags", "Location", "Rate", "Email"],
+      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Avg views (last 20 posts)", "Tags", "Location", "Rate", "Email"],
       ...shown.map((c) => [
         c.name,
         c.instagram ? `@${c.instagram}` : "",
@@ -208,7 +210,7 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
             options={REACH_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
           />
           <Select
-            label="Avg views"
+            label="Avg views (last 20)"
             value={String(minAvgViews)}
             onChange={(v) => setMinAvgViews(Number(v))}
             options={AVG_VIEWS_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
@@ -328,6 +330,26 @@ export function CreatorBrowser({ creators: initial, editable }: { creators: Crea
             );
           }}
           onClear={() => setSelected([])}
+          pulling={pulling}
+          onPullStats={async () => {
+            const ids = selectedShown;
+            setPulling({ done: 0, total: ids.length });
+            setMessage(undefined);
+            try {
+              const r = await pullStatsInBatches(ids, (done) => setPulling({ done, total: ids.length }));
+              const missed = r.requested - r.updated;
+              setMessage({
+                text: `Pulled followers and average views (last 20 posts) for ${r.updated} of ${r.requested} creators.${
+                  missed ? ` ${missed} had no public TikTok or Instagram to read.` : ""
+                }`,
+              });
+              router.refresh();
+            } catch (e) {
+              setMessage({ text: e instanceof Error ? e.message : String(e), error: true });
+            } finally {
+              setPulling(undefined);
+            }
+          }}
         />
       )}
       {message && (
@@ -368,11 +390,15 @@ function BulkTagBar({
   allTags,
   onApply,
   onClear,
+  pulling,
+  onPullStats,
 }: {
   count: number;
   allTags: string[];
   onApply: (tag: string, mode: "add" | "remove") => void;
   onClear: () => void;
+  pulling?: { done: number; total: number };
+  onPullStats: () => void;
 }) {
   const [tag, setTag] = useState("");
   const t = tag.trim();
@@ -409,6 +435,14 @@ function BulkTagBar({
         className="subtitle border-2 border-fb-black px-4 py-1.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
       >
         Remove tag
+      </button>
+      <button
+        onClick={onPullStats}
+        disabled={Boolean(pulling)}
+        title="Followers and average views across their last 20 posts. Uses a little Apify credit per creator."
+        className="subtitle border-2 border-fb-black px-4 py-1.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
+      >
+        {pulling ? `Pulling stats ${pulling.done} of ${pulling.total}` : "Pull stats"}
       </button>
       <button onClick={onClear} className="text-sm underline underline-offset-4">
         Clear selection
@@ -455,7 +489,7 @@ function CreatorTable({
             <th className={th}>Creator</th>
             <th className={`${th} text-right`}>TikTok</th>
             <th className={`${th} text-right`}>Instagram</th>
-            <th className={`${th} text-right`}>Avg views</th>
+            <th className={`${th} text-right`} title="Average views across their last 20 posts">Avg views<span className="block font-normal">last 20 posts</span></th>
             <th className={`${th} text-right`}>Rate</th>
             <th className={th}>Tags</th>
           </tr>
@@ -641,7 +675,7 @@ function CreatorCard({ creator: c, activeTags }: { creator: Creator; activeTags:
         )}
         {c.avgViews ? (
           <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-            <dt className="text-sm font-bold">Avg views</dt>
+            <dt className="text-sm font-bold">Avg views <span className="font-normal">(last 20 posts)</span></dt>
             <dd className="figure text-lg">{compact(c.avgViews)}</dd>
           </div>
         ) : null}

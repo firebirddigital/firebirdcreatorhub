@@ -1,9 +1,18 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isSampleMode } from "@/lib/config";
 import { getAssignment, getCampaign } from "@/lib/data";
-import { addCreatorsToCampaign, findOrCreateCreator, type NewCreatorInput, updateAssignment, UserError } from "@/lib/roster";
+import {
+  addCreatorsToCampaign,
+  findOrCreateCreator,
+  type NewCreatorInput,
+  refreshCreatorStats,
+  updateAssignment,
+  UserError,
+} from "@/lib/roster";
 import type { AssignmentStatus } from "@/lib/types";
+
+export const maxDuration = 300;
 
 const sampleBlock = () => NextResponse.json({ error: "Connect Airtable to change the roster." }, { status: 400 });
 
@@ -46,7 +55,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const added = await addCreatorsToCampaign(id, creatorIds);
   revalidateTag("airtable");
-  return NextResponse.json({ ok: true, added, newCreator: created });
+
+  // Pull followers and average views (last 20 posts) after responding, unless the profile link
+  // lookup already supplied them for a single platform.
+  const n = body.newCreator;
+  const hasHandle = Boolean(n?.instagram || n?.tiktok);
+  const lookedUp = typeof n?.avgViews === "number" && !(n?.instagram && n?.tiktok);
+  if (created && hasHandle && !lookedUp && process.env.APIFY_TOKEN) {
+    const creatorId = created.id;
+    after(async () => {
+      await refreshCreatorStats([creatorId]).catch(() => undefined);
+      revalidateTag("airtable");
+    });
+  }
+  return NextResponse.json({ ok: true, added, newCreator: created, pullingStats: Boolean(created && hasHandle && !lookedUp) });
 }
 
 const STATUSES: AssignmentStatus[] = ["Proposed", "Approved", "Changes requested", "Declined"];

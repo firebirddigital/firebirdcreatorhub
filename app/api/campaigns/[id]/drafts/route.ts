@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isSampleMode } from "@/lib/config";
 import { getCampaign } from "@/lib/data";
 import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
-import { createDraft, ensureDraftAssignment, UserError } from "@/lib/roster";
+import { createDraft, ensureDraftAssignment, refreshCreatorStats, UserError } from "@/lib/roster";
 
 const TEAM_SUBMITTER = "Firebird team";
+
+export const maxDuration = 300;
 
 // Team only (middleware). Adds a draft for any creator: one already on the campaign, one from
 // the roster, or a brand new one. Fills in the roster entry if the Creators step was skipped.
@@ -49,6 +51,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     const version = await createDraft(assignment, saved, body.caption, TEAM_SUBMITTER);
     revalidateTag("airtable");
+    // A brand new creator gets followers and average views (last 20 posts) pulled after responding.
+    if (createdCreator && assignment.creatorId && process.env.APIFY_TOKEN) {
+      const creatorId = assignment.creatorId;
+      after(async () => {
+        await refreshCreatorStats([creatorId]).catch(() => undefined);
+        revalidateTag("airtable");
+      });
+    }
     return NextResponse.json({ ok: true, version, createdCreator, addedToCampaign });
   } catch (e) {
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });

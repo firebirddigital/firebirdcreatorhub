@@ -27,7 +27,7 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
           { label: "Approved", value: String(approved.length) },
           { label: "Awaiting review", value: String(awaiting) },
           {
-            label: "Avg views per post",
+            label: "Avg views, last 20 posts",
             value: avgs.length ? compact(avgs.reduce((a, b) => a + b, 0) / avgs.length) : "—",
           },
           ...(showFees ? [{ label: "Approved fees", value: fees ? money(fees) : "—" }] : []),
@@ -149,7 +149,7 @@ function RosterCard({ assignment: a, showFee }: { assignment: Assignment; showFe
           />
         )}
         <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-          <dt className="text-sm">Avg views per post</dt>
+          <dt className="text-sm">Avg views (last 20 posts)</dt>
           <dd className="figure text-lg">{c?.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
         {showFee && (

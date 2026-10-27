@@ -1,6 +1,6 @@
 // Writes for the Creators → Drafts → Live workflow. Server-side only.
 import { createRecords, updateRecords } from "./airtable";
-import { fetchProfileStats } from "./apify";
+import { fetchProfileStats, latest, type ProfileStats } from "./apify";
 import {
   ASSIGNMENT_FIELDS as AF,
   CAMPAIGN_FIELDS as CF,
@@ -283,9 +283,15 @@ function cleanHandle(h?: string) {
   return h?.trim().replace(/^@/, "").replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "") || undefined;
 }
 
+/** Average views across a creator's last 20 posts, taking the newest across TikTok and Instagram together. */
+export function combinedAvgViews(...platforms: (ProfileStats | undefined)[]): number | undefined {
+  const recent = latest(platforms.flatMap((p) => p?.recent ?? []));
+  return recent.length ? Math.round(recent.reduce((t, p) => t + p.views, 0) / recent.length) : undefined;
+}
+
 /**
- * Pulls followers and average views for creators from their recent posts.
- * Average views blends both platforms' recent videos.
+ * Pulls followers and average views (last 20 posts) for creators.
+ * Creators on both platforms get their 20 newest posts across both.
  */
 export async function refreshCreatorStats(creatorIds: string[]) {
   const creators = (await getCreators({ fresh: true })).filter((c) => creatorIds.includes(c.id));
@@ -302,10 +308,7 @@ export async function refreshCreatorStats(creatorIds: string[]) {
       const tt = c.tiktok ? stats.get(`tiktok:${c.tiktok.toLowerCase()}`) : undefined;
       const ig = c.instagram ? stats.get(`instagram:${c.instagram.toLowerCase()}`) : undefined;
       if (!tt && !ig) return undefined;
-      const totalVideos = (tt?.videos ?? 0) + (ig?.videos ?? 0);
-      const avg = totalVideos
-        ? Math.round(((tt?.avgViews ?? 0) * (tt?.videos ?? 0) + (ig?.avgViews ?? 0) * (ig?.videos ?? 0)) / totalVideos)
-        : undefined;
+      const avg = combinedAvgViews(tt, ig);
       const fields: Record<string, unknown> = { [CRF.statsUpdated]: now };
       if (tt?.followers) fields[CRF.tiktokFollowers] = tt.followers;
       if (ig?.followers) fields[CRF.instagramFollowers] = ig.followers;

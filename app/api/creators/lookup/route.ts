@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       name: stats?.name,
       followers: stats?.followers,
       avgViews: stats?.avgViews,
+      postsCounted: stats?.videos,
       found: Boolean(stats),
       existing: existing && { id: existing.id, name: existing.name },
     });

@@ -216,7 +216,7 @@ function NewCreatorForm({
                   <>
                     Found <span className="font-bold">{lookup.result.name ?? `@${lookup.handle}`}</span>
                     {lookup.result.followers ? `, ${compact(lookup.result.followers)} followers` : ""}
-                    {lookup.result.avgViews ? `, ${compact(lookup.result.avgViews)} avg views` : ""}.
+                    {lookup.result.avgViews ? `, ${compact(lookup.result.avgViews)} avg views (last 20 posts)` : ""}.
                   </>
                 ) : (
                   <>Couldn&apos;t read @{lookup.handle}&apos;s profile (it may be private). Type the name and save anyway.</>
@@ -374,7 +374,7 @@ export function RosterTools({
           onClick={() =>
             run("stats", async () => {
               const d = await call(`/api/campaigns/${campaignId}/creator-stats`, "POST");
-              return `Updated followers and average views for ${d.updated} of ${d.requested} creators.`;
+              return `Updated followers and average views (last 20 posts) for ${d.updated} of ${d.requested} creators.`;
             })
           }
           disabled={sample || busy === "stats"}
@@ -488,7 +488,7 @@ export function RosterTools({
                 const { link: _link, nameAuto: _auto, ...fields } = newCreator;
                 const d = (await call(`/api/campaigns/${campaignId}/roster`, "POST", {
                   newCreator: { ...fields, rate: fields.rate ? Number(fields.rate) : undefined },
-                })) as { added?: number; newCreator?: { created: boolean; name: string } };
+                })) as { added?: number; newCreator?: { created: boolean; name: string }; pullingStats?: boolean };
                 setNewCreator(undefined);
                 const who = d.newCreator?.name ?? newCreator.name;
                 if (d.newCreator && !d.newCreator.created) {
@@ -496,7 +496,11 @@ export function RosterTools({
                     ? `${who} was already in the database (same handle), so we added them to this campaign as Proposed.`
                     : `${who} is already in the database and on this campaign.`;
                 }
-                return `Added ${who} to the Creators database and to this campaign as Proposed. Click Refresh creator stats to pull their followers.`;
+                return `Added ${who} to the Creators database and to this campaign as Proposed.${
+                  d.pullingStats
+                    ? " Pulling their followers and average views (last 20 posts) now; reload in a minute to see them."
+                    : ""
+                }`;
               })
             }
           />

@@ -11,6 +11,8 @@ export type ImportAction = "create" | "update" | "unchanged" | "duplicate" | "sk
 export interface ImportRowResult {
   row: number; // 1-based, matching the spreadsheet row under the header
   action: ImportAction;
+  /** The Airtable record, once known (always for matches; for new creators after the import runs). */
+  id?: string;
   name?: string;
   /** For update/unchanged/duplicate: who it matched. For update: what gets filled in. */
   detail?: string;
@@ -150,7 +152,7 @@ export async function importCreators(
     byName.set(cr.name.toLowerCase(), cr);
   }
 
-  const pendingCreates: { clean: Clean; row: number }[] = [];
+  const pendingCreates: { clean: Clean; row: number; result: ImportRowResult }[] = [];
   const createdByKey = new Map<string, number>(); // "ig:x" / "tt:x" / "name:x" → index in pendingCreates
   const updates = new Map<string, { existing: Creator; fields: Record<string, unknown> }>();
   const results: ImportRowResult[] = [];
@@ -180,9 +182,9 @@ export async function importCreators(
       const { fields, filled } = fillFields(base, c);
       if (Object.keys(fields).length) {
         updates.set(existing.id, { existing, fields: { ...(pending?.fields ?? {}), ...fields } });
-        results.push({ row, action: "update", name: existing.name, detail: `Already in the database. Adds ${filled.join(", ")}.`, warnings });
+        results.push({ row, action: "update", id: existing.id, name: existing.name, detail: `Already in the database. Adds ${filled.join(", ")}.`, warnings });
       } else {
-        results.push({ row, action: "unchanged", name: existing.name, detail: "Already in the database with these details.", warnings });
+        results.push({ row, action: "unchanged", id: existing.id, name: existing.name, detail: "Already in the database with these details.", warnings });
       }
       return;
     }
@@ -197,13 +199,17 @@ export async function importCreators(
       return;
     }
 
-    pendingCreates.push({ clean: c, row });
+    const result: ImportRowResult = { row, action: "create", name: c.name, warnings };
+    pendingCreates.push({ clean: c, row, result });
     keys.forEach((k) => createdByKey.set(k, pendingCreates.length - 1));
-    results.push({ row, action: "create", name: c.name, warnings });
+    results.push(result);
   });
 
   if (!opts.dryRun) {
-    if (pendingCreates.length) await createRecords(TABLES.creators, pendingCreates.map((p) => ({ fields: createFields(p.clean) })));
+    if (pendingCreates.length) {
+      const created = await createRecords(TABLES.creators, pendingCreates.map((p) => ({ fields: createFields(p.clean) })));
+      created.forEach((rec, i) => (pendingCreates[i].result.id = rec.id));
+    }
     if (updates.size) await updateRecords(TABLES.creators, [...updates.entries()].map(([id, u]) => ({ id, fields: u.fields })));
   }
 

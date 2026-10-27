@@ -12,6 +12,7 @@ import {
   type RawCreatorRow,
 } from "@/lib/csv-import";
 import type { ImportAction, ImportRowResult } from "@/lib/creator-import";
+import { pullStatsInBatches } from "@/lib/pull-stats";
 
 const BATCH = 200;
 const MAX_ROWS = 5000;
@@ -56,6 +57,8 @@ export function CreatorImport() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string>();
   const [done, setDone] = useState<Counts>();
+  const [newIds, setNewIds] = useState<string[]>([]);
+  const [stats, setStats] = useState<{ state: "pulling" | "done"; done: number; text?: string }>();
 
   const rawRows = useMemo(() => toRawRows(body, mapping), [body, mapping]);
   const hasIdentity = mapping.some((m) => m === "name" || m === "instagram" || m === "tiktok" || m === "link");
@@ -68,6 +71,8 @@ export function CreatorImport() {
     setPreview(undefined);
     setError(undefined);
     setDone(undefined);
+    setNewIds([]);
+    setStats(undefined);
     setProgress(0);
     setFilter("all");
   }
@@ -93,6 +98,23 @@ export function CreatorImport() {
     setMapping(rows[0].map(guessField));
   }
 
+  async function pullNewStats() {
+    setStats({ state: "pulling", done: 0 });
+    try {
+      const r = await pullStatsInBatches(newIds, (d) => setStats({ state: "pulling", done: d }));
+      setStats({
+        state: "done",
+        done: newIds.length,
+        text: `Pulled followers and average views (last 20 posts) for ${r.updated} of ${r.requested}.${
+          r.requested - r.updated ? ` ${r.requested - r.updated} had no public TikTok or Instagram to read.` : ""
+        }`,
+      });
+      router.refresh();
+    } catch (e) {
+      setStats({ state: "done", done: 0, text: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
   async function check() {
     setBusy("checking");
     setError(undefined);
@@ -111,10 +133,13 @@ export function CreatorImport() {
     setError(undefined);
     setProgress(0);
     const total: Counts = { create: 0, update: 0, unchanged: 0, duplicate: 0, skip: 0 };
+    const created: string[] = [];
     try {
       for (let i = 0; i < rawRows.length; i += BATCH) {
-        const { counts } = await post(rawRows.slice(i, i + BATCH), false, i + 2);
+        const { counts, results } = await post(rawRows.slice(i, i + BATCH), false, i + 2);
         (Object.keys(total) as ImportAction[]).forEach((k) => (total[k] += counts[k]));
+        results.forEach((r) => r.action === "create" && r.id && created.push(r.id));
+        setNewIds([...created]);
         setProgress(Math.min(rawRows.length, i + BATCH));
       }
       setDone(total);
@@ -358,6 +383,21 @@ export function CreatorImport() {
             Added {done.create} new {done.create === 1 ? "creator" : "creators"}, updated {done.update}
             {done.skip ? `, skipped ${done.skip}` : ""}. They&apos;re in the list below. Use Needs tags to find anyone still untagged.
           </p>
+          {newIds.length > 0 && (
+            <div className="mt-4 border-2 border-fb-black p-4">
+              <p className="text-sm">
+                Pull followers and average views (last 20 posts) for the {newIds.length} new{" "}
+                {newIds.length === 1 ? "creator" : "creators"}? It runs about 10 at a time and uses a little Apify credit
+                per creator{newIds.length > 50 ? ", so a big list takes a few minutes. Keep this page open" : ""}.
+              </p>
+              {stats?.state !== "done" && (
+                <button onClick={pullNewStats} disabled={stats?.state === "pulling"} className={`mt-3 ${BUTTON_PRIMARY}`}>
+                  {stats?.state === "pulling" ? `Pulling stats ${stats.done} of ${newIds.length}` : "Pull stats now"}
+                </button>
+              )}
+              {stats?.text && <p className="mt-3 text-sm font-bold">{stats.text}</p>}
+            </div>
+          )}
           <button onClick={reset} className={`mt-4 ${BUTTON}`}>
             Import another file
           </button>

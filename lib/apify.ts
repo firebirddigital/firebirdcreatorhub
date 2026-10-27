@@ -106,81 +106,123 @@ function author(platform: Platform, handle?: string, name?: string, followers?: 
   return h ? { platform, handle: h, name: name?.trim() || undefined, followers } : undefined;
 }
 
+/** How many of a creator's most recent posts the average views covers. */
+export const RECENT_POSTS = 20;
+
+export interface RecentPost {
+  views: number;
+  /** ISO time it was posted, when the scraper gives one. */
+  at?: string;
+}
+
 export interface ProfileStats {
   platform: Platform;
   handle: string;
   name?: string;
   followers?: number;
+  /** Average views across the account's last RECENT_POSTS posts that report views. */
   avgViews?: number;
+  /** Posts that went into the average (photos have no view count, so this can be under 20). */
   videos: number;
+  /** The posts behind the average, newest first, so two platforms can be combined by date. */
+  recent: RecentPost[];
 }
 
 const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : undefined);
 
-/** Followers and average views across each account's recent videos. Keyed like `tiktok:handle`. */
+/** Newest first, capped at RECENT_POSTS. Posts without a date keep the scraper's order (which is newest first). */
+export function latest(posts: RecentPost[]): RecentPost[] {
+  return [...posts]
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => (a.p.at && b.p.at ? b.p.at.localeCompare(a.p.at) : a.i - b.i))
+    .map(({ p }) => p)
+    .slice(0, RECENT_POSTS);
+}
+
+const iso = (v: unknown) => {
+  if (typeof v === "string" && !isNaN(Date.parse(v))) return new Date(v).toISOString();
+  if (typeof v === "number" && v > 0) return new Date(v < 1e12 ? v * 1000 : v).toISOString();
+  return undefined;
+};
+
+/**
+ * Followers and average views across each account's last 20 posts. Keyed like `tiktok:handle`.
+ * Instagram needs two runs: the profile (name, followers) and its 20 latest posts (views).
+ */
 export async function fetchProfileStats(
   accounts: { platform: Platform; handle: string }[],
 ): Promise<Map<string, ProfileStats>> {
   const out = new Map<string, ProfileStats>();
   const tt = accounts.filter((a) => a.platform === "tiktok").map((a) => a.handle);
   const ig = accounts.filter((a) => a.platform === "instagram").map((a) => a.handle);
+  const igUrls = ig.map((h) => `https://www.instagram.com/${h}/`);
 
-  const [ttItems, igItems] = await Promise.all([
+  const [ttItems, igProfiles, igPosts] = await Promise.all([
     tt.length
       ? runActor(TT_ACTOR(), {
           profiles: tt,
-          resultsPerPage: 12,
+          resultsPerPage: RECENT_POSTS,
           shouldDownloadVideos: false,
           shouldDownloadCovers: false,
           shouldDownloadSubtitles: false,
         })
       : Promise.resolve([] as Item[]),
+    ig.length ? runActor(IG_ACTOR(), { directUrls: igUrls, resultsType: "details", resultsLimit: 1 }) : Promise.resolve([] as Item[]),
     ig.length
-      ? runActor(IG_ACTOR(), {
-          directUrls: ig.map((h) => `https://www.instagram.com/${h}/`),
-          resultsType: "details",
-          resultsLimit: 1,
-        })
+      ? runActor(IG_ACTOR(), { directUrls: igUrls, resultsType: "posts", resultsLimit: RECENT_POSTS, addParentData: false })
       : Promise.resolve([] as Item[]),
   ]);
 
   // TikTok: one item per video; group by author
-  const byAuthor = new Map<string, { name?: string; followers?: number; views: number[] }>();
+  const byAuthor = new Map<string, { name?: string; followers?: number; posts: RecentPost[] }>();
   for (const it of ttItems) {
     const meta = (it.authorMeta ?? {}) as Item;
     const handle = s(meta.name, meta.uniqueId)?.toLowerCase();
     if (!handle) continue;
-    const g = byAuthor.get(handle) ?? { views: [] };
+    const g = byAuthor.get(handle) ?? { posts: [] };
     g.name ??= s(meta.nickName, meta.nickname);
     g.followers ??= n(meta.fans, meta.followerCount) || undefined;
     const v = n(it.playCount, ((it.stats ?? {}) as Item).playCount);
-    if (v) g.views.push(v);
+    if (v) g.posts.push({ views: v, at: iso(it.createTimeISO ?? it.createTime) });
     byAuthor.set(handle, g);
   }
-  byAuthor.forEach((g, handle) =>
+  byAuthor.forEach((g, handle) => {
+    const recent = latest(g.posts);
     out.set(`tiktok:${handle}`, {
       platform: "tiktok",
       handle,
       name: g.name,
       followers: g.followers,
-      avgViews: mean(g.views),
-      videos: g.views.length,
-    }),
-  );
+      avgViews: mean(recent.map((p) => p.views)),
+      videos: recent.length,
+      recent,
+    });
+  });
 
-  // Instagram: one "details" item per profile, with its latest posts
-  for (const it of igItems) {
+  // Instagram: name and followers from the profile; views from the latest posts (videos and reels only)
+  const igPostsBy = new Map<string, RecentPost[]>();
+  for (const p of igPosts) {
+    const handle = s(p.ownerUsername, (p.owner as Item | undefined)?.username)?.toLowerCase();
+    const v = n(p.videoPlayCount, p.videoViewCount, p.playCount);
+    if (!handle || !v) continue;
+    igPostsBy.set(handle, [...(igPostsBy.get(handle) ?? []), { views: v, at: iso(p.timestamp ?? p.takenAt) }]);
+  }
+  for (const it of igProfiles) {
     const handle = s(it.username)?.toLowerCase();
     if (!handle) continue;
-    const posts = (Array.isArray(it.latestPosts) ? it.latestPosts : []) as Item[];
-    const views = posts.map((p) => n(p.videoPlayCount, p.videoViewCount)).filter((v) => v > 0);
+    // Fall back to the profile's own latest posts if the posts run came back empty
+    const fallback = ((Array.isArray(it.latestPosts) ? it.latestPosts : []) as Item[])
+      .map((p) => ({ views: n(p.videoPlayCount, p.videoViewCount), at: iso(p.timestamp) }))
+      .filter((p) => p.views > 0);
+    const recent = latest(igPostsBy.get(handle)?.length ? igPostsBy.get(handle)! : fallback);
     out.set(`instagram:${handle}`, {
       platform: "instagram",
       handle,
       name: s(it.fullName),
       followers: n(it.followersCount) || undefined,
-      avgViews: mean(views),
-      videos: views.length,
+      avgViews: mean(recent.map((p) => p.views)),
+      videos: recent.length,
+      recent,
     });
   }
   return out;
