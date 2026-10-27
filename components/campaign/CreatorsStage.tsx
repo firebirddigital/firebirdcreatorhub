@@ -4,6 +4,7 @@ import { trackRecordText } from "../TrackRecordLine";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
 import { AssignmentControls } from "./TeamControls";
+import { CreatorEditButton } from "./CreatorEditButton";
 
 const reach = (a: Assignment) => (a.creator ? a.creator.instagramFollowers + a.creator.tiktokFollowers : 0);
 
@@ -103,6 +104,11 @@ export function CreatorsBody({
                       allowDecline
                       decided={a.status !== "Proposed"}
                     />
+                  )}
+                  {team && a.creator && (
+                    <div className="mb-4">
+                      <CreatorEditButton key={JSON.stringify(a.creator)} creator={a.creator} />
+                    </div>
                   )}
                   {team && (
                     <AssignmentControls

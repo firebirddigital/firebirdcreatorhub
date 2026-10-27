@@ -279,7 +279,7 @@ export async function findOrCreateCreator(
   return { id: rec.id, created: true, name };
 }
 
-function cleanHandle(h?: string) {
+export function cleanHandle(h?: string) {
   return h?.trim().replace(/^@/, "").replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "") || undefined;
 }
 
