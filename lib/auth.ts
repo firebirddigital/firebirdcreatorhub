@@ -43,6 +43,15 @@ export async function isValidShare(campaignId: string, sig: string): Promise<boo
   return safeEqual(sig, await shareSignature(campaignId));
 }
 
+/** Signature for an artist's results link: /artist/<artistKey>/<sig>, where artistKey is the normalized name. */
+export async function artistSignature(artistKey: string): Promise<string> {
+  return (await hmac(`artist:${artistKey}`)).slice(0, 24);
+}
+
+export async function isValidArtistShare(artistKey: string, sig: string): Promise<boolean> {
+  return safeEqual(sig, await artistSignature(artistKey));
+}
+
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

@@ -2,10 +2,13 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { AnalyticsFilters } from "@/components/AnalyticsFilters";
 import { PartnerRemoveButton } from "@/components/PartnerRemoveButton";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { artistSignature } from "@/lib/auth";
+import { siteOrigin } from "@/lib/origin";
 import { analyticsHref } from "@/lib/analytics-href";
 import { HeroStats } from "@/components/campaign/Shell";
 import { StatusTag } from "@/components/StatusTag";
-import { getAnalytics, type BreakdownRow, type Period } from "@/lib/analytics";
+import { getAnalytics, normalize, type BreakdownRow, type Period } from "@/lib/analytics";
 import { compact, dateRange, money, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +28,16 @@ export default async function AnalyticsPage({
   const t = a.totals;
   const scope = [a.partner, a.artist].filter(Boolean).join(" · ") || "Every campaign";
   const portfolioRows = a.byPartner.filter((r) => r.portfolio);
+  // Shareable results link for each artist in view.
+  const origin = await siteOrigin();
+  const artistLinks: Record<string, string> = Object.fromEntries(
+    await Promise.all(
+      a.byArtist.map(async (r) => {
+        const key = normalize(r.name);
+        return [r.name, `${origin}/artist/${key}/${await artistSignature(key)}`] as const;
+      }),
+    ),
+  );
   const otherRows = a.byPartner.filter((r) => !r.portfolio);
 
   return (
@@ -103,7 +116,7 @@ export default async function AnalyticsPage({
           {a.byArtist.length > 0 && (
             <section>
               <h2 className="headline text-3xl">By artist</h2>
-              <Breakdown rows={a.byArtist} kind="artist" period={period} partner={a.partner} />
+              <Breakdown rows={a.byArtist} kind="artist" period={period} partner={a.partner} shareLinks={artistLinks} />
             </section>
           )}
 
@@ -179,12 +192,14 @@ function Breakdown({
   period,
   artist,
   partner,
+  shareLinks,
 }: {
   rows: BreakdownRow[];
   kind: "partner" | "artist";
   period: Period;
   artist?: string;
   partner?: string;
+  shareLinks?: Record<string, string>;
 }) {
   const th = "py-3 pr-4 text-xs font-bold whitespace-nowrap text-right";
   return (
@@ -218,6 +233,14 @@ function Breakdown({
                     {[r.types?.join(", "), r.rosterArtists ? `${r.rosterArtists} roster ${r.rosterArtists === 1 ? "artist" : "artists"}` : ""].filter(Boolean).join(" · ")}
                     </span>
                     <PartnerRemoveButton name={r.name} leaveFilter={partner === r.name ? analyticsHref({ period, artist }) : undefined} />
+                  </p>
+                )}
+                {shareLinks?.[r.name] && (
+                  <p className="text-xs">
+                    <CopyLinkButton url={shareLinks[r.name]} label="Copy results link" />
+                    <a href={shareLinks[r.name]} target="_blank" rel="noreferrer" className="ml-3 underline underline-offset-4 hover:text-fb-red">
+                      Preview
+                    </a>
                   </p>
                 )}
               </td>
