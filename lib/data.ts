@@ -32,6 +32,7 @@ import type {
   CreatorPerformance,
   Draft,
   DraftStatus,
+  IncomingPost,
   Platform,
   Post,
   SeriesPoint,
@@ -279,11 +280,12 @@ export async function getCampaignSummaries() {
 }
 
 export async function getCampaignView(campaign: Campaign): Promise<CampaignView> {
-  const [creators, allPosts, snapshots, roster] = await Promise.all([
+  const [creators, allPosts, snapshots, roster, drafts] = await Promise.all([
     getCreators(),
     getPosts(),
     getSnapshots(campaign.id),
     getAssignments(campaign.id),
+    getDrafts(campaign.id),
   ]);
   const feeByCreator = new Map(
     roster.filter((a) => a.status === "Approved" && a.creatorId && a.fee).map((a) => [a.creatorId!, a.fee!]),
@@ -341,7 +343,21 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
     benchmark: benchmarkOf(posts),
     spend: fees ? { amount: fees, basis: "fees" } : campaign.budget ? { amount: campaign.budget, basis: "budget" } : undefined,
     expected: expected.total ? expected : undefined,
+    incoming: incomingPosts(roster, drafts, posts, byId),
   };
+}
+
+/** Approved creators whose newest draft is approved and who haven't posted on this campaign yet. */
+function incomingPosts(roster: Assignment[], drafts: Draft[], posts: Post[], creatorsById: Map<string, Creator>): IncomingPost[] {
+  const posted = new Set(posts.map((p) => p.creatorId).filter(Boolean));
+  return roster
+    .filter((a) => a.status === "Approved" && a.creatorId && !posted.has(a.creatorId))
+    .flatMap((a) => {
+      const latest = drafts.filter((d) => d.assignmentId === a.id).sort((x, y) => y.version - x.version)[0];
+      if (latest?.status !== "Approved") return [];
+      return [{ assignmentId: a.id, creator: a.creator ?? creatorsById.get(a.creatorId!), version: latest.version, approvedAt: latest.reviewedAt }];
+    })
+    .sort((x, y) => (x.approvedAt ?? "").localeCompare(y.approvedAt ?? ""));
 }
 
 /**

@@ -1,4 +1,4 @@
-import { compact, cpmVsExpected, full, money, pct, times, typicalVsUsual } from "@/lib/format";
+import { compact, cpmVsExpected, full, money, pct, shortDate, times, typicalVsUsual } from "@/lib/format";
 import { PLATFORM_LABEL } from "@/lib/social";
 import type { CampaignStreams } from "@/lib/streams";
 import { streamsLift } from "@/lib/streams-lift";
@@ -164,10 +164,53 @@ export function LiveBody({
 
       <section>
         <h2 className="headline text-3xl">The posts</h2>
+        {view.incoming.length > 0 && <IncomingPosts incoming={view.incoming} />}
         <div className="mt-8">
           <PostGrid posts={posts} sample={sample} internal={internal} />
         </div>
       </section>
     </>
+  );
+}
+
+/** Creators with an approved draft who haven't posted yet, so everyone can see what's still coming. */
+function IncomingPosts({ incoming }: { incoming: CampaignView["incoming"] }) {
+  return (
+    <div className="mt-6 border-2 border-fb-black p-5 max-sm:p-4">
+      <p className="subtitle text-sm">
+        Posts on the way <span className="font-sans font-normal">{incoming.length}</span>
+      </p>
+      <p className="mt-1 text-sm">Draft approved, waiting for the creator to post. They move into the posts below once live.</p>
+      <ul className="mt-4 divide-y divide-fb-black/20 border-t border-fb-black/20">
+        {incoming.map((i) => {
+          const c = i.creator;
+          return (
+            <li key={i.assignmentId} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-3">
+              <div className="min-w-0">
+                <p className="font-bold">{c?.name ?? "Creator"}</p>
+                <p className="flex flex-wrap gap-x-3 text-sm">
+                  {c?.tiktok && (
+                    <a href={`https://www.tiktok.com/@${c.tiktok}`} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-fb-red">
+                      TikTok @{c.tiktok}
+                    </a>
+                  )}
+                  {c?.instagram && (
+                    <a href={`https://www.instagram.com/${c.instagram}/`} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-fb-red">
+                      Instagram @{c.instagram}
+                    </a>
+                  )}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span>
+                  Draft v{i.version} approved{i.approvedAt ? ` ${shortDate(i.approvedAt)}` : ""}
+                </span>
+                <span className="border-2 border-fb-black px-2 py-0.5 text-xs font-bold">Post pending</span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

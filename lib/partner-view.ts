@@ -35,6 +35,7 @@ export function partnerView(view: CampaignView, showFees: boolean): CampaignView
       creator: partnerCreator(c.creator, showFees),
       fee: showFees ? c.fee : undefined,
     })),
+    incoming: view.incoming.map((i) => ({ ...i, creator: partnerCreator(i.creator, showFees) })),
     spend: showFees && view.spend?.basis === "fees" ? view.spend : undefined,
     expected: showFees ? view.expected : undefined,
   };

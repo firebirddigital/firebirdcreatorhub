@@ -161,4 +161,14 @@ export interface CampaignView {
   spend?: { amount: number; basis: "fees" | "budget" };
   /** Approved creators' cost per post ÷ their avg views × 1,000. Team only (partners with rates shown). */
   expected?: { cpm?: number; counted: number; total: number };
+  /** Creators whose latest draft is approved but who have no live post on this campaign yet. */
+  incoming: IncomingPost[];
+}
+
+export interface IncomingPost {
+  assignmentId: string;
+  creator?: Creator;
+  /** The approved draft's version and when it was approved. */
+  version: number;
+  approvedAt?: string;
 }
