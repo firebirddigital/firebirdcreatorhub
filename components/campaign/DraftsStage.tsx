@@ -5,6 +5,7 @@ import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
 import { TeamDraftForm } from "./TeamDraftForm";
 import { CopyButton, FeeField } from "./TeamControls";
+import { DeleteDraftButton } from "./DeleteDraftButton";
 
 interface Lane {
   assignment: Assignment;
@@ -132,9 +133,15 @@ function VersionCard({
   meta,
   latest,
   partner,
+  teamCampaignId,
+  creatorName,
 }: {
   draft?: Draft;
   name?: string;
+  /** Team view: shows Delete draft. */
+  teamCampaignId?: string;
+  /** For the delete confirmation in a multi-version row, where the name isn't on the card. */
+  creatorName?: string;
   /** Handles and cost, under the creator's name. */
   meta?: React.ReactNode;
   latest?: boolean;
@@ -194,6 +201,15 @@ function VersionCard({
           {d.partnerComment}
           {d.reviewedBy && <footer className="mt-1 text-xs">{d.reviewedBy}</footer>}
         </blockquote>
+      )}
+      {teamCampaignId && d && (
+        <p className="mt-3">
+          <DeleteDraftButton
+            campaignId={teamCampaignId}
+            draftId={d.id}
+            label={`${name ?? creatorName ?? "this creator"}'s version ${d.version}`}
+          />
+        </p>
       )}
       {partner && d && (
         <div className="mt-4">
@@ -313,7 +329,7 @@ export function DraftsBody({
                     <ol className="mt-5 flex gap-8 overflow-x-auto pb-4 snap-x">
                       {drafts.map((d, i) => (
                         <li key={d.id} className="w-[280px] shrink-0 snap-start">
-                          <VersionCard draft={d} latest={i === 0} partner={partner} />
+                          <VersionCard draft={d} latest={i === 0} partner={partner} teamCampaignId={team?.campaignId} creatorName={name} />
                         </li>
                       ))}
                     </ol>
@@ -326,7 +342,7 @@ export function DraftsBody({
               return (
                 <li key={a.id}>
                   <article>
-                    <VersionCard draft={d} name={name} meta={meta} partner={partner} />
+                    <VersionCard draft={d} name={name} meta={meta} partner={partner} teamCampaignId={team?.campaignId} />
                     {teamControls && <div className="mt-4">{teamControls}</div>}
                   </article>
                 </li>

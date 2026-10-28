@@ -1,7 +1,10 @@
 import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { isSampleMode } from "@/lib/config";
-import { getCampaign } from "@/lib/data";
+import { del } from "@vercel/blob";
+import { deleteRecords } from "@/lib/airtable";
+import { isPrivateBlobUrl, privateBlobToken } from "@/lib/blob";
+import { isSampleMode, TABLES } from "@/lib/config";
+import { getCampaign, getDrafts } from "@/lib/data";
 import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
 import { notifyDraftSubmitted } from "@/lib/notify";
 import { siteOrigin } from "@/lib/origin";
@@ -70,4 +73,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });
     throw e;
   }
+}
+
+// Team only (middleware). Deletes one draft version. A video uploaded to the hub is deleted too;
+// a draft that's a link (Dropbox, Drive and so on) only loses the link here.
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (isSampleMode()) return NextResponse.json({ error: "Connect Airtable to delete drafts." }, { status: 400 });
+  const { id } = await params;
+  const draftId = new URL(req.url).searchParams.get("draft") ?? "";
+  const draft = (await getDrafts(id, { fresh: true })).find((d) => d.id === draftId);
+  if (!draft) return NextResponse.json({ error: "That draft isn't on this campaign." }, { status: 404 });
+
+  await deleteRecords(TABLES.drafts, [draft.id]);
+
+  let fileNote: string | undefined;
+  if (draft.videoUrl) {
+    try {
+      const url = new URL(draft.videoUrl);
+      if (isBlobUrl(url) && url.pathname.startsWith("/drafts/")) {
+        const token = isPrivateBlobUrl(draft.videoUrl) ? privateBlobToken() : process.env.BLOB_READ_WRITE_TOKEN;
+        await del(draft.videoUrl, { token });
+      }
+    } catch {
+      fileNote = "The draft is deleted, but its video file couldn't be removed from storage.";
+    }
+  }
+  revalidateTag("airtable");
+  return NextResponse.json({ ok: true, fileNote });
 }

@@ -80,6 +80,17 @@ export function updateRecords(
   return writeInChunks(table, "PATCH", records);
 }
 
+/** Deletes records, 10 per request. Airtable keeps them in the base's trash for a while. */
+export async function deleteRecords(table: string, recordIds: string[]) {
+  for (let i = 0; i < recordIds.length; i += 10) {
+    const qs = new URLSearchParams();
+    recordIds.slice(i, i + 10).forEach((id) => qs.append("records[]", id));
+    const res = await fetch(`${tableUrl(table)}?${qs}`, { method: "DELETE", headers: headers(), cache: "no-store" });
+    if (!res.ok) throw new Error(`Airtable ${table} delete failed (${res.status}): ${await res.text()}`);
+    if (i + 10 < recordIds.length) await new Promise((r) => setTimeout(r, 220));
+  }
+}
+
 // Small helpers for reading loosely typed Airtable fields
 export const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 export const num = (v: unknown) => (typeof v === "number" && isFinite(v) ? v : 0);
