@@ -70,7 +70,7 @@ export function requestUrlFor(formUrl: string, list: RosterList, members: Creato
     const handles = [c.tiktok && `TikTok @${c.tiktok}`, c.instagram && `Instagram @${c.instagram}`].filter(Boolean).join(", ");
     const stats = [
       `${n(c.instagramFollowers + c.tiktokFollowers)} followers`,
-      c.avgViews ? `${n(c.avgViews)} avg views` : "",
+      c.avgViews ? `${n(c.avgViews)} median views` : "",
       showRates && c.rate ? `$${c.rate.toLocaleString("en-US")}` : "",
     ]
       .filter(Boolean)
@@ -81,7 +81,7 @@ export function requestUrlFor(formUrl: string, list: RosterList, members: Creato
     `Shortlist “${list.name}” from the Firebird creators page (${[
       `${members.length} creators`,
       `${n(t.followers)} followers`,
-      t.withViews ? `${n(t.combinedViews)} combined avg views` : "",
+      t.withViews ? `${n(t.combinedViews)} combined median views` : "",
     ]
       .filter(Boolean)
       .join(", ")}):`,

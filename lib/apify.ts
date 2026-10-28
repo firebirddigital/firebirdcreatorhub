@@ -1,6 +1,7 @@
 // Pulls public post stats through Apify scraper actors.
 // Swap actors with APIFY_INSTAGRAM_ACTOR / APIFY_TIKTOK_ACTOR; field mapping below tolerates
 // the naming used by the common actors.
+import { median } from "./format";
 import { handleFromUrl, instagramCode, postKey, tiktokId } from "./social";
 import type { Platform, Stats } from "./types";
 
@@ -128,7 +129,6 @@ export interface ProfileStats {
   recent: RecentPost[];
 }
 
-const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : undefined);
 
 /** Newest first, capped at RECENT_POSTS. Posts without a date keep the scraper's order (which is newest first). */
 export function latest(posts: RecentPost[]): RecentPost[] {
@@ -195,7 +195,7 @@ export async function fetchProfileStats(
       handle,
       name: g.name,
       followers: g.followers,
-      avgViews: mean(recent.map((p) => p.views)),
+      avgViews: median(recent.map((p) => p.views)),
       videos: recent.length,
       recent,
     });
@@ -222,7 +222,7 @@ export async function fetchProfileStats(
       handle,
       name: s(it.fullName),
       followers: n(it.followersCount) || undefined,
-      avgViews: mean(recent.map((p) => p.views)),
+      avgViews: median(recent.map((p) => p.views)),
       videos: recent.length,
       recent,
     });

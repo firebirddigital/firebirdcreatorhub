@@ -217,7 +217,7 @@ function NewCreatorForm({
                   <>
                     Found <span className="font-bold">{lookup.result.name ?? `@${lookup.handle}`}</span>
                     {lookup.result.followers ? `, ${compact(lookup.result.followers)} followers` : ""}
-                    {lookup.result.avgViews ? `, ${compact(lookup.result.avgViews)} avg views (last 20 posts)` : ""}.
+                    {lookup.result.avgViews ? `, ${compact(lookup.result.avgViews)} median views (last 20 posts)` : ""}.
                   </>
                 ) : (
                   <>Couldn&apos;t read @{lookup.handle}&apos;s profile (it may be private). Type the name and save anyway.</>
@@ -463,7 +463,7 @@ export function RosterTools({
                 }
                 return `Added ${who} to the Creators database and to this campaign as Proposed.${
                   d.pullingStats
-                    ? " Pulling their followers and average views (last 20 posts) now; reload in a minute to see them."
+                    ? " Pulling their followers and median views (last 20 posts) now; reload in a minute to see them."
                     : ""
                 }`;
               })
@@ -515,7 +515,7 @@ export function RosterTools({
           onClick={() =>
             run("stats", async () => {
               const d = await call(`/api/campaigns/${campaignId}/creator-stats`, "POST");
-              return `Updated followers and average views (last 20 posts) for ${d.updated} of ${d.requested} creators.`;
+              return `Updated followers and median views (last 20 posts) for ${d.updated} of ${d.requested} creators.`;
             })
           }
           disabled={sample || busy === "stats"}

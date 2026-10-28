@@ -39,7 +39,7 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
           { label: "Shares", value: compact(totals.shares) },
           { label: "Engagement rate", value: pct(totals.engagementRate) },
           ...(vsUsual
-            ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-20-post average" }]
+            ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-20-post median" }]
             : []),
           internal || spend
             ? {
@@ -59,10 +59,10 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
                 value: view.expected?.cpm !== undefined ? money(view.expected.cpm, 2) : "—",
                 note:
                   view.expected?.cpm === undefined
-                    ? "Needs fees or rates, and avg views"
+                    ? "Needs fees or rates, and median views"
                     : view.expected.counted < view.expected.total
                       ? `From ${view.expected.counted} of ${view.expected.total} approved creators`
-                      : "Cost per post ÷ avg views × 1,000",
+                      : "Cost per post ÷ median views × 1,000",
               },
               ]
             : []),
@@ -184,7 +184,7 @@ export function LiveBody({
                     <p className="figure text-lg">{compact(c.views)}</p>
                     <p className="text-xs">{pct(c.engagementRate)} eng.</p>
                     {c.benchmark && (
-                      <p className="text-xs" title="Views on this campaign against their usual (last 20 posts) average">
+                      <p className="text-xs" title="Views on this campaign against their usual (median of last 20 posts)">
                         {times(c.benchmark.views, c.benchmark.expected)} usual
                       </p>
                     )}
@@ -192,7 +192,7 @@ export function LiveBody({
                       <p className="text-xs" title={internal ? "Fee ÷ views × 1,000. Team only." : "Fee ÷ views × 1,000"}>
                         {money((c.fee / c.views) * 1000, 2)} CPM
                         {c.creator?.avgViews ? (
-                          <span title="Fee ÷ (their avg views × posts) × 1,000">
+                          <span title="Fee ÷ (their median views × posts) × 1,000">
                             {" "}
                             vs {money((c.fee / (c.creator.avgViews * c.posts)) * 1000, 2)} avg
                           </span>

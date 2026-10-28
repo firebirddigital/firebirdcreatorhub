@@ -261,7 +261,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               options={FOLLOWER_OPTIONS.map((v) => [String(v), v ? `${compact(v)}+` : "Any"])}
             />
             <DarkSelect
-              label="Avg views (last 20 posts)"
+              label="Median views (last 20 posts)"
               value={String(minViews)}
               onChange={(v) => setMinViews(Number(v))}
               options={VIEW_OPTIONS.map((v) => [String(v), v ? `${compact(v)}+` : "Any"])}
@@ -280,7 +280,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               onChange={(v) => setSort(v as Sort)}
               options={[
                 ["reach", "Most followers"],
-                ["avgViews", "Most avg views"],
+                ["avgViews", "Most median views"],
                 ...(showRates
                   ? ([
                       ["rate", "Lowest rate"],
@@ -381,7 +381,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
                 <p className="text-sm xl:hidden">
                   {[
                     `${compact(totals.followers)} followers`,
-                    totals.withViews ? `${compact(totals.combinedViews)} combined avg views` : "",
+                    totals.withViews ? `${compact(totals.combinedViews)} combined median views` : "",
                     showRates && totals.withRates ? `${money(totals.spend)} spend` : "",
                   ]
                     .filter(Boolean)
@@ -423,7 +423,7 @@ function Totals({ totals: t, showRates }: { totals: ReturnType<typeof listTotals
   const items: { label: string; value: string; note?: string }[] = [
     { label: "Followers", value: compact(t.followers) },
     {
-      label: "Combined avg views",
+      label: "Combined median views",
       value: t.withViews ? compact(t.combinedViews) : "—",
       note: t.withViews ? "if every creator posts once" : undefined,
     },
@@ -512,7 +512,7 @@ function ListPanel({
             <tr className="border-b-2 border-fb-white text-left text-xs">
               <th className="py-2 pr-4">Creator</th>
               <th className="py-2 pr-4 text-right">Followers</th>
-              <th className="py-2 pr-4 text-right">Avg views</th>
+              <th className="py-2 pr-4 text-right">Median views</th>
               {showRates && <th className="py-2 pr-4 text-right">Rate</th>}
               {showRates && <th className="py-2 pr-4 text-right">CPM</th>}
               <th className="py-2" />
@@ -561,11 +561,11 @@ function ListView({
             <th className={`${th} text-right`}>TikTok</th>
             <th className={`${th} text-right`}>Instagram</th>
             <th className={`${th} text-right`}>
-              Avg views<span className="block font-normal">last 20 posts</span>
+              Median views<span className="block font-normal">last 20 posts</span>
             </th>
             {showRates && <th className={`${th} text-right`}>Rate</th>}
             {showRates && (
-              <th className={`${th} text-right`} title="Rate ÷ avg views (last 20 posts) × 1,000">
+              <th className={`${th} text-right`} title="Rate ÷ median views (last 20 posts) × 1,000">
                 CPM
               </th>
             )}
@@ -699,7 +699,7 @@ function CreatorTile({
           <dd className="figure text-lg">{reach(c) ? compact(reach(c)) : "—"}</dd>
         </div>
         <div>
-          <dt className="text-xs">Avg views</dt>
+          <dt className="text-xs">Median views</dt>
           <dd className="figure text-lg">{c.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
         {showRates && (
@@ -709,7 +709,7 @@ function CreatorTile({
           </div>
         )}
         {showRates && (
-          <div title="Rate ÷ avg views (last 20 posts) × 1,000">
+          <div title="Rate ÷ median views (last 20 posts) × 1,000">
             <dt className="text-xs">CPM</dt>
             <dd className="figure text-lg">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</dd>
           </div>

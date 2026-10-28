@@ -1,6 +1,7 @@
 // Writes for the Creators → Drafts → Live workflow. Server-side only.
 import { createRecords, deleteRecords, updateRecords } from "./airtable";
 import { fetchProfileStats, latest, type ProfileStats } from "./apify";
+import { median } from "./format";
 import {
   ASSIGNMENT_FIELDS as AF,
   CAMPAIGN_FIELDS as CF,
@@ -326,10 +327,9 @@ export function cleanHandle(h?: string) {
   return h?.trim().replace(/^@/, "").replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "") || undefined;
 }
 
-/** Average views across a creator's last 20 posts, taking the newest across TikTok and Instagram together. */
+/** Median views across a creator's last 20 posts, taking the newest across TikTok and Instagram together. */
 export function combinedAvgViews(...platforms: (ProfileStats | undefined)[]): number | undefined {
-  const recent = latest(platforms.flatMap((p) => p?.recent ?? []));
-  return recent.length ? Math.round(recent.reduce((t, p) => t + p.views, 0) / recent.length) : undefined;
+  return median(latest(platforms.flatMap((p) => p?.recent ?? [])).map((p) => p.views));
 }
 
 /**

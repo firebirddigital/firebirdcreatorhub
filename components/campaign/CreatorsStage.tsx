@@ -1,4 +1,4 @@
-import { compact, expectedCpm, money } from "@/lib/format";
+import { compact, expectedCpm, median, money } from "@/lib/format";
 import type { Assignment, AssignmentStatus, TrackRecord } from "@/lib/types";
 import { trackRecordText } from "../TrackRecordLine";
 import { HeroFigure, HeroStats } from "./Shell";
@@ -32,8 +32,8 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
           { label: "Approved", value: String(approved.length) },
           { label: "Awaiting review", value: String(awaiting) },
           {
-            label: "Avg views, last 20 posts",
-            value: avgs.length ? compact(avgs.reduce((a, b) => a + b, 0) / avgs.length) : "—",
+            label: "Median views, last 20 posts",
+            value: avgs.length ? compact(median(avgs) ?? 0) : "—",
           },
           ...(showFees
             ? [
@@ -43,10 +43,10 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
                   value: expected.cpm !== undefined ? money(expected.cpm, 2) : "—",
                   note:
                     expected.cpm === undefined
-                      ? "Needs fees or rates, and avg views"
+                      ? "Needs fees or rates, and median views"
                       : expected.counted < expected.total
                         ? `From ${expected.counted} of ${expected.total} creators`
-                        : "Cost per post ÷ avg views × 1,000",
+                        : "Cost per post ÷ median views × 1,000",
                 },
               ]
             : []),
@@ -198,7 +198,7 @@ function RosterCard({
           />
         )}
         <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-          <dt className="text-sm">Avg views (last 20 posts)</dt>
+          <dt className="text-sm">Median views (last 20 posts)</dt>
           <dd className="figure text-lg">{c?.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
         {trackRecord && (
@@ -216,7 +216,7 @@ function RosterCard({
           </div>
         )}
         {showFee && (a.fee ?? c?.rate) && c?.avgViews ? (
-          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2" title="Cost per post ÷ avg views × 1,000">
+          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2" title="Cost per post ÷ median views × 1,000">
             <dt className="text-sm">Expected CPM</dt>
             <dd className="figure text-lg">{money((((a.fee ?? c.rate) as number) / c.avgViews) * 1000, 2)}</dd>
           </div>

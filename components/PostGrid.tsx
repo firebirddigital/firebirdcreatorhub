@@ -213,29 +213,29 @@ function PostCost({ post, internal }: { post: PostWithCreator; internal: boolean
         <dt className="text-xs">CPM now</dt>
         <dd className={`figure mt-1 text-lg ${tone}`}>{now !== undefined ? money(now, 2) : "—"}</dd>
       </div>
-      <div title="Paid ÷ their average views (last 20 posts) × 1,000">
-        <dt className="text-xs">Their avg CPM</dt>
+      <div title="Paid ÷ their median views (last 20 posts) × 1,000">
+        <dt className="text-xs">Their median CPM</dt>
         <dd className="figure mt-1 text-lg">{avg !== undefined ? money(avg, 2) : "—"}</dd>
       </div>
       {vs && (
         <p className={`col-span-3 mt-1 text-xs font-bold ${tone}`}>
           {vs.under && !internal && <span aria-hidden>↓ </span>}
-          {vs.text.replace("expected", "their average")}
+          {vs.text.replace("expected", "their median")}
         </p>
       )}
     </dl>
   );
 }
 
-/** "3.2× their usual": this post's views against the creator's last-20-post average. */
+/** "3.2× their usual": this post's views against the creator's last-20-post median. */
 function VsUsual({ views, usual, name }: { views: number; usual: number; name: string }) {
   const r = views / usual;
   return (
     <p
       className={`mt-2 text-sm ${r >= 1.5 ? "font-bold text-fb-red" : r < 0.5 ? "text-fb-black/60" : ""}`}
-      title={`${name} usually gets ${compact(usual)} views (average of their last 20 posts)`}
+      title={`${name} usually gets ${compact(usual)} views (median of their last 20 posts)`}
     >
-      {times(views, usual)} their usual <span className="font-normal text-fb-black/60">({compact(usual)} avg, last 20 posts)</span>
+      {times(views, usual)} their usual <span className="font-normal text-fb-black/60">({compact(usual)} median, last 20 posts)</span>
     </p>
   );
 }

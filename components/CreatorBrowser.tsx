@@ -177,7 +177,7 @@ export function CreatorBrowser({
 
   function exportCsv() {
     const rows = [
-      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Avg views (last 20 posts)", "Tags", "Location", "Rate", "CPM", "Email"],
+      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Median views (last 20 posts)", "Tags", "Location", "Rate", "CPM", "Email"],
       ...shown.map((c) => [
         c.name,
         c.instagram ? `@${c.instagram}` : "",
@@ -234,7 +234,7 @@ export function CreatorBrowser({
             options={REACH_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
           />
           <Select
-            label="Avg views (last 20)"
+            label="Median views (last 20)"
             value={String(minAvgViews)}
             onChange={(v) => setMinAvgViews(Number(v))}
             options={AVG_VIEWS_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
@@ -269,7 +269,7 @@ export function CreatorBrowser({
             onChange={(v) => setSort(v as Sort)}
             options={[
               { label: "Biggest reach", value: "reach" },
-              { label: "Most avg views", value: "avgViews" },
+              { label: "Most median views", value: "avgViews" },
               ...(team
                 ? [
                     { label: "Best track record", value: "track" },
@@ -385,7 +385,7 @@ export function CreatorBrowser({
               const r = await pullStatsInBatches(ids, (done) => setPulling({ done, total: ids.length }));
               const missed = r.requested - r.updated;
               setMessage({
-                text: `Pulled followers and average views (last 20 posts) for ${r.updated} of ${r.requested} creators.${
+                text: `Pulled followers and median views (last 20 posts) for ${r.updated} of ${r.requested} creators.${
                   missed ? ` ${missed} had no public TikTok or Instagram to read.` : ""
                 }`,
               });
@@ -487,7 +487,7 @@ function BulkTagBar({
       <button
         onClick={onPullStats}
         disabled={Boolean(pulling)}
-        title="Followers and average views across their last 20 posts. Uses a little Apify credit per creator."
+        title="Followers and median views across their last 20 posts. Uses a little Apify credit per creator."
         className="subtitle border-2 border-fb-black px-4 py-1.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
       >
         {pulling ? `Pulling stats ${pulling.done} of ${pulling.total}` : "Pull stats"}
@@ -541,16 +541,16 @@ function CreatorTable({
             <th className={th}>Creator</th>
             <th className={`${th} text-right`}>TikTok</th>
             <th className={`${th} text-right`}>Instagram</th>
-            <th className={`${th} text-right`} title="Average views across their last 20 posts">Avg views<span className="block font-normal">last 20 posts</span></th>
+            <th className={`${th} text-right`} title="Median views across their last 20 posts">Median views<span className="block font-normal">last 20 posts</span></th>
             {team && <th className={`${th} text-right`}>Rate</th>}
             {team && (
-              <th className={`${th} text-right`} title="Rate ÷ avg views (last 20 posts) × 1,000">
+              <th className={`${th} text-right`} title="Rate ÷ median views (last 20 posts) × 1,000">
                 CPM
               </th>
             )}
             {team && <th className={th} title="Across all Firebird campaigns">Track record</th>}
             {team && (
-              <th className={th} title="Followers and average views. Refreshed automatically every night, oldest first.">
+              <th className={th} title="Followers and median views. Refreshed automatically every night, oldest first.">
                 Stats updated
               </th>
             )}
@@ -745,7 +745,7 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
         )}
         {c.avgViews ? (
           <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-            <dt className="text-sm font-bold">Avg views <span className="font-normal">(last 20 posts)</span></dt>
+            <dt className="text-sm font-bold">Median views <span className="font-normal">(last 20 posts)</span></dt>
             <dd className="figure text-lg">{compact(c.avgViews)}</dd>
           </div>
         ) : null}

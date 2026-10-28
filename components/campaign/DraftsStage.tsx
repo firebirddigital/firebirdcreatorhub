@@ -70,7 +70,7 @@ function CreatorMeta({ assignment: a, showCost, showCpm }: { assignment: Assignm
         </span>
       )}
       {showCpm && cpm !== undefined && (
-        <span className="font-bold" title="Cost ÷ their avg views (last 20 posts) × 1,000">
+        <span className="font-bold" title="Cost ÷ their median views (last 20 posts) × 1,000">
           {money(cpm, 2)} CPM
         </span>
       )}
