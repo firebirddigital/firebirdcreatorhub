@@ -6,6 +6,7 @@ import { ReviewControls } from "./ReviewControls";
 import { TeamDraftForm } from "./TeamDraftForm";
 import { CopyButton, FeeField } from "./TeamControls";
 import { DeleteDraftButton } from "./DeleteDraftButton";
+import { TeamDraftReview } from "./TeamDraftReview";
 
 interface Lane {
   assignment: Assignment;
@@ -201,6 +202,11 @@ function VersionCard({
           {d.partnerComment}
           {d.reviewedBy && <footer className="mt-1 text-xs">{d.reviewedBy}</footer>}
         </blockquote>
+      )}
+      {teamCampaignId && d && (
+        <div className="mt-4">
+          <TeamDraftReview campaignId={teamCampaignId} draftId={d.id} decided={d.status !== "Pending review"} />
+        </div>
       )}
       {teamCampaignId && d && (
         <p className="mt-3">

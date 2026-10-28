@@ -6,9 +6,9 @@ import { isPrivateBlobUrl, privateBlobToken } from "@/lib/blob";
 import { isSampleMode, TABLES } from "@/lib/config";
 import { getCampaign, getDrafts } from "@/lib/data";
 import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
-import { notifyDraftSubmitted } from "@/lib/notify";
+import { notifyDraftSubmitted, notifyReview } from "@/lib/notify";
 import { siteOrigin } from "@/lib/origin";
-import { createDraft, ensureDraftAssignment, refreshCreatorStats, UserError } from "@/lib/roster";
+import { createDraft, ensureDraftAssignment, recordReview, refreshCreatorStats, UserError } from "@/lib/roster";
 
 const TEAM_SUBMITTER = "Firebird team";
 
@@ -100,4 +100,30 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   }
   revalidateTag("airtable");
   return NextResponse.json({ ok: true, fileNote });
+}
+
+// Team only (middleware). Approve a draft or request changes from the team side, for example when a
+// partner gives the decision by email. Recorded as "Firebird team", or "<name> (via Firebird team)".
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (isSampleMode()) return NextResponse.json({ error: "Connect Airtable to review drafts." }, { status: 400 });
+  const { id } = await params;
+  const body = (await req.json().catch(() => ({}))) as { draftId?: string; decision?: string; comment?: string; onBehalfOf?: string };
+  const decision = body.decision === "approve" || body.decision === "changes" ? body.decision : undefined;
+  if (!decision || !body.draftId) return NextResponse.json({ error: "Something was missing. Try again." }, { status: 400 });
+  if (decision === "changes" && !body.comment?.trim()) {
+    return NextResponse.json({ error: "Add a note so the creator knows what to change." }, { status: 400 });
+  }
+  const draft = (await getDrafts(id, { fresh: true })).find((d) => d.id === body.draftId);
+  if (!draft) return NextResponse.json({ error: "That draft isn't on this campaign." }, { status: 404 });
+
+  const who = body.onBehalfOf?.trim().replace(/[<>]/g, "").slice(0, 80);
+  const reviewer = who ? `${who} (via Firebird team)` : "Firebird team";
+  await recordReview({ kind: "draft", recordId: draft.id, decision, comment: body.comment, reviewer });
+  revalidateTag("airtable");
+  const origin = await siteOrigin();
+  // Same follow-ups as a partner decision: the team hears about it, and on changes the creator gets the notes.
+  after(() =>
+    notifyReview({ origin, campaignId: id, kind: "draft", recordId: draft.id, decision, comment: body.comment, reviewer }).catch(() => undefined),
+  );
+  return NextResponse.json({ ok: true });
 }
