@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { compact, cpmVsExpected, money, shortDate, timeAgo, times } from "@/lib/format";
 import { embedUrl, PLATFORM_LABEL } from "@/lib/social";
 import { BulkBar, BulkSelectProvider, SelectBox } from "./campaign/BulkSelect";
+import { PostEditor } from "./campaign/PostEditor";
 import type { CampaignView, Platform, Post } from "@/lib/types";
 
 type PostWithCreator = CampaignView["posts"][number];
@@ -17,12 +18,15 @@ export function PostGrid({
   sample,
   internal,
   campaignId,
+  creators,
 }: {
   posts: PostWithCreator[];
   sample: boolean;
   internal: boolean;
   /** Team view: lets the team select posts and delete them. */
   campaignId?: string;
+  /** Team view: creators to choose from when editing a post. */
+  creators?: { id: string; name: string }[];
 }) {
   const [platform, setPlatform] = useState<Platform | "all">("all");
   const [sort, setSort] = useState<Sort>("views");
@@ -91,6 +95,9 @@ export function PostGrid({
           <li key={p.id} className="relative">
             <SelectBox id={p.id} label={`post by ${p.creator?.name ?? "creator"}`} />
             <PostCard post={p} sample={sample} internal={internal} />
+            {internal && campaignId && creators && (
+              <PostEditor campaignId={campaignId} postId={p.id} creatorId={p.creatorId} postedAt={p.postedAt} creators={creators} />
+            )}
           </li>
         ))}
       </ul>

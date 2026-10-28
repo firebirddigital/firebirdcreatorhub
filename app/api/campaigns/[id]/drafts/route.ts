@@ -75,19 +75,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 }
 
-// Team only (middleware). Deletes one draft version. A video uploaded to the hub is deleted too;
-// a draft that's a link (Dropbox, Drive and so on) only loses the link here.
+// Team only (middleware). Deletes draft versions: one (?draft=) or several ({ draftIds }). A video
+// uploaded to the hub is deleted too; a draft that's a link (Dropbox, Drive and so on) only loses the link.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (isSampleMode()) return NextResponse.json({ error: "Connect Airtable to delete drafts." }, { status: 400 });
   const { id } = await params;
-  const draftId = new URL(req.url).searchParams.get("draft") ?? "";
-  const draft = (await getDrafts(id, { fresh: true })).find((d) => d.id === draftId);
-  if (!draft) return NextResponse.json({ error: "That draft isn't on this campaign." }, { status: 404 });
+  const one = new URL(req.url).searchParams.get("draft");
+  const body = one ? {} : ((await req.json().catch(() => ({}))) as { draftIds?: unknown });
+  const wanted = new Set(one ? [one] : (Array.isArray(body.draftIds) ? body.draftIds : []).filter((x): x is string => typeof x === "string"));
+  if (!wanted.size) return NextResponse.json({ error: "Pick at least one draft." }, { status: 400 });
+  if (wanted.size > 200) return NextResponse.json({ error: "Delete up to 200 drafts at a time." }, { status: 400 });
+  const drafts = (await getDrafts(id, { fresh: true })).filter((d) => wanted.has(d.id));
+  if (!drafts.length) return NextResponse.json({ error: "That draft isn't on this campaign." }, { status: 404 });
 
-  await deleteRecords(TABLES.drafts, [draft.id]);
+  await deleteRecords(TABLES.drafts, drafts.map((d) => d.id));
 
-  let fileNote: string | undefined;
-  if (draft.videoUrl) {
+  let failedFiles = 0;
+  for (const draft of drafts) {
+    if (!draft.videoUrl) continue;
     try {
       const url = new URL(draft.videoUrl);
       if (isBlobUrl(url) && url.pathname.startsWith("/drafts/")) {
@@ -95,11 +100,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         await del(draft.videoUrl, { token });
       }
     } catch {
-      fileNote = "The draft is deleted, but its video file couldn't be removed from storage.";
+      failedFiles++;
     }
   }
   revalidateTag("airtable");
-  return NextResponse.json({ ok: true, fileNote });
+  return NextResponse.json({
+    ok: true,
+    removed: drafts.length,
+    fileNote: failedFiles ? "The drafts are deleted, but some video files couldn't be removed from storage." : undefined,
+  });
 }
 
 // Team only (middleware). Approve a draft or request changes from the team side, for example when a

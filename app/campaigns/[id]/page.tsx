@@ -120,6 +120,7 @@ export default async function CampaignPage({
         view={view}
         internal
         sample={sample}
+        creators={pickerCreators}
         streams={streams}
         streamsControls={
           sample ? undefined : (

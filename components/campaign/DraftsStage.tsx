@@ -7,6 +7,7 @@ import { TeamDraftForm } from "./TeamDraftForm";
 import { CopyButton, FeeField } from "./TeamControls";
 import { DeleteDraftButton } from "./DeleteDraftButton";
 import { TeamDraftReview } from "./TeamDraftReview";
+import { BulkBar, BulkSelectProvider, SelectBox } from "./BulkSelect";
 
 interface Lane {
   assignment: Assignment;
@@ -299,62 +300,66 @@ export function DraftsBody({
         </div>
 
         {lanes.length ? (
-          <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
-            {lanes.map(({ assignment: a, drafts }) => {
-              const name = a.creator?.name ?? "Creator";
-              const teamControls = team && (
-                <TeamLaneControls
-                  assignmentId={a.id}
-                  name={name}
-                  uploadUrl={team.uploadUrls[a.id]}
-                  campaignId={team.campaignId}
-                  sample={team.sample}
-                  fee={a.fee}
-                  rate={a.creator?.rate}
-                />
-              );
-              // The team edits the fee in its own box, so the read-only cost is for partners.
-              const meta = <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />;
+          <MaybeSelectable team={team} ids={lanes.flatMap((l) => l.drafts.map((d) => d.id))}>
+            <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
+              {lanes.map(({ assignment: a, drafts }) => {
+                const name = a.creator?.name ?? "Creator";
+                const teamControls = team && (
+                  <TeamLaneControls
+                    assignmentId={a.id}
+                    name={name}
+                    uploadUrl={team.uploadUrls[a.id]}
+                    campaignId={team.campaignId}
+                    sample={team.sample}
+                    fee={a.fee}
+                    rate={a.creator?.rate}
+                  />
+                );
+                // The team edits the fee in its own box, so the read-only cost is for partners.
+                const meta = <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />;
 
-              // Several versions: the creator gets a full-width row with every version side by side.
-              if (drafts.length > 1) {
-                return (
-                  <li key={a.id} className="col-span-full border-t-2 border-fb-black pt-5">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-                      <div>
-                        <h3 className="subtitle text-2xl">{name}</h3>
-                        {meta}
+                // Several versions: the creator gets a full-width row with every version side by side.
+                if (drafts.length > 1) {
+                  return (
+                    <li key={a.id} className="col-span-full border-t-2 border-fb-black pt-5">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                        <div>
+                          <h3 className="subtitle text-2xl">{name}</h3>
+                          {meta}
+                        </div>
+                        <span className="text-sm">
+                          {drafts.length} versions, newest first
+                          {drafts.slice(1).some((d) => d.status === "Pending review") && (
+                            <span className="font-bold"> · an earlier version is still awaiting review</span>
+                          )}
+                        </span>
                       </div>
-                      <span className="text-sm">
-                        {drafts.length} versions, newest first
-                        {drafts.slice(1).some((d) => d.status === "Pending review") && (
-                          <span className="font-bold"> · an earlier version is still awaiting review</span>
-                        )}
-                      </span>
-                    </div>
-                    <ol className="mt-5 flex gap-8 overflow-x-auto pb-4 snap-x">
-                      {drafts.map((d, i) => (
-                        <li key={d.id} className="w-[280px] shrink-0 snap-start">
-                          <VersionCard draft={d} latest={i === 0} partner={partner} teamCampaignId={team?.campaignId} creatorName={name} />
-                        </li>
-                      ))}
-                    </ol>
-                    {teamControls && <div className="mt-2">{teamControls}</div>}
+                      <ol className="mt-5 flex gap-8 overflow-x-auto pb-4 snap-x">
+                        {drafts.map((d, i) => (
+                          <li key={d.id} className="relative w-[280px] shrink-0 snap-start">
+                            {team && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
+                            <VersionCard draft={d} latest={i === 0} partner={partner} teamCampaignId={team?.campaignId} creatorName={name} />
+                          </li>
+                        ))}
+                      </ol>
+                      {teamControls && <div className="mt-2">{teamControls}</div>}
+                    </li>
+                  );
+                }
+
+                const d = drafts[0];
+                return (
+                  <li key={a.id} className="relative">
+                    {team && d && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
+                    <article>
+                      <VersionCard draft={d} name={name} meta={meta} partner={partner} teamCampaignId={team?.campaignId} />
+                      {teamControls && <div className="mt-4">{teamControls}</div>}
+                    </article>
                   </li>
                 );
-              }
-
-              const d = drafts[0];
-              return (
-                <li key={a.id}>
-                  <article>
-                    <VersionCard draft={d} name={name} meta={meta} partner={partner} teamCampaignId={team?.campaignId} />
-                    {teamControls && <div className="mt-4">{teamControls}</div>}
-                  </article>
-                </li>
-              );
-            })}
-          </ul>
+              })}
+            </ul>
+          </MaybeSelectable>
         ) : (
           <p className="mt-8 max-w-prose">
             {team
@@ -364,5 +369,23 @@ export function DraftsBody({
         )}
       </section>
     </>
+  );
+}
+
+/** On the team page, drafts can be selected and deleted together. */
+function MaybeSelectable({ team, ids, children }: { team?: { campaignId: string }; ids: string[]; children: React.ReactNode }) {
+  if (!team) return <>{children}</>;
+  return (
+    <BulkSelectProvider>
+      <BulkBar
+        allIds={ids}
+        noun={["draft", "drafts"]}
+        action="Delete drafts"
+        confirmText="Delete {items}? They disappear for the team and partners. Videos uploaded to the hub are deleted for good; linked videos stay where they are."
+        endpoint={`/api/campaigns/${team.campaignId}/drafts`}
+        bodyKey="draftIds"
+      />
+      {children}
+    </BulkSelectProvider>
   );
 }

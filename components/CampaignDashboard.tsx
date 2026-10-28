@@ -80,8 +80,11 @@ export function LiveBody({
   tools,
   streams,
   streamsControls,
+  creators,
 }: {
   view: CampaignView;
+  /** Team view: creators to pick from when editing a post. */
+  creators?: { id: string; name: string }[];
   internal: boolean;
   sample: boolean;
   tools?: React.ReactNode;
@@ -166,7 +169,13 @@ export function LiveBody({
         <h2 className="headline text-3xl">The posts</h2>
         {view.incoming.length > 0 && <IncomingPosts incoming={view.incoming} />}
         <div className="mt-8">
-          <PostGrid posts={posts} sample={sample} internal={internal} campaignId={internal ? view.campaign.id : undefined} />
+          <PostGrid
+            posts={posts}
+            sample={sample}
+            internal={internal}
+            campaignId={internal ? view.campaign.id : undefined}
+            creators={internal ? creators : undefined}
+          />
         </div>
       </section>
     </>
