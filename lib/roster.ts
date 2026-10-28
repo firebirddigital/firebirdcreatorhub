@@ -1,5 +1,5 @@
 // Writes for the Creators → Drafts → Live workflow. Server-side only.
-import { createRecords, updateRecords } from "./airtable";
+import { createRecords, deleteRecords, updateRecords } from "./airtable";
 import { fetchProfileStats, latest, type ProfileStats } from "./apify";
 import {
   ASSIGNMENT_FIELDS as AF,
@@ -58,6 +58,25 @@ export async function addCreatorsToCampaign(
     await updateRecords(TABLES.campaigns, [{ id: campaignId, fields: { [CF.creators]: merged } }]);
   }
   return toAdd.length;
+}
+
+/**
+ * Takes creators off a campaign: deletes their roster entries and unlinks them from the campaign.
+ * The creators stay in the Creators database; their posts and drafts aren't touched.
+ */
+export async function removeFromCampaign(campaignId: string, assignmentIds: string[]): Promise<number> {
+  const [campaign, roster] = await Promise.all([getCampaign(campaignId), getAssignments(campaignId, { fresh: true })]);
+  if (!campaign) throw new UserError("Campaign not found.");
+  const wanted = new Set(assignmentIds);
+  const removing = roster.filter((a) => wanted.has(a.id));
+  if (!removing.length) return 0;
+  await deleteRecords(TABLES.assignments, removing.map((a) => a.id));
+  const gone = new Set(removing.map((a) => a.creatorId).filter(Boolean));
+  const remaining = campaign.creatorIds.filter((id) => !gone.has(id));
+  if (remaining.length !== campaign.creatorIds.length) {
+    await updateRecords(TABLES.campaigns, [{ id: campaignId, fields: { [CF.creators]: remaining } }]);
+  }
+  return removing.length;
 }
 
 export async function updateAssignment(id: string, patch: { status?: AssignmentStatus; fee?: number | null }) {

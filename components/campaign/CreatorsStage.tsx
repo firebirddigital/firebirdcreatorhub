@@ -5,6 +5,7 @@ import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
 import { AssignmentControls } from "./TeamControls";
 import { CreatorEditButton } from "./CreatorEditButton";
+import { BulkBar, BulkSelectProvider, SelectBox } from "./BulkSelect";
 
 const reach = (a: Assignment) => (a.creator ? a.creator.instagramFollowers + a.creator.tiktokFollowers : 0);
 
@@ -87,42 +88,45 @@ export function CreatorsBody({
           )}
         </div>
         {roster.length ? (
-          <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
-            {roster.map((a) => (
-              <li key={a.id} className={a.status === "Declined" ? "opacity-60" : undefined}>
-                <RosterCard
-                  assignment={a}
-                  showFee={showFees}
-                  trackRecord={team && a.creatorId ? trackRecordText(team.trackRecords?.[a.creatorId]) ?? "First Firebird campaign" : undefined}
-                />
-                <div className="mt-4">
-                  {partner && a.status !== "Declined" && (
-                    <ReviewControls
-                      endpoint={partner.reviewEndpoint}
-                      kind="creator"
-                      recordId={a.id}
-                      allowDecline
-                      decided={a.status !== "Proposed"}
-                    />
-                  )}
-                  {team && a.creator && (
-                    <div className="mb-4">
-                      <CreatorEditButton key={JSON.stringify(a.creator)} creator={a.creator} />
-                    </div>
-                  )}
-                  {team && (
-                    <AssignmentControls
-                      campaignId={team.campaignId}
-                      assignmentId={a.id}
-                      status={a.status}
-                      fee={a.fee}
-                      uploadUrl={team.uploadUrls[a.id]}
-                    />
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <MaybeSelectable team={team} ids={roster.map((a) => a.id)}>
+            <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+              {roster.map((a) => (
+                <li key={a.id} className={`relative ${a.status === "Declined" ? "opacity-60" : ""}`}>
+                  {team && <SelectBox id={a.id} label={a.creator?.name ?? "creator"} />}
+                  <RosterCard
+                    assignment={a}
+                    showFee={showFees}
+                    trackRecord={team && a.creatorId ? trackRecordText(team.trackRecords?.[a.creatorId]) ?? "First Firebird campaign" : undefined}
+                  />
+                  <div className="mt-4">
+                    {partner && a.status !== "Declined" && (
+                      <ReviewControls
+                        endpoint={partner.reviewEndpoint}
+                        kind="creator"
+                        recordId={a.id}
+                        allowDecline
+                        decided={a.status !== "Proposed"}
+                      />
+                    )}
+                    {team && a.creator && (
+                      <div className="mb-4">
+                        <CreatorEditButton key={JSON.stringify(a.creator)} creator={a.creator} />
+                      </div>
+                    )}
+                    {team && (
+                      <AssignmentControls
+                        campaignId={team.campaignId}
+                        assignmentId={a.id}
+                        status={a.status}
+                        fee={a.fee}
+                        uploadUrl={team.uploadUrls[a.id]}
+                      />
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </MaybeSelectable>
         ) : (
           <p className="mt-8 max-w-prose">
             {team
@@ -231,5 +235,23 @@ function Row({ label, handle, href, value }: { label: string; handle: string; hr
       </dt>
       <dd className="figure text-lg">{value ? compact(value) : "—"}</dd>
     </div>
+  );
+}
+
+/** On the team page, the creator cards can be selected and removed from the campaign together. */
+function MaybeSelectable({ team, ids, children }: { team?: { campaignId: string }; ids: string[]; children: React.ReactNode }) {
+  if (!team) return <>{children}</>;
+  return (
+    <BulkSelectProvider>
+      <BulkBar
+        allIds={ids}
+        noun={["creator", "creators"]}
+        action="Remove from campaign"
+        confirmText="Remove {items} from this campaign? They stay in your Creators database, and any posts already added stay on the Live tab."
+        endpoint={`/api/campaigns/${team.campaignId}/roster`}
+        bodyKey="assignmentIds"
+      />
+      {children}
+    </BulkSelectProvider>
   );
 }

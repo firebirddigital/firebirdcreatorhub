@@ -166,7 +166,7 @@ export function LiveBody({
         <h2 className="headline text-3xl">The posts</h2>
         {view.incoming.length > 0 && <IncomingPosts incoming={view.incoming} />}
         <div className="mt-8">
-          <PostGrid posts={posts} sample={sample} internal={internal} />
+          <PostGrid posts={posts} sample={sample} internal={internal} campaignId={internal ? view.campaign.id : undefined} />
         </div>
       </section>
     </>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { compact, cpmVsExpected, money, shortDate, timeAgo, times } from "@/lib/format";
 import { embedUrl, PLATFORM_LABEL } from "@/lib/social";
+import { BulkBar, BulkSelectProvider, SelectBox } from "./campaign/BulkSelect";
 import type { CampaignView, Platform, Post } from "@/lib/types";
 
 type PostWithCreator = CampaignView["posts"][number];
@@ -15,10 +16,13 @@ export function PostGrid({
   posts,
   sample,
   internal,
+  campaignId,
 }: {
   posts: PostWithCreator[];
   sample: boolean;
   internal: boolean;
+  /** Team view: lets the team select posts and delete them. */
+  campaignId?: string;
 }) {
   const [platform, setPlatform] = useState<Platform | "all">("all");
   const [sort, setSort] = useState<Sort>("views");
@@ -52,7 +56,7 @@ export function PostGrid({
     );
   }
 
-  return (
+  const grid = (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div role="group" aria-label="Filter by platform" className="flex border-2 border-fb-black">
@@ -84,12 +88,27 @@ export function PostGrid({
 
       <ul className="mt-8 grid gap-x-6 gap-y-12 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
         {shown.map((p) => (
-          <li key={p.id}>
+          <li key={p.id} className="relative">
+            <SelectBox id={p.id} label={`post by ${p.creator?.name ?? "creator"}`} />
             <PostCard post={p} sample={sample} internal={internal} />
           </li>
         ))}
       </ul>
     </div>
+  );
+  if (!internal || !campaignId) return grid;
+  return (
+    <BulkSelectProvider>
+      <BulkBar
+        allIds={shown.map((p) => p.id)}
+        noun={["post", "posts"]}
+        action="Delete posts"
+        confirmText="Delete {items} from this campaign? Their views stop counting toward the totals and charts. This can't be undone from the hub."
+        endpoint={`/api/campaigns/${campaignId}/posts`}
+        bodyKey="postIds"
+      />
+      <div className="mt-6">{grid}</div>
+    </BulkSelectProvider>
   );
 }
 

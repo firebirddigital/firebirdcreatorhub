@@ -7,6 +7,7 @@ import {
   findOrCreateCreator,
   type NewCreatorInput,
   refreshCreatorStats,
+  removeFromCampaign,
   updateAssignment,
   UserError,
 } from "@/lib/roster";
@@ -87,4 +88,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   await updateAssignment(assignment.id, { status, fee });
   revalidateTag("airtable");
   return NextResponse.json({ ok: true });
+}
+
+// Takes creators off this campaign (they stay in the Creators database).
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (isSampleMode()) return sampleBlock();
+  const { id } = await params;
+  const { assignmentIds } = (await req.json().catch(() => ({}))) as { assignmentIds?: unknown };
+  const ids = (Array.isArray(assignmentIds) ? assignmentIds : []).filter((x): x is string => typeof x === "string");
+  if (!ids.length) return NextResponse.json({ error: "Pick at least one creator." }, { status: 400 });
+  if (ids.length > 200) return NextResponse.json({ error: "Remove up to 200 creators at a time." }, { status: 400 });
+  try {
+    const removed = await removeFromCampaign(id, ids);
+    revalidateTag("airtable");
+    return NextResponse.json({ ok: true, removed });
+  } catch (e) {
+    if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });
+    throw e;
+  }
 }
