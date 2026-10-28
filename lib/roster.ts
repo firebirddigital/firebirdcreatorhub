@@ -327,14 +327,14 @@ export function cleanHandle(h?: string) {
   return h?.trim().replace(/^@/, "").replace(/^https?:\/\/[^/]+\/@?/, "").replace(/[/?#].*$/, "") || undefined;
 }
 
-/** Median views across a creator's last 20 posts, taking the newest across TikTok and Instagram together. */
+/** Median views across a creator's last 10 posts, taking the newest across TikTok and Instagram together. */
 export function combinedAvgViews(...platforms: (ProfileStats | undefined)[]): number | undefined {
   return median(latest(platforms.flatMap((p) => p?.recent ?? [])).map((p) => p.views));
 }
 
 /**
- * Pulls followers and average views (last 20 posts) for creators.
- * Creators on both platforms get their 20 newest posts across both.
+ * Pulls followers and average views (last 10 posts) for creators.
+ * Creators on both platforms get their 10 newest posts across both.
  */
 export async function refreshCreatorStats(creatorIds: string[]) {
   const creators = (await getCreators({ fresh: true })).filter((c) => creatorIds.includes(c.id));

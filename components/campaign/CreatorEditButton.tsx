@@ -95,7 +95,7 @@ export function CreatorEditButton({ creator: c }: { creator: Creator }) {
         {field("tiktokFollowers", "TikTok followers", { numeric: true })}
         {field("instagram", "Instagram handle", { placeholder: "@handle" })}
         {field("instagramFollowers", "Instagram followers", { numeric: true })}
-        {field("avgViews", "Median views (last 20)", { numeric: true })}
+        {field("avgViews", "Median views (last 10)", { numeric: true })}
         {field("rate", "Rate ($)", { numeric: true })}
         {field("location", "Location", { wide: true })}
         {field("email", "Email", { wide: true })}

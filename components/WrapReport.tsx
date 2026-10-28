@@ -41,7 +41,7 @@ export function WrapReport({
     { label: "Likes", value: compact(totals.likes) },
     { label: "Comments", value: compact(totals.comments) },
     { label: "Shares", value: compact(totals.shares) },
-    ...(vsUsual ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-20-post median" }] : []),
+    ...(vsUsual ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-10-post median" }] : []),
     ...(cpm !== undefined
       ? [
           {
@@ -196,7 +196,7 @@ export function WrapReport({
       <footer className="mt-16 border-t-2 border-fb-black pt-4 text-xs flex justify-between gap-4">
         <span>Prepared by Firebird · {generated}</span>
         <span>
-          Views from public post data. “Vs usual” compares each post with the creator&apos;s average across their last 20 posts.
+          Views from public post data. “Vs usual” compares each post with the creator&apos;s average across their last 10 posts.
         </span>
       </footer>
     </div>

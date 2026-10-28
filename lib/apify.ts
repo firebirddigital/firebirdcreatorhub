@@ -108,7 +108,7 @@ function author(platform: Platform, handle?: string, name?: string, followers?: 
 }
 
 /** How many of a creator's most recent posts the average views covers. */
-export const RECENT_POSTS = 20;
+export const RECENT_POSTS = 10;
 
 export interface RecentPost {
   views: number;
@@ -121,9 +121,9 @@ export interface ProfileStats {
   handle: string;
   name?: string;
   followers?: number;
-  /** Average views across the account's last RECENT_POSTS posts that report views. */
+  /** Median views across the account's last RECENT_POSTS posts that report views. */
   avgViews?: number;
-  /** Posts that went into the average (photos have no view count, so this can be under 20). */
+  /** Posts that went into the median (photos have no view count, so this can be under 10). */
   videos: number;
   /** The posts behind the average, newest first, so two platforms can be combined by date. */
   recent: RecentPost[];
@@ -146,8 +146,8 @@ const iso = (v: unknown) => {
 };
 
 /**
- * Followers and average views across each account's last 20 posts. Keyed like `tiktok:handle`.
- * Instagram needs two runs: the profile (name, followers) and its 20 latest posts (views).
+ * Followers and median views across each account's last 10 posts. Keyed like `tiktok:handle`.
+ * Instagram needs two runs: the profile (name, followers) and its 10 latest posts (views).
  */
 export async function fetchProfileStats(
   accounts: { platform: Platform; handle: string }[],
@@ -162,7 +162,7 @@ export async function fetchProfileStats(
       ? runActor(TT_ACTOR(), {
           profiles: tt,
           resultsPerPage: RECENT_POSTS,
-          // Pinned posts are usually the creator's biggest hits; leaving them in inflates the average.
+          // Pinned posts are usually the creator's biggest hits; leaving them in inflates the number.
           excludePinnedPosts: true,
           shouldDownloadVideos: false,
           shouldDownloadCovers: false,

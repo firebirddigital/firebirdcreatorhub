@@ -32,7 +32,7 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
           { label: "Approved", value: String(approved.length) },
           { label: "Awaiting review", value: String(awaiting) },
           {
-            label: "Median views, last 20 posts",
+            label: "Median views, last 10 posts",
             value: avgs.length ? compact(median(avgs) ?? 0) : "—",
           },
           ...(showFees
@@ -198,7 +198,7 @@ function RosterCard({
           />
         )}
         <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-          <dt className="text-sm">Median views (last 20 posts)</dt>
+          <dt className="text-sm">Median views (last 10 posts)</dt>
           <dd className="figure text-lg">{c?.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
         {trackRecord && (

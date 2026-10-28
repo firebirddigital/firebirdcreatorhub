@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const added = await addCreatorsToCampaign(id, creatorIds);
   revalidateTag("airtable");
 
-  // Pull followers and average views (last 20 posts) after responding, unless the profile link
+  // Pull followers and average views (last 10 posts) after responding, unless the profile link
   // lookup already supplied them for a single platform.
   const n = body.newCreator;
   const hasHandle = Boolean(n?.instagram || n?.tiktok);

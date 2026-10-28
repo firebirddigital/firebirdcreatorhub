@@ -105,7 +105,7 @@ export function CreatorImport() {
       setStats({
         state: "done",
         done: newIds.length,
-        text: `Pulled followers and median views (last 20 posts) for ${r.updated} of ${r.requested}.${
+        text: `Pulled followers and median views (last 10 posts) for ${r.updated} of ${r.requested}.${
           r.requested - r.updated ? ` ${r.requested - r.updated} had no public TikTok or Instagram to read.` : ""
         }`,
       });
@@ -386,7 +386,7 @@ export function CreatorImport() {
           {newIds.length > 0 && (
             <div className="mt-4 border-2 border-fb-black p-4">
               <p className="text-sm">
-                Pull followers and median views (last 20 posts) for the {newIds.length} new{" "}
+                Pull followers and median views (last 10 posts) for the {newIds.length} new{" "}
                 {newIds.length === 1 ? "creator" : "creators"}? It runs about 10 at a time and uses a little Apify credit
                 per creator{newIds.length > 50 ? ", so a big list takes a few minutes. Keep this page open" : ""}.
               </p>

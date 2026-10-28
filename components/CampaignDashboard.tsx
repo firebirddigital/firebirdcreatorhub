@@ -39,7 +39,7 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
           { label: "Shares", value: compact(totals.shares) },
           { label: "Engagement rate", value: pct(totals.engagementRate) },
           ...(vsUsual
-            ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-20-post median" }]
+            ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-10-post median" }]
             : []),
           internal || spend
             ? {
@@ -179,12 +179,17 @@ export function LiveBody({
                       {c.platforms.map((p) => PLATFORM_LABEL[p]).join(" and ")}, {c.posts}{" "}
                       {c.posts === 1 ? "post" : "posts"}
                     </p>
+                    {c.creator?.avgViews ? (
+                      <p className="text-xs" title="Median views across their last 10 posts">
+                        {compact(c.creator.avgViews)} median views, last 10 posts
+                      </p>
+                    ) : null}
                   </div>
                   <div className="text-right">
                     <p className="figure text-lg">{compact(c.views)}</p>
                     <p className="text-xs">{pct(c.engagementRate)} eng.</p>
                     {c.benchmark && (
-                      <p className="text-xs" title="Views on this campaign against their usual (median of last 20 posts)">
+                      <p className="text-xs" title="Views on this campaign against their usual (median of last 10 posts)">
                         {times(c.benchmark.views, c.benchmark.expected)} usual
                       </p>
                     )}
@@ -269,6 +274,11 @@ function IncomingPosts({ incoming }: { incoming: CampaignView["incoming"] }) {
                       Instagram @{c.instagram}
                     </a>
                   )}
+                  {c?.avgViews ? (
+                    <span className="font-bold" title="Median views across their last 10 posts">
+                      {compact(c.avgViews)} median views
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <div className="flex items-center gap-3 text-sm">

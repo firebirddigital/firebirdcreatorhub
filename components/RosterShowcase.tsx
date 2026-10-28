@@ -261,7 +261,7 @@ export function RosterShowcase({ creators, requestUrl, showRates }: { creators: 
               options={FOLLOWER_OPTIONS.map((v) => [String(v), v ? `${compact(v)}+` : "Any"])}
             />
             <DarkSelect
-              label="Median views (last 20 posts)"
+              label="Median views (last 10 posts)"
               value={String(minViews)}
               onChange={(v) => setMinViews(Number(v))}
               options={VIEW_OPTIONS.map((v) => [String(v), v ? `${compact(v)}+` : "Any"])}
@@ -561,11 +561,11 @@ function ListView({
             <th className={`${th} text-right`}>TikTok</th>
             <th className={`${th} text-right`}>Instagram</th>
             <th className={`${th} text-right`}>
-              Median views<span className="block font-normal">last 20 posts</span>
+              Median views<span className="block font-normal">last 10 posts</span>
             </th>
             {showRates && <th className={`${th} text-right`}>Rate</th>}
             {showRates && (
-              <th className={`${th} text-right`} title="Rate ÷ median views (last 20 posts) × 1,000">
+              <th className={`${th} text-right`} title="Rate ÷ median views (last 10 posts) × 1,000">
                 CPM
               </th>
             )}
@@ -709,7 +709,7 @@ function CreatorTile({
           </div>
         )}
         {showRates && (
-          <div title="Rate ÷ median views (last 20 posts) × 1,000">
+          <div title="Rate ÷ median views (last 10 posts) × 1,000">
             <dt className="text-xs">CPM</dt>
             <dd className="figure text-lg">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</dd>
           </div>

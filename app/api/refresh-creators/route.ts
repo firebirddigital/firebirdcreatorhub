@@ -16,7 +16,7 @@ async function authorized(req: Request) {
   return isValidSession(jar.get(SESSION_COOKIE)?.value);
 }
 
-// Nightly: followers and average views (last 20 posts) for the creators whose stats are oldest.
+// Nightly: followers and average views (last 10 posts) for the creators whose stats are oldest.
 async function handle(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (isSampleMode() || !process.env.APIFY_TOKEN) {

@@ -63,7 +63,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     after(() =>
       notifyDraftSubmitted({ origin, campaignId: id, assignmentId: assignment.id, version, byTeam: true }).catch(() => undefined),
     );
-    // A brand new creator gets followers and average views (last 20 posts) pulled after responding.
+    // A brand new creator gets followers and average views (last 10 posts) pulled after responding.
     if (createdCreator && assignment.creatorId && process.env.APIFY_TOKEN) {
       const creatorId = assignment.creatorId;
       after(async () => {

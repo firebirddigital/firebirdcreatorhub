@@ -8,7 +8,7 @@ export const maxDuration = 300;
 // Small batches keep each scraper run well inside the time limit; the page sends several in a row.
 const MAX_PER_REQUEST = 10;
 
-// Team only (middleware). Pulls followers and average views (last 20 posts) for the given creators.
+// Team only (middleware). Pulls followers and average views (last 10 posts) for the given creators.
 export async function POST(req: Request) {
   if (isSampleMode() || !process.env.APIFY_TOKEN) {
     return NextResponse.json({ error: "Connect Airtable and Apify to pull creator stats." }, { status: 400 });

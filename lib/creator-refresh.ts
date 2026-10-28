@@ -1,4 +1,4 @@
-// Nightly creator stats: refreshes followers and average views (last 20 posts) for the creators whose
+// Nightly creator stats: refreshes followers and average views (last 10 posts) for the creators whose
 // stats are oldest, a few at a time, so the roster stays current on a rolling basis.
 // Guard rails, because every creator costs Apify credit:
 //   - skips the night when Apify spend is near the monthly limit (campaign post stats come first)

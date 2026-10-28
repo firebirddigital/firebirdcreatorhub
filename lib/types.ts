@@ -136,7 +136,7 @@ export interface CreatorPerformance {
   posts: number;
   views: number;
   engagementRate: number;
-  /** Views on posts by this creator vs what their usual (last 20 posts) average predicts. */
+  /** Views on posts by this creator vs what their usual (last 10 posts) average predicts. */
   benchmark?: Benchmark;
   /** Approved fee for this campaign. Team only. */
   fee?: number;
