@@ -6,7 +6,9 @@ import { getAssignment } from "@/lib/data";
 import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
 import { notifyDraftSubmitted } from "@/lib/notify";
 import { siteOrigin } from "@/lib/origin";
-import { createDraft } from "@/lib/roster";
+import { createDraft, pullMissingStats } from "@/lib/roster";
+
+export const maxDuration = 300;
 
 // Saves a draft (an uploaded file or a share link) against the creator's roster entry.
 export async function POST(req: Request, { params }: { params: Promise<{ aid: string; sig: string }> }) {
@@ -43,5 +45,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ aid: st
   revalidateTag("airtable");
   const origin = await siteOrigin();
   after(() => notifyDraftSubmitted({ origin, campaignId: assignment.campaignId, assignmentId: assignment.id, version }).catch(() => undefined));
+  // A creator who has never had stats pulled gets them now, so the team sees their median views and CPM.
+  if (assignment.creatorId) {
+    const creatorId = assignment.creatorId;
+    after(async () => {
+      await pullMissingStats([creatorId]).catch(() => undefined);
+      revalidateTag("airtable");
+    });
+  }
   return NextResponse.json({ ok: true, version });
 }

@@ -56,7 +56,8 @@ function CreatorMeta({ assignment: a, showCost, showCpm }: { assignment: Assignm
     c?.tiktok && { label: `TikTok @${c.tiktok}`, href: `https://www.tiktok.com/@${c.tiktok}` },
     c?.instagram && { label: `Instagram @${c.instagram}`, href: `https://www.instagram.com/${c.instagram}/` },
   ].filter((h): h is { label: string; href: string } => Boolean(h));
-  if (!handles.length && !c?.avgViews && !(showCost && cost) && !(showCpm && cpm)) return null;
+  // Median views and CPM always show, as a dash when they can't be worked out yet, so every creator lines up.
+  const cpmMissing = !(a.fee ?? c?.rate) ? "Needs a fee or rate" : "Needs their median views (stats not pulled yet)";
   return (
     <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
       {handles.map((h) => (
@@ -64,19 +65,17 @@ function CreatorMeta({ assignment: a, showCost, showCpm }: { assignment: Assignm
           {h.label}
         </a>
       ))}
-      {c?.avgViews ? (
-        <span className="font-bold" title="Median views across their last 10 posts">
-          {compact(c.avgViews)} median views
-        </span>
-      ) : null}
+      <span className="font-bold" title={c?.avgViews ? "Median views across their last 10 posts" : "Stats not pulled yet"}>
+        {c?.avgViews ? compact(c.avgViews) : "—"} median views
+      </span>
       {showCost && cost && (
         <span className="font-bold" title={a.fee ? "Fee for this campaign" : "No fee set yet; their general rate"}>
           {cost}
         </span>
       )}
-      {showCpm && cpm !== undefined && (
-        <span className="font-bold" title="Cost ÷ their median views (last 10 posts) × 1,000">
-          {money(cpm, 2)} CPM
+      {showCpm && (
+        <span className="font-bold" title={cpm !== undefined ? "Cost ÷ their median views (last 10 posts) × 1,000" : cpmMissing}>
+          {cpm !== undefined ? money(cpm, 2) : "—"} CPM
         </span>
       )}
     </p>

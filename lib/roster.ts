@@ -336,6 +336,19 @@ export function combinedAvgViews(...platforms: (ProfileStats | undefined)[]): nu
  * Pulls followers and average views (last 10 posts) for creators.
  * Creators on both platforms get their 10 newest posts across both.
  */
+/**
+ * Pulls stats for any of these creators who have never had them (about $0.03 of Apify credit each), so
+ * median views and CPM fill in as soon as a creator joins a campaign or sends a draft. Safe to call often:
+ * creators who already have stats are skipped.
+ */
+export async function pullMissingStats(creatorIds: string[]) {
+  if (!process.env.APIFY_TOKEN || !creatorIds.length) return;
+  const missing = (await getCreators({ fresh: true }))
+    .filter((c) => creatorIds.includes(c.id) && !c.statsUpdated && !c.avgViews && (c.tiktok || c.instagram))
+    .map((c) => c.id);
+  if (missing.length) await refreshCreatorStats(missing);
+}
+
 export async function refreshCreatorStats(creatorIds: string[]) {
   const creators = (await getCreators({ fresh: true })).filter((c) => creatorIds.includes(c.id));
   const accounts: { platform: Platform; handle: string }[] = [];

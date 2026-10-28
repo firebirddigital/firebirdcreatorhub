@@ -6,6 +6,7 @@ import {
   addCreatorsToCampaign,
   findOrCreateCreator,
   type NewCreatorInput,
+  pullMissingStats,
   refreshCreatorStats,
   removeFromCampaign,
   updateAssignment,
@@ -66,6 +67,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const creatorId = created.id;
     after(async () => {
       await refreshCreatorStats([creatorId]).catch(() => undefined);
+      revalidateTag("airtable");
+    });
+  }
+  // Roster creators who have never had stats pulled get them now, so their median views and CPM show.
+  const fromRoster = creatorIds.filter((c) => c !== created?.id);
+  if (fromRoster.length && process.env.APIFY_TOKEN) {
+    after(async () => {
+      await pullMissingStats(fromRoster).catch(() => undefined);
       revalidateTag("airtable");
     });
   }

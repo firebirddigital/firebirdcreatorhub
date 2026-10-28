@@ -9,7 +9,7 @@ import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
 import { notifyDraftSubmitted, notifyReview } from "@/lib/notify";
 import { siteOrigin } from "@/lib/origin";
 import { parsePlatforms } from "@/lib/types";
-import { createDraft, ensureDraftAssignment, recordReview, refreshCreatorStats, UserError } from "@/lib/roster";
+import { createDraft, ensureDraftAssignment, pullMissingStats, recordReview, refreshCreatorStats, UserError } from "@/lib/roster";
 
 const TEAM_SUBMITTER = "Firebird team";
 
@@ -63,11 +63,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     after(() =>
       notifyDraftSubmitted({ origin, campaignId: id, assignmentId: assignment.id, version, byTeam: true }).catch(() => undefined),
     );
-    // A brand new creator gets followers and average views (last 10 posts) pulled after responding.
-    if (createdCreator && assignment.creatorId && process.env.APIFY_TOKEN) {
+    // A creator with no stats yet (brand new, or never pulled) gets followers and median views
+    // (last 10 posts) pulled after responding.
+    if (assignment.creatorId && process.env.APIFY_TOKEN) {
       const creatorId = assignment.creatorId;
       after(async () => {
-        await refreshCreatorStats([creatorId]).catch(() => undefined);
+        await (createdCreator ? refreshCreatorStats([creatorId]) : pullMissingStats([creatorId])).catch(() => undefined);
         revalidateTag("airtable");
       });
     }

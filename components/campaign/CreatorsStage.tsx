@@ -215,12 +215,23 @@ function RosterCard({
             </dd>
           </div>
         )}
-        {showFee && (a.fee ?? c?.rate) && c?.avgViews ? (
-          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2" title="Cost per post ÷ median views × 1,000">
+        {showFee && (
+          <div
+            className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2"
+            title={
+              (a.fee ?? c?.rate) && c?.avgViews
+                ? "Cost per post ÷ median views × 1,000"
+                : !(a.fee ?? c?.rate)
+                  ? "Needs a fee or rate"
+                  : "Needs their median views (stats not pulled yet)"
+            }
+          >
             <dt className="text-sm">Expected CPM</dt>
-            <dd className="figure text-lg">{money((((a.fee ?? c.rate) as number) / c.avgViews) * 1000, 2)}</dd>
+            <dd className="figure text-lg">
+              {(a.fee ?? c?.rate) && c?.avgViews ? money((((a.fee ?? c.rate) as number) / c.avgViews) * 1000, 2) : "—"}
+            </dd>
           </div>
-        ) : null}
+        )}
       </dl>
 
       {!!c?.tags.length && (
