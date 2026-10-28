@@ -4,6 +4,7 @@ import { CampaignFilters } from "@/components/CampaignFilters";
 import { RequestImport } from "@/components/RequestImport";
 import { Header } from "@/components/Header";
 import { RequestsInbox } from "@/components/RequestsInbox";
+import { ManualCampaign } from "@/components/campaign/CampaignEditor";
 import { StatusTag } from "@/components/StatusTag";
 import { isSampleMode, REQUEST_FORM_URL } from "@/lib/config";
 import { getAnalytics, normalize } from "@/lib/analytics";
@@ -184,6 +185,10 @@ export default async function CampaignsPage({
             ))}
           </ul>
         )}
+
+        <section aria-label="Manual upload" className="mt-16">
+          <ManualCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
+        </section>
       </main>
     </>
   );

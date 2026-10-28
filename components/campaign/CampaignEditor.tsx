@@ -235,3 +235,79 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
     </form>
   );
 }
+
+/**
+ * Bottom of the Campaigns list: set up a campaign by hand when there's no request form, for example a
+ * dashboard just to track some posts. Starts Live, on the Live tab, so posts can go straight in.
+ */
+export function ManualCampaign({ sample, type }: { sample: boolean; type?: CampaignType }) {
+  const router = useRouter();
+  const blank = () => ({ ...fromCampaign(undefined, "live", type), status: "Live" as CampaignStatus });
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState<FormState>(blank);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(undefined);
+    const res = await fetch(`/api/campaigns`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(toPayload(f)),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; id?: string };
+    if (!res.ok || !data.id) {
+      setBusy(false);
+      setError(data.error ?? "Couldn't create the campaign. Try again.");
+      return;
+    }
+    router.push(`/campaigns/${data.id}?tab=${f.stage}`);
+  }
+
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button
+          onClick={() => {
+            setF(blank());
+            setOpen(true);
+          }}
+          disabled={sample}
+          title={sample ? "Connect Airtable to create campaigns" : undefined}
+          className="subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
+        >
+          Manual upload
+        </button>
+        <span className="text-sm">No request form? Set up a dashboard by hand, for example just to track some posts.</span>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={create} className="border-2 border-fb-black p-6 max-sm:p-4 space-y-6">
+      <div>
+        <h2 className="headline text-3xl">Manual upload</h2>
+        <p className="mt-1 text-sm">It starts Live so you can add posts straight away. Change the stage below if you need to.</p>
+      </div>
+      <Fields f={f} set={(p) => setF((cur) => ({ ...cur, ...p }))} />
+      {error && (
+        <p role="alert" className="text-sm font-bold text-fb-red">
+          {error}
+        </p>
+      )}
+      <div className="flex items-center gap-4">
+        <button
+          disabled={busy}
+          className="subtitle bg-fb-red text-fb-white px-8 py-3.5 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+        >
+          {busy ? "Creating" : "Create campaign"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-sm underline underline-offset-4">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
