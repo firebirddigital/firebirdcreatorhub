@@ -3,10 +3,10 @@ import { dateRange } from "@/lib/format";
 import type { Campaign, Stage } from "@/lib/types";
 import { StatusTag } from "../StatusTag";
 
-export const STAGES: { key: Stage; label: string; blurb: string }[] = [
-  { key: "creators", label: "Creators", blurb: "Who we plan to use" },
-  { key: "drafts", label: "Drafts", blurb: "Videos for approval" },
-  { key: "live", label: "Live", blurb: "Results as they post" },
+export const STAGES: { key: Stage; label: string; action: string }[] = [
+  { key: "creators", label: "Creators", action: "Approve the creator lineup" },
+  { key: "drafts", label: "Drafts", action: "Watch and approve each video" },
+  { key: "live", label: "Live", action: "Track views and results" },
 ];
 
 export function parseTab(v?: string | string[]): Stage | undefined {
@@ -47,28 +47,48 @@ export function CampaignShell({
 
         <div className="mt-12">{hero}</div>
 
-        {/* The campaign really is a sequence, so the steps are numbered */}
-        <nav aria-label="Campaign stages" className="mt-14 grid grid-cols-3 border-t border-fb-white/40">
+        {/* The campaign is a sequence: numbered phase cards, each saying what to do there. */}
+        <nav aria-label="Campaign phases" className="mt-14 pb-10 grid gap-3 sm:grid-cols-3">
           {STAGES.map((s, i) => {
             const active = s.key === tab;
             const done = i < currentIndex;
             const isCurrent = s.key === current;
+            const status = isCurrent ? "Now" : done ? "Done" : "Up next";
             return (
               <Link
                 key={s.key}
                 href={`${basePath}?tab=${s.key}`}
                 aria-current={active ? "page" : undefined}
                 scroll={false}
-                className={`group relative block py-5 pr-4 border-t-4 -mt-px transition-colors ${
-                  active ? "border-fb-red" : "border-transparent hover:border-fb-white/60"
+                className={`group relative flex flex-col border-2 p-5 max-sm:p-4 transition-colors ${
+                  active
+                    ? "bg-fb-white text-fb-black border-fb-white"
+                    : "border-fb-white/40 hover:border-fb-white hover:bg-fb-white/10"
                 }`}
               >
-                <span className="flex items-baseline gap-3">
-                  <span className={`figure text-2xl ${active ? "text-fb-red" : ""}`}>{i + 1}</span>
-                  <span className="subtitle text-base max-sm:text-sm">{s.label}</span>
+                <span className="flex items-center justify-between gap-3">
+                  <span className={`subtitle text-xs ${active ? "text-fb-red" : "text-fb-white/75"}`}>Phase {i + 1}</span>
+                  <span
+                    className={`px-2 py-0.5 text-xs font-bold ${
+                      isCurrent
+                        ? "bg-fb-red text-fb-white"
+                        : done
+                          ? active
+                            ? "border border-fb-black"
+                            : "border border-fb-white/60"
+                          : active
+                            ? "border border-fb-black/40"
+                            : "border border-fb-white/30 text-fb-white/75"
+                    }`}
+                  >
+                    {done && <span aria-hidden>✓ </span>}
+                    {status}
+                  </span>
                 </span>
-                <span className="mt-1 block text-sm text-fb-white/75 max-sm:hidden">
-                  {isCurrent ? "Happening now" : done ? "Done" : s.blurb}
+                <span className="subtitle mt-3 text-2xl max-sm:text-xl">{s.label}</span>
+                <span className={`mt-1 text-sm ${active ? "" : "text-fb-white/75"}`}>{s.action}</span>
+                <span className={`mt-4 text-sm font-bold ${active ? "text-fb-red" : "group-hover:underline underline-offset-4"}`}>
+                  {active ? "You're viewing this phase" : `Open phase ${i + 1} →`}
                 </span>
               </Link>
             );
