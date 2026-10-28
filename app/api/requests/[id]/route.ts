@@ -34,10 +34,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (!body.campaignId || !/^rec[A-Za-z0-9]{14}$/.test(body.campaignId)) {
         return NextResponse.json({ error: "Pick a campaign." }, { status: 400 });
       }
-      const { contactsSaved } = await acceptIntoCampaign(request, body.campaignId);
+      const { contactsSaved, filled } = await acceptIntoCampaign(request, body.campaignId);
       after(() => syncRequestStatus(request, "accepted", `${origin}/campaigns/${body.campaignId}`));
       revalidateTag("airtable");
-      return NextResponse.json({ ok: true, campaignId: body.campaignId, contactsSaved });
+      return NextResponse.json({ ok: true, campaignId: body.campaignId, contactsSaved, filled });
     }
     if (body.action === "dismiss") {
       await dismissRequest(request);

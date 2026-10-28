@@ -78,14 +78,20 @@ const STATUSES: AssignmentStatus[] = ["Proposed", "Approved", "Changes requested
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (isSampleMode()) return sampleBlock();
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as { assignmentId?: string; status?: string; fee?: number | null };
+  const body = (await req.json().catch(() => ({}))) as { assignmentId?: string; status?: string; fee?: number | null; paid?: unknown };
   const assignment = body.assignmentId ? await getAssignment(body.assignmentId) : undefined;
   if (!assignment || assignment.campaignId !== id) {
     return NextResponse.json({ error: "That creator isn't on this campaign." }, { status: 404 });
   }
   const status = STATUSES.find((s) => s === body.status);
   const fee = body.fee === null ? null : typeof body.fee === "number" && body.fee >= 0 ? body.fee : undefined;
-  await updateAssignment(assignment.id, { status, fee });
+  const paid = typeof body.paid === "boolean" ? body.paid : undefined;
+  try {
+    await updateAssignment(assignment.id, { status, fee, paid });
+  } catch (e) {
+    if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });
+    throw e;
+  }
   revalidateTag("airtable");
   return NextResponse.json({ ok: true });
 }

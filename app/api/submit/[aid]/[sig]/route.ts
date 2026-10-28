@@ -39,7 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ aid: st
     saved = link.url;
   }
 
-  const version = await createDraft(assignment, saved, caption);
+  const { version } = await createDraft(assignment, saved, caption);
   revalidateTag("airtable");
   const origin = await siteOrigin();
   after(() => notifyDraftSubmitted({ origin, campaignId: assignment.campaignId, assignmentId: assignment.id, version }).catch(() => undefined));

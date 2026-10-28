@@ -8,30 +8,36 @@ export interface AirtableRecord {
   fields: Record<string, unknown>;
 }
 
-function headers() {
+/** Another base read with its own key (the operations base's request forms, read-only). */
+export interface OtherBase {
+  id: string;
+  token: string;
+}
+
+function headers(token = process.env.AIRTABLE_TOKEN) {
   return {
-    Authorization: `Bearer ${process.env.AIRTABLE_TOKEN}`,
+    Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
 }
 
-function tableUrl(table: string) {
-  return `${API}/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(table)}`;
+function tableUrl(table: string, baseId = process.env.AIRTABLE_BASE_ID) {
+  return `${API}/${baseId}/${encodeURIComponent(table)}`;
 }
 
 /** Reads every record in a table, following Airtable's pagination. Cached for 5 minutes. */
 export async function listAll(
   table: string,
   params: Record<string, string> = {},
-  opts: { fresh?: boolean } = {},
+  opts: { fresh?: boolean; base?: OtherBase } = {},
 ): Promise<AirtableRecord[]> {
   const records: AirtableRecord[] = [];
   let offset: string | undefined;
   do {
     const qs = new URLSearchParams({ pageSize: "100", ...params });
     if (offset) qs.set("offset", offset);
-    const res = await fetch(`${tableUrl(table)}?${qs}`, {
-      headers: headers(),
+    const res = await fetch(`${tableUrl(table, opts.base?.id)}?${qs}`, {
+      headers: headers(opts.base?.token),
       ...(opts.fresh ? { cache: "no-store" as const } : { next: { revalidate: 300, tags: ["airtable"] } }),
     });
     if (!res.ok) {

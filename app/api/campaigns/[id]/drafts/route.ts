@@ -8,6 +8,7 @@ import { getCampaign, getDrafts } from "@/lib/data";
 import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
 import { notifyDraftSubmitted, notifyReview } from "@/lib/notify";
 import { siteOrigin } from "@/lib/origin";
+import { parsePlatforms } from "@/lib/types";
 import { createDraft, ensureDraftAssignment, recordReview, refreshCreatorStats, UserError } from "@/lib/roster";
 
 const TEAM_SUBMITTER = "Firebird team";
@@ -27,7 +28,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     newCreator?: { name?: string; instagram?: string; tiktok?: string };
     videoUrl?: string;
     caption?: string;
+    platforms?: unknown;
   };
+  const platforms = parsePlatforms(Array.isArray(body.platforms) ? body.platforms.filter((p) => typeof p === "string") : []);
 
   const videoUrl = body.videoUrl?.trim() ?? "";
   let saved: string;
@@ -54,7 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       creatorId: body.creatorId,
       newCreator: body.newCreator?.name ? { ...body.newCreator, name: body.newCreator.name } : undefined,
     });
-    const version = await createDraft(assignment, saved, body.caption, TEAM_SUBMITTER);
+    const { version, platformsSaved } = await createDraft(assignment, saved, body.caption, TEAM_SUBMITTER, platforms);
     revalidateTag("airtable");
     const origin = await siteOrigin();
     after(() =>
@@ -68,7 +71,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         revalidateTag("airtable");
       });
     }
-    return NextResponse.json({ ok: true, version, createdCreator, addedToCampaign });
+    return NextResponse.json({ ok: true, version, createdCreator, addedToCampaign, platformsSaved });
   } catch (e) {
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });
     throw e;

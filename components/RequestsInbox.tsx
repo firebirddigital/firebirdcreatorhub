@@ -38,8 +38,8 @@ export function RequestsInbox({
   if (!requests.length && missingTables.length === 2) {
     return (
       <p className="mt-6 max-w-prose text-sm">
-        Campaign requests will show here once the request forms are synced into this base (tables named “Influencer
-        Requests” and “Content Seeding Requests”).
+        Campaign requests will show here once the hub can read the request forms (couldn&apos;t find{" "}
+        {missingTables.join(" or ")}).
       </p>
     );
   }
@@ -64,7 +64,7 @@ export function RequestsInbox({
         </div>
       </div>
       {missingTables.length > 0 && (
-        <p className="mt-2 text-xs">Not synced yet: {missingTables.join(" and ")}.</p>
+        <p className="mt-2 text-xs">Couldn&apos;t read: {missingTables.join(" and ")}.</p>
       )}
 
       {shown.length === 0 ? (
@@ -100,7 +100,7 @@ function RequestCard({ request: r, campaigns, sample }: { request: CampaignReque
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, campaignId: action === "link" ? linkTo : undefined }),
     });
-    const data = (await res.json().catch(() => ({}))) as { error?: string; campaignId?: string; contactsSaved?: boolean };
+    const data = (await res.json().catch(() => ({}))) as { error?: string; campaignId?: string; contactsSaved?: boolean; filled?: string[] };
     setBusy(undefined);
     if (!res.ok) {
       setError(data.error ?? "That didn't work. Try again.");
@@ -108,6 +108,11 @@ function RequestCard({ request: r, campaigns, sample }: { request: CampaignReque
     }
     if (data.contactsSaved === false) {
       setNote("Saved, but partner contacts weren't: add a “Partner Contacts” long text field to Campaigns in Airtable.");
+    }
+    if (action === "link" && data.campaignId) {
+      // Straight to the campaign, where the details just filled in can be checked.
+      router.push(`/campaigns/${data.campaignId}`);
+      return;
     }
     if (action === "create" && data.campaignId) {
       router.push(`/campaigns/${data.campaignId}?tab=creators`);

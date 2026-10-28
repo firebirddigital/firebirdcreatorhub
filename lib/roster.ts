@@ -9,7 +9,7 @@ import {
   TABLES,
 } from "./config";
 import { getAssignments, getCampaign, getCreators, getDrafts } from "./data";
-import type { Assignment, AssignmentStatus, DraftStatus, Platform, Stage } from "./types";
+import type { Assignment, AssignmentStatus, DraftPlatform, DraftStatus, Platform, Stage } from "./types";
 
 const STAGE_LABEL: Record<Stage, string> = { creators: "Creators", drafts: "Drafts", live: "Live" };
 
@@ -79,11 +79,20 @@ export async function removeFromCampaign(campaignId: string, assignmentIds: stri
   return removing.length;
 }
 
-export async function updateAssignment(id: string, patch: { status?: AssignmentStatus; fee?: number | null }) {
+export async function updateAssignment(id: string, patch: { status?: AssignmentStatus; fee?: number | null; paid?: boolean }) {
   const fields: Record<string, unknown> = {};
   if (patch.status) fields[AF.status] = patch.status;
   if (patch.fee !== undefined) fields[AF.fee] = patch.fee;
-  await updateRecords(TABLES.assignments, [{ id, fields }]);
+  if (patch.paid !== undefined) fields[AF.paid] = patch.paid;
+  try {
+    await updateRecords(TABLES.assignments, [{ id, fields }]);
+  } catch (e) {
+    // Paid is an optional field the team adds in Airtable.
+    if (patch.paid !== undefined && String(e).includes("UNKNOWN_FIELD_NAME")) {
+      throw new UserError(`Add a checkbox field called “${AF.paid}” to the ${TABLES.assignments} table in Airtable, then try again.`);
+    }
+    throw e;
+  }
 }
 
 const DECISIONS = {
@@ -135,7 +144,13 @@ export async function recordReview(opts: {
 }
 
 /** Saves a draft (an uploaded file or a link) as the creator's next version. */
-export async function createDraft(assignment: Assignment, videoUrl: string, caption?: string, submittedBy?: string) {
+export async function createDraft(
+  assignment: Assignment,
+  videoUrl: string,
+  caption?: string,
+  submittedBy?: string,
+  platforms: DraftPlatform[] = [],
+) {
   const [campaign, drafts, creators] = await Promise.all([
     getCampaign(assignment.campaignId),
     getDrafts(assignment.campaignId, { fresh: true }),
@@ -155,14 +170,23 @@ export async function createDraft(assignment: Assignment, videoUrl: string, capt
     [DF.status]: "Pending review",
     [DF.submittedAt]: new Date().toISOString(),
   };
+  const optional: Record<string, unknown> = {
+    ...(submittedBy ? { [DF.submittedBy]: submittedBy } : {}),
+    ...(platforms.length ? { [DF.platforms]: platforms.join(", ") } : {}),
+  };
   try {
-    await createRecords(TABLES.drafts, [{ fields: submittedBy ? { ...fields, [DF.submittedBy]: submittedBy } : fields }]);
+    await createRecords(TABLES.drafts, [{ fields: { ...fields, ...optional } }]);
   } catch (e) {
-    // Submitted By is optional in Airtable; save without it if the base doesn't have the field.
-    if (!submittedBy || !String(e).includes("UNKNOWN_FIELD_NAME")) throw e;
-    await createRecords(TABLES.drafts, [{ fields }]);
+    // Submitted By and Platforms are optional in Airtable; save without them if the base doesn't have them.
+    const err = String(e);
+    if (!Object.keys(optional).length || !err.includes("UNKNOWN_FIELD_NAME")) throw e;
+    // Drop the missing field(s) Airtable names, or all optional ones if it doesn't say.
+    const missing = Object.keys(optional).filter((k) => err.includes(`"${k}"`));
+    const kept = Object.fromEntries(Object.entries(optional).filter(([k]) => missing.length && !missing.includes(k)));
+    await createRecords(TABLES.drafts, [{ fields: { ...fields, ...kept } }]);
+    return { version, platformsSaved: !platforms.length || DF.platforms in kept };
   }
-  return version;
+  return { version, platformsSaved: true };
 }
 
 /**

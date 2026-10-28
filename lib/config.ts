@@ -53,6 +53,8 @@ export const ASSIGNMENT_FIELDS = {
   reviewedBy: "Reviewed By",
   reviewedAt: "Reviewed At",
   campaignRecordId: "Campaign Record ID",
+  // Optional checkbox: the creator has been paid for this campaign. Team only.
+  paid: "Paid",
 } as const;
 
 export const DRAFT_FIELDS = {
@@ -71,6 +73,8 @@ export const DRAFT_FIELDS = {
   campaignRecordId: "Campaign Record ID",
   // Optional single line text field. Leave it out of Airtable and the hub skips it.
   submittedBy: "Submitted By",
+  // Optional single line text: where the draft will be posted, e.g. "TikTok, Instagram".
+  platforms: "Platforms",
 } as const;
 
 export const POST_FIELDS = {

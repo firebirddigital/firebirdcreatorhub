@@ -96,6 +96,7 @@ export function CreatorsBody({
                   <RosterCard
                     assignment={a}
                     showFee={showFees}
+                    showPaid={Boolean(team)}
                     trackRecord={team && a.creatorId ? trackRecordText(team.trackRecords?.[a.creatorId]) ?? "First Firebird campaign" : undefined}
                   />
                   <div className="mt-4">
@@ -119,6 +120,7 @@ export function CreatorsBody({
                         assignmentId={a.id}
                         status={a.status}
                         fee={a.fee}
+                        paid={a.paid}
                         uploadUrl={team.uploadUrls[a.id]}
                       />
                     )}
@@ -139,7 +141,18 @@ export function CreatorsBody({
   );
 }
 
-function RosterCard({ assignment: a, showFee, trackRecord }: { assignment: Assignment; showFee: boolean; trackRecord?: string }) {
+function RosterCard({
+  assignment: a,
+  showFee,
+  showPaid,
+  trackRecord,
+}: {
+  assignment: Assignment;
+  showFee: boolean;
+  /** Team only: a Paid tag on the photo. */
+  showPaid?: boolean;
+  trackRecord?: string;
+}) {
   const c = a.creator;
   const status = STATUS_STYLE[a.status];
   const initials = (c?.name ?? "?")
@@ -162,6 +175,11 @@ function RosterCard({ assignment: a, showFee, trackRecord }: { assignment: Assig
         <span className={`absolute left-0 top-0 px-2.5 py-1 text-xs font-bold ${status.className}`}>
           {status.label}
         </span>
+        {showPaid && a.status === "Approved" && (
+          <span className={`absolute bottom-0 right-0 px-2.5 py-1 text-xs font-bold ${a.paid ? "bg-fb-white" : "bg-fb-red text-fb-white"}`}>
+            {a.paid ? "Paid" : "Unpaid"}
+          </span>
+        )}
       </div>
 
       <h3 className="subtitle mt-4 text-xl">{c?.name ?? "Creator"}</h3>

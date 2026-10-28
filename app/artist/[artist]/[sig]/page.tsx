@@ -8,7 +8,17 @@ import { REQUEST_FORM_URL } from "@/lib/config";
 import { compact, dateRange, pct } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export async function generateMetadata({ params }: { params: Promise<{ artist: string; sig: string }> }): Promise<Metadata> {
+  const { artist, sig } = await params;
+  const key = normalize(decodeURIComponent(artist));
+  const name =
+    key && (await isValidArtistShare(key, sig))
+      ? (await getAnalytics({ artist: key })).byArtist.find((r) => normalize(r.name) === key)?.name
+      : undefined;
+  if (!name) return { robots: { index: false, follow: false } };
+  const title = `${name}: creator campaign results`;
+  return { title, openGraph: { title, siteName: "Firebird" }, twitter: { card: "summary_large_image", title }, robots: { index: false, follow: false } };
+}
 
 // Shareable results for one artist: totals across their campaigns. No posts, creators, fees or CPM.
 export default async function ArtistResultsPage({ params }: { params: Promise<{ artist: string; sig: string }> }) {

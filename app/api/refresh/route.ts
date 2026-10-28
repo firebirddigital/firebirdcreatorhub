@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
 import { refreshStats } from "@/lib/refresh";
+import { importNewRequests } from "@/lib/requests";
 
 // Scraper runs can take a while. Vercel allows up to 300s with Fluid Compute (the default).
 export const maxDuration = 300;
@@ -20,8 +21,10 @@ async function handle(req: Request) {
   const campaignId = new URL(req.url).searchParams.get("campaign") ?? undefined;
   try {
     const result = await refreshStats({ campaignId });
+    // The daily run also picks up any request form submissions nobody has opened the hub for yet.
+    const requests = campaignId ? undefined : await importNewRequests({ force: true }).catch((e) => ({ error: String(e) }));
     revalidateTag("airtable");
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, requests });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }

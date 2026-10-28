@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { CampaignFilters } from "@/components/CampaignFilters";
+import { RequestImport } from "@/components/RequestImport";
 import { Header } from "@/components/Header";
 import { NewCampaign } from "@/components/campaign/CampaignEditor";
 import { RequestsInbox } from "@/components/RequestsInbox";
@@ -8,7 +9,7 @@ import { StatusTag } from "@/components/StatusTag";
 import { isSampleMode, REQUEST_FORM_URL } from "@/lib/config";
 import { getAnalytics, normalize } from "@/lib/analytics";
 import { getCampaignSummaries } from "@/lib/data";
-import { getRequests } from "@/lib/requests";
+import { getRequests, requestsDirect } from "@/lib/requests";
 import { compact, dateRange, pct } from "@/lib/format";
 import { campaignType, type CampaignType } from "@/lib/types";
 
@@ -80,6 +81,7 @@ export default async function CampaignsPage({
           <NewCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
         </div>
 
+        {requestsDirect() && !isSampleMode() && <RequestImport />}
         <RequestsInbox
           requests={inbox.requests}
           missingTables={inbox.missingTables}

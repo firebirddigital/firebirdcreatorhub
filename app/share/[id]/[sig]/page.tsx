@@ -14,7 +14,20 @@ import { getStreams } from "@/lib/streams";
 import type { Assignment, Creator } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+// The link preview's title is the campaign's name; only for valid links to campaigns that are shared.
+export async function generateMetadata({ params }: { params: Promise<{ id: string; sig: string }> }): Promise<Metadata> {
+  const { id, sig } = await params;
+  const campaign = (await isValidShare(id, sig)) ? await getCampaign(id) : undefined;
+  if (!campaign?.sharingEnabled) return { robots: { index: false, follow: false } };
+  const description = `${campaign.artist}${campaign.song ? `, “${campaign.song}”` : ""}. Creator campaign results from Firebird.`;
+  return {
+    title: campaign.name,
+    description,
+    openGraph: { title: campaign.name, description, siteName: "Firebird" },
+    twitter: { card: "summary_large_image", title: campaign.name, description },
+    robots: { index: false, follow: false },
+  };
+}
 
 // Partner-facing campaign page. Everything internal is stripped here, before it reaches the browser.
 export default async function SharePage({

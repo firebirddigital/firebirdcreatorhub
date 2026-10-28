@@ -184,7 +184,7 @@ const assign = (campaignId: string, creatorId: string, status: Assignment["statu
 });
 
 export const sampleAssignments: Assignment[] = [
-  ...sampleCampaigns[0].creatorIds.map((id) => assign("cmp01", id, "Approved")),
+  ...sampleCampaigns[0].creatorIds.map((id, i) => assign("cmp01", id, "Approved", i < 2 ? { paid: true } : {})),
   ...sampleCampaigns[1].creatorIds.map((id) => assign("cmp02", id, "Approved")),
   assign("cmp03", "cr09", "Approved", { reviewedBy: "Label team" }),
   assign("cmp03", "cr15", "Approved", { reviewedBy: "Label team" }),
@@ -198,9 +198,9 @@ export const sampleAssignments: Assignment[] = [
 ];
 
 export const sampleDrafts: Draft[] = [
-  { id: "dr1", assignmentId: "as-cmp01-cr01", campaignId: "cmp01", creatorId: "cr01", version: 2, status: "Approved", caption: "the drive home hits different", submittedAt: daysAgo(17), reviewedBy: "Label team" },
+  { id: "dr1", assignmentId: "as-cmp01-cr01", campaignId: "cmp01", creatorId: "cr01", version: 2, status: "Approved", caption: "the drive home hits different", submittedAt: daysAgo(17), reviewedBy: "Label team", platforms: ["TikTok", "Instagram"] },
   { id: "dr2", assignmentId: "as-cmp01-cr03", campaignId: "cmp01", creatorId: "cr03", version: 1, status: "Approved", caption: "back roads season", submittedAt: daysAgo(18), reviewedBy: "Label team" },
   { id: "dr3", assignmentId: "as-cmp01-cr08", campaignId: "cmp01", creatorId: "cr08", version: 1, status: "Approved", caption: "windows down", submittedAt: daysAgo(18), reviewedBy: "Label team" },
   { id: "dr5", assignmentId: "as-cmp03-cr09", campaignId: "cmp03", creatorId: "cr09", version: 1, status: "Approved", caption: "holiday mode", submittedAt: daysAgo(3), reviewedAt: daysAgo(2), reviewedBy: "Label team" },
-  { id: "dr4", assignmentId: "as-cmp01-cr13", campaignId: "cmp01", creatorId: "cr13", version: 2, status: "Changes requested", caption: "leg day soundtrack", submittedAt: daysAgo(19), partnerComment: "Can the song start in the first two seconds?", reviewedBy: "Label team" },
+  { id: "dr4", assignmentId: "as-cmp01-cr13", campaignId: "cmp01", creatorId: "cr13", version: 2, status: "Changes requested", caption: "leg day soundtrack", submittedAt: daysAgo(19), partnerComment: "Can the song start in the first two seconds?", reviewedBy: "Label team", platforms: ["TikTok"] },
 ];

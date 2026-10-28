@@ -72,6 +72,65 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
   );
 }
 
+/**
+ * Total spent on creators: approved fees against the budget, with the part marked paid. Partners (only
+ * when the campaign shows rates) see the total alone, without the budget or who has been paid.
+ */
+function SpentBar({ spent, internal }: { spent?: CampaignView["spent"]; internal: boolean }) {
+  const fees = spent?.fees ?? 0;
+  const budget = internal ? spent?.budget : undefined;
+  // The bar fills against the budget, or against the fees themselves when there's no budget (or it's over).
+  const scale = Math.max(budget ?? 0, fees) || 1;
+  const width = (n: number) => `${Math.min(100, (n / scale) * 100)}%`;
+  const over = budget !== undefined && fees > budget;
+  const unpaid = fees - (spent?.paid ?? 0);
+  return (
+    <section aria-label="Total spent" className="border-2 border-fb-black p-6 max-sm:p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-3">
+          <h2 className="subtitle text-sm">Total spent</h2>
+          <span className="figure text-3xl">{money(fees)}</span>
+          {budget !== undefined && <span className="text-sm">of {money(budget)} budget</span>}
+        </div>
+        <p className="text-sm">
+          {spent?.creators
+            ? `${spent.creators} approved ${spent.creators === 1 ? "creator" : "creators"}${
+                spent.unpriced ? `, ${spent.unpriced} without a fee yet` : ""
+              }`
+            : "No approved creators yet"}
+          {internal && <span className="text-xs"> · Team only</span>}
+        </p>
+      </div>
+      <div className="relative mt-4 h-4 border-2 border-fb-black" role="img" aria-label={`${money(fees)} spent${budget !== undefined ? ` of ${money(budget)}` : ""}`}>
+        {internal ? (
+          <>
+            <div className="absolute inset-y-0 left-0 bg-fb-black" style={{ width: width(spent?.paid ?? 0) }} />
+            <div className="absolute inset-y-0 bg-fb-red" style={{ left: width(spent?.paid ?? 0), width: width(unpaid) }} />
+          </>
+        ) : (
+          <div className="absolute inset-y-0 left-0 bg-fb-red" style={{ width: width(fees) }} />
+        )}
+      </div>
+      {internal && (
+        <p className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <span>
+            <span aria-hidden className="mr-1.5 inline-block size-3 bg-fb-black align-middle" />
+            Paid {money(spent?.paid ?? 0)} ({spent?.paidCreators ?? 0})
+          </span>
+          <span>
+            <span aria-hidden className="mr-1.5 inline-block size-3 bg-fb-red align-middle" />
+            Not paid yet {money(unpaid)} ({(spent?.creators ?? 0) - (spent?.paidCreators ?? 0)})
+          </span>
+          {budget !== undefined && (
+            <span className="font-bold">{over ? `${money(fees - budget)} over budget` : `${money(budget - fees)} left`}</span>
+          )}
+          {!fees && <span>Add fees on the Creators or Drafts tab.</span>}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** Chart, top creators and the post grid for the Live stage. */
 export function LiveBody({
   view,
@@ -97,6 +156,8 @@ export function LiveBody({
   return (
     <>
       {tools}
+
+      {(internal || view.spent) && <SpentBar spent={view.spent} internal={internal} />}
 
       <section className="grid gap-14 lg:grid-cols-[1.6fr_1fr]">
         <div>

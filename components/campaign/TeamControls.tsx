@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { compact } from "@/lib/format";
 import { profileFromUrl } from "@/lib/social";
+import { ModalButton } from "./Modal";
 import type { AssignmentStatus, Creator, Stage } from "@/lib/types";
 
 const STATUSES: AssignmentStatus[] = ["Proposed", "Approved", "Changes requested", "Declined"];
@@ -312,7 +313,7 @@ function NewCreatorForm({
   );
 }
 
-/** Team toolbar on the Creators tab: add from the roster, pull stats, move stage, share. */
+/** Team toolbar on the Creators and Drafts tabs: add creators (and drafts) in popups, pull stats, move stage, share. */
 export function RosterTools({
   campaignId,
   roster,
@@ -320,6 +321,7 @@ export function RosterTools({
   current,
   shareUrl,
   sample,
+  addDraft,
 }: {
   campaignId: string;
   roster: Pick<Creator, "id" | "name" | "instagram" | "tiktok" | "instagramFollowers" | "tiktokFollowers" | "tags">[];
@@ -327,6 +329,8 @@ export function RosterTools({
   current: Stage;
   shareUrl?: string;
   sample: boolean;
+  /** Drafts tab: the add-a-draft form, opened from its own button. */
+  addDraft?: React.ReactNode;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -367,47 +371,8 @@ export function RosterTools({
 
   const nextStage: Stage | undefined = current === "creators" ? "drafts" : current === "drafts" ? "live" : undefined;
 
-  return (
-    <div className="space-y-4">
-      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={() =>
-            run("stats", async () => {
-              const d = await call(`/api/campaigns/${campaignId}/creator-stats`, "POST");
-              return `Updated followers and average views (last 20 posts) for ${d.updated} of ${d.requested} creators.`;
-            })
-          }
-          disabled={sample || busy === "stats"}
-          className={BUTTON}
-        >
-          {busy === "stats" ? "Pulling stats (up to a minute)" : "Refresh creator stats"}
-        </button>
-        {nextStage && (
-          <button
-            onClick={() =>
-              run("stage", async () => {
-                await call(`/api/campaigns/${campaignId}/stage`, "POST", { stage: nextStage });
-                return `Moved to ${nextStage === "drafts" ? "Drafts" : "Live"}. The share link now opens there.`;
-              })
-            }
-            disabled={sample || busy === "stage"}
-            className={BUTTON_PRIMARY}
-          >
-            Move campaign to {nextStage === "drafts" ? "Drafts" : "Live"}
-          </button>
-        )}
-        {shareUrl ? (
-          <CopyButton text={shareUrl} label="Copy partner share link" copiedLabel="Share link copied" variant="button" />
-        ) : (
-          <span className="text-sm">Tick “Partner link on” in Edit campaign to get a partner link.</span>
-        )}
-      </div>
-      {message && message.at === "actions" && (
-        <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
-          {message.text}
-        </p>
-      )}
-    <section aria-label="Roster tools" className="border-2 border-fb-black p-6 max-sm:p-4 space-y-5">
+  const addCreators = (
+    <div className="space-y-5">
       <div>
         <label className="block">
           <span className="text-sm font-bold">Add creators to this campaign</span>
@@ -529,7 +494,60 @@ export function RosterTools({
           {message.text}
         </p>
       )}
-    </section>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-3">
+        {addDraft && (
+          <ModalButton label="+ Add a draft" title="Add a draft" className={BUTTON}>
+            <p className="mb-5 max-w-prose text-sm">
+              Got a draft by email or text? Add it here for any creator, even one who isn&apos;t on this campaign yet.
+            </p>
+            {addDraft}
+          </ModalButton>
+        )}
+        <ModalButton label="+ Add creators" title="Add creators" className={BUTTON}>
+          {addCreators}
+        </ModalButton>
+        <button
+          onClick={() =>
+            run("stats", async () => {
+              const d = await call(`/api/campaigns/${campaignId}/creator-stats`, "POST");
+              return `Updated followers and average views (last 20 posts) for ${d.updated} of ${d.requested} creators.`;
+            })
+          }
+          disabled={sample || busy === "stats"}
+          className={BUTTON}
+        >
+          {busy === "stats" ? "Pulling stats (up to a minute)" : "Refresh creator stats"}
+        </button>
+        {nextStage && (
+          <button
+            onClick={() =>
+              run("stage", async () => {
+                await call(`/api/campaigns/${campaignId}/stage`, "POST", { stage: nextStage });
+                return `Moved to ${nextStage === "drafts" ? "Drafts" : "Live"}. The share link now opens there.`;
+              })
+            }
+            disabled={sample || busy === "stage"}
+            className={BUTTON_PRIMARY}
+          >
+            Move campaign to {nextStage === "drafts" ? "Drafts" : "Live"}
+          </button>
+        )}
+        {shareUrl ? (
+          <CopyButton text={shareUrl} label="Copy partner share link" copiedLabel="Share link copied" variant="button" />
+        ) : (
+          <span className="text-sm">Tick “Partner link on” in Edit campaign to get a partner link.</span>
+        )}
+      </div>
+      {message && message.at === "actions" && (
+        <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
+          {message.text}
+        </p>
+      )}
     </div>
   );
 }
@@ -592,12 +610,14 @@ export function AssignmentControls({
   assignmentId,
   status,
   fee,
+  paid,
   uploadUrl,
 }: {
   campaignId: string;
   assignmentId: string;
   status: AssignmentStatus;
   fee?: number;
+  paid?: boolean;
   uploadUrl: string;
 }) {
   const router = useRouter();
@@ -630,12 +650,50 @@ export function AssignmentControls({
         </label>
         <FeeField campaignId={campaignId} assignmentId={assignmentId} fee={fee} />
       </div>
+      {status === "Approved" && <PaidToggle campaignId={campaignId} assignmentId={assignmentId} paid={paid} />}
       {status === "Approved" ? (
         <CopyButton text={uploadUrl} label="Copy draft upload link" copiedLabel="Upload link copied" />
       ) : (
         <p className="text-xs">The draft upload link appears once this creator is approved.</p>
       )}
       {error && <p className="text-fb-red font-bold">{error}</p>}
+    </div>
+  );
+}
+
+/** Team only: tick once the creator has been paid for this campaign. Saves straight away. */
+export function PaidToggle({ campaignId, assignmentId, paid }: { campaignId: string; assignmentId: string; paid?: boolean }) {
+  const router = useRouter();
+  const [on, setOn] = useState(Boolean(paid));
+  const [state, setState] = useState<"saving" | { error: string }>();
+
+  async function toggle(next: boolean) {
+    setOn(next);
+    setState("saving");
+    try {
+      await call(`/api/campaigns/${campaignId}/roster`, "PATCH", { assignmentId, paid: next });
+      setState(undefined);
+      router.refresh();
+    } catch (e) {
+      setOn(!next);
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  return (
+    <div className="text-sm">
+      <label className="inline-flex cursor-pointer items-center gap-2 font-bold">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => toggle(e.target.checked)}
+          disabled={state === "saving"}
+          className="accent-fb-red size-4"
+        />
+        {on ? "Paid" : "Not paid yet"}
+        {state === "saving" && <span className="font-normal text-xs">Saving…</span>}
+      </label>
+      {typeof state === "object" && <p className="mt-1 text-xs font-bold text-fb-red">{state.error}</p>}
     </div>
   );
 }

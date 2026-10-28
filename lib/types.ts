@@ -62,6 +62,8 @@ export interface Assignment {
   partnerComment?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  /** Marked by the team once the creator has been paid. Team only. */
+  paid?: boolean;
 }
 
 export type DraftStatus = "Pending review" | "Approved" | "Changes requested";
@@ -82,7 +84,17 @@ export interface Draft {
   reviewedAt?: string;
   /** "Firebird team" when the team added it for the creator. Empty for the creator's own uploads. */
   submittedBy?: string;
+  /** Where the draft will be posted, e.g. ["TikTok", "Instagram"]. */
+  platforms?: DraftPlatform[];
 }
+
+export type DraftPlatform = "TikTok" | "Instagram" | "YouTube";
+export const DRAFT_PLATFORMS: DraftPlatform[] = ["TikTok", "Instagram", "YouTube"];
+/** "TikTok, Instagram" (or an Airtable multiple select) → the platforms we know. */
+export const parsePlatforms = (v: unknown): DraftPlatform[] => {
+  const raw = Array.isArray(v) ? v.join(",") : typeof v === "string" ? v : "";
+  return DRAFT_PLATFORMS.filter((p) => new RegExp(`\\b${p}\\b`, "i").test(raw));
+};
 
 export interface Stats {
   views: number;
@@ -159,6 +171,8 @@ export interface CampaignView {
   benchmark?: Benchmark;
   /** What the campaign cost: approved creator fees when entered, otherwise the budget. Team only. */
   spend?: { amount: number; basis: "fees" | "budget" };
+  /** Approved creator fees against the budget, and how much of it is marked paid. Team only (partners: fees only, with rates shown). */
+  spent?: { fees: number; paid: number; creators: number; paidCreators: number; unpriced: number; budget?: number };
   /** Approved creators' cost per post ÷ their avg views × 1,000. Team only (partners with rates shown). */
   expected?: { cpm?: number; counted: number; total: number };
   /** Creators whose latest draft is approved but who have no live post on this campaign yet. */

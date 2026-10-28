@@ -1,10 +1,11 @@
 import { draftSource } from "@/lib/draft-links";
 import { creatorCpm, money, shortDate } from "@/lib/format";
-import type { Assignment, Draft, DraftStatus } from "@/lib/types";
+import type { Assignment, Creator, Draft, DraftPlatform, DraftStatus } from "@/lib/types";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
 import { TeamDraftForm } from "./TeamDraftForm";
-import { CopyButton, FeeField } from "./TeamControls";
+import { CopyButton, FeeField, PaidToggle } from "./TeamControls";
+import { ModalButton } from "./Modal";
 import { DeleteDraftButton } from "./DeleteDraftButton";
 import { TeamDraftReview } from "./TeamDraftReview";
 import { BulkBar, BulkSelectProvider, SelectBox } from "./BulkSelect";
@@ -187,6 +188,7 @@ function VersionCard({
         )}
       </div>
       {meta}
+      {d?.platforms?.length ? <PostingOn platforms={d.platforms} creator={d.creator} /> : null}
       {(d?.submittedBy || (source && !source.hosted)) && (
         <p className="mt-1 text-xs">
           {d?.submittedBy && <>Added by {d.submittedBy}. </>}
@@ -233,35 +235,61 @@ function VersionCard({
 }
 
 function TeamLaneControls({
-  assignmentId,
+  assignment: a,
   name,
   uploadUrl,
   campaignId,
   sample,
-  fee,
-  rate,
+  compact = false,
 }: {
-  assignmentId: string;
+  assignment: Assignment;
   name: string;
   uploadUrl: string;
   campaignId: string;
   sample: boolean;
-  fee?: number;
-  rate?: number;
+  /** The one-line version for creators who haven't sent a draft yet. */
+  compact?: boolean;
 }) {
+  const fixed = { assignmentId: a.id, name, instagram: a.creator?.instagram, tiktok: a.creator?.tiktok };
   return (
-    <>
-      <FeeField key={fee ?? "none"} campaignId={campaignId} assignmentId={assignmentId} fee={fee} rate={rate} className="w-40 mb-3" />
+    <div className={compact ? "flex flex-wrap items-end gap-x-6 gap-y-3" : ""}>
+      <FeeField
+        key={a.fee ?? "none"}
+        campaignId={campaignId}
+        assignmentId={a.id}
+        fee={a.fee}
+        rate={a.creator?.rate}
+        className={compact ? "w-32" : "w-40 mb-3"}
+      />
+      <div className={compact ? "" : "mb-3"}>
+        <PaidToggle key={String(a.paid)} campaignId={campaignId} assignmentId={a.id} paid={a.paid} />
+      </div>
       <CopyButton text={uploadUrl} label="Copy draft upload link" copiedLabel="Upload link copied" />
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm font-bold underline underline-offset-4 hover:text-fb-red">
-          Add a draft for {name.split(" ")[0]}
-        </summary>
-        <div className="mt-4 max-w-2xl">
-          <TeamDraftForm campaignId={campaignId} fixed={{ assignmentId, name }} sample={sample} />
-        </div>
-      </details>
-    </>
+      <ModalButton
+        label={`Add a draft for ${name.split(" ")[0]}`}
+        title={`Add a draft for ${name}`}
+        className={`text-sm font-bold underline underline-offset-4 hover:text-fb-red ${compact ? "" : "mt-3 block"}`}
+      >
+        <TeamDraftForm campaignId={campaignId} fixed={fixed} sample={sample} />
+      </ModalButton>
+    </div>
+  );
+}
+
+/** "Posting on TikTok @handle and Instagram @handle". */
+function PostingOn({ platforms, creator }: { platforms: DraftPlatform[]; creator?: Creator }) {
+  const handle = (p: DraftPlatform) => (p === "TikTok" ? creator?.tiktok : p === "Instagram" ? creator?.instagram : undefined);
+  return (
+    <p className="mt-1 text-sm">
+      <span className="font-bold">Posting on </span>
+      {platforms.map((p, i) => (
+        <span key={p}>
+          {i > 0 && (i === platforms.length - 1 ? " and " : ", ")}
+          {p}
+          {handle(p) ? ` @${handle(p)}` : ""}
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -275,23 +303,20 @@ export function DraftsBody({
   partner?: { reviewEndpoint: string };
   /** Partner view: show each creator's cost (only when the campaign shows rates). The team always sees it. */
   showFees?: boolean;
-  team?: { uploadUrls: Record<string, string>; tools: React.ReactNode; addDraft: React.ReactNode; campaignId: string; sample: boolean };
+  team?: { uploadUrls: Record<string, string>; tools: React.ReactNode; campaignId: string; sample: boolean };
 }) {
+  // Drafts still to decide on come first; approved ones drop below; creators with nothing yet sit at the end.
+  const toReview = lanes.filter((l) => l.drafts.length && l.drafts[0].status !== "Approved");
+  const approved = lanes.filter((l) => l.drafts[0]?.status === "Approved");
+  const waiting = lanes.filter((l) => !l.drafts.length);
+  const props = { partner, team, showFees };
+
   return (
     <>
       {team?.tools}
-      {team && (
-        <section aria-label="Add a draft" className="border-2 border-fb-black p-6 max-sm:p-4">
-          <h2 className="headline text-2xl">Add a draft</h2>
-          <p className="mt-1 mb-5 max-w-prose text-sm">
-            Got a draft by email or text? Add it here for any creator, even one who isn't on this campaign yet.
-          </p>
-          {team.addDraft}
-        </section>
-      )}
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 className="headline text-3xl">The drafts</h2>
+          <h2 className="headline text-3xl">{toReview.length ? "To review" : "The drafts"}</h2>
           {partner && lanes.some((l) => l.drafts.some((d) => d.status === "Pending review")) && (
             <p className="max-w-md text-sm">
               Watch each draft, then approve it or request a change. Creators see your notes and send a new version.
@@ -301,74 +326,139 @@ export function DraftsBody({
 
         {lanes.length ? (
           <MaybeSelectable team={team} ids={lanes.flatMap((l) => l.drafts.map((d) => d.id))}>
-            <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
-              {lanes.map(({ assignment: a, drafts }) => {
-                const name = a.creator?.name ?? "Creator";
-                const teamControls = team && (
-                  <TeamLaneControls
-                    assignmentId={a.id}
-                    name={name}
-                    uploadUrl={team.uploadUrls[a.id]}
-                    campaignId={team.campaignId}
-                    sample={team.sample}
-                    fee={a.fee}
-                    rate={a.creator?.rate}
-                  />
-                );
-                // The team edits the fee in its own box, so the read-only cost is for partners.
-                const meta = <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />;
+            {toReview.length ? (
+              <LaneGrid lanes={toReview} {...props} />
+            ) : (
+              <p className="mt-6 max-w-prose">
+                {approved.length ? "Nothing waiting for review. Every draft sent so far is approved." : "No drafts yet."}
+              </p>
+            )}
 
-                // Several versions: the creator gets a full-width row with every version side by side.
-                if (drafts.length > 1) {
-                  return (
-                    <li key={a.id} className="col-span-full border-t-2 border-fb-black pt-5">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-                        <div>
-                          <h3 className="subtitle text-2xl">{name}</h3>
-                          {meta}
-                        </div>
-                        <span className="text-sm">
-                          {drafts.length} versions, newest first
-                          {drafts.slice(1).some((d) => d.status === "Pending review") && (
-                            <span className="font-bold"> · an earlier version is still awaiting review</span>
-                          )}
-                        </span>
-                      </div>
-                      <ol className="mt-5 flex gap-8 overflow-x-auto pb-4 snap-x">
-                        {drafts.map((d, i) => (
-                          <li key={d.id} className="relative w-[280px] shrink-0 snap-start">
-                            {team && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
-                            <VersionCard draft={d} latest={i === 0} partner={partner} teamCampaignId={team?.campaignId} creatorName={name} />
-                          </li>
-                        ))}
-                      </ol>
-                      {teamControls && <div className="mt-2">{teamControls}</div>}
-                    </li>
-                  );
-                }
-
-                const d = drafts[0];
-                return (
-                  <li key={a.id} className="relative">
-                    {team && d && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
-                    <article>
-                      <VersionCard draft={d} name={name} meta={meta} partner={partner} teamCampaignId={team?.campaignId} />
-                      {teamControls && <div className="mt-4">{teamControls}</div>}
-                    </article>
-                  </li>
-                );
-              })}
-            </ul>
+            {approved.length > 0 && (
+              <div className="mt-16">
+                <h2 className="headline text-3xl">Approved</h2>
+                <p className="mt-1 text-sm">
+                  {approved.length} {approved.length === 1 ? "creator's draft is" : "creators' drafts are"} approved and ready to post.
+                </p>
+                <LaneGrid lanes={approved} {...props} />
+              </div>
+            )}
           </MaybeSelectable>
         ) : (
           <p className="mt-8 max-w-prose">
             {team
-              ? "Drafts show up here once creators are approved and send them, or when you add one above."
+              ? "Drafts show up here once creators are approved and send them, or when you add one with “Add a draft”."
               : "Drafts show up here once creators are approved and start uploading."}
           </p>
         )}
+
+        {waiting.length > 0 && (
+          <div className="mt-16">
+            <h2 className="subtitle text-xl">Waiting on drafts</h2>
+            <ul className="mt-4 border-t-2 border-fb-black">
+              {waiting.map(({ assignment: a }) => {
+                const name = a.creator?.name ?? "Creator";
+                return (
+                  <li key={a.id} className="border-b border-fb-black/20 py-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                      <div>
+                        <p className="font-bold">{name}</p>
+                        <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />
+                      </div>
+                      <span className="text-sm">Hasn&apos;t sent a draft yet</span>
+                    </div>
+                    {team && (
+                      <div className="mt-3">
+                        <TeamLaneControls
+                          assignment={a}
+                          name={name}
+                          uploadUrl={team.uploadUrls[a.id]}
+                          campaignId={team.campaignId}
+                          sample={team.sample}
+                          compact
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {team && <p className="mt-3 text-xs">To take someone off the campaign, select them on the Creators tab and remove them.</p>}
+          </div>
+        )}
       </section>
     </>
+  );
+}
+
+function LaneGrid({
+  lanes,
+  partner,
+  team,
+  showFees,
+}: {
+  lanes: Lane[];
+  partner?: { reviewEndpoint: string };
+  team?: { uploadUrls: Record<string, string>; campaignId: string; sample: boolean };
+  showFees: boolean;
+}) {
+  return (
+    <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
+      {lanes.map(({ assignment: a, drafts }) => {
+        const name = a.creator?.name ?? "Creator";
+        const teamControls = team && (
+          <TeamLaneControls
+            assignment={a}
+            name={name}
+            uploadUrl={team.uploadUrls[a.id]}
+            campaignId={team.campaignId}
+            sample={team.sample}
+          />
+        );
+        // The team edits the fee in its own box, so the read-only cost is for partners.
+        const meta = <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />;
+
+        // Several versions: the creator gets a full-width row with every version side by side.
+        if (drafts.length > 1) {
+          return (
+            <li key={a.id} className="col-span-full border-t-2 border-fb-black pt-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                <div>
+                  <h3 className="subtitle text-2xl">{name}</h3>
+                  {meta}
+                </div>
+                <span className="text-sm">
+                  {drafts.length} versions, newest first
+                  {drafts.slice(1).some((d) => d.status === "Pending review") && (
+                    <span className="font-bold"> · an earlier version is still awaiting review</span>
+                  )}
+                </span>
+              </div>
+              <ol className="mt-5 flex gap-8 overflow-x-auto pb-4 snap-x">
+                {drafts.map((d, i) => (
+                  <li key={d.id} className="relative w-[280px] shrink-0 snap-start">
+                    {team && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
+                    <VersionCard draft={d} latest={i === 0} partner={partner} teamCampaignId={team?.campaignId} creatorName={name} />
+                  </li>
+                ))}
+              </ol>
+              {teamControls && <div className="mt-2">{teamControls}</div>}
+            </li>
+          );
+        }
+
+        const d = drafts[0];
+        return (
+          <li key={a.id} className="relative">
+            {team && d && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
+            <article>
+              <VersionCard draft={d} name={name} meta={meta} partner={partner} teamCampaignId={team?.campaignId} />
+              {teamControls && <div className="mt-4">{teamControls}</div>}
+            </article>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

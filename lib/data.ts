@@ -11,7 +11,7 @@ import {
 } from "./config";
 import { detectPlatform } from "./social";
 import { expectedCpm } from "./format";
-import { CAMPAIGN_TYPES } from "./types";
+import { CAMPAIGN_TYPES, parsePlatforms } from "./types";
 import {
   sampleAssignments,
   sampleCampaigns,
@@ -110,6 +110,7 @@ function mapAssignment(r: AirtableRecord): Assignment {
     partnerComment: str(r.fields[AF.partnerComment]),
     reviewedBy: str(r.fields[AF.reviewedBy]),
     reviewedAt: str(r.fields[AF.reviewedAt]),
+    paid: r.fields[AF.paid] === true || undefined,
   };
 }
 
@@ -160,6 +161,7 @@ function mapDraft(r: AirtableRecord): Draft {
     submittedAt: str(r.fields[DF.submittedAt]) ?? r.createdTime,
     reviewedAt: str(r.fields[DF.reviewedAt]),
     submittedBy: str(r.fields[DF.submittedBy]),
+    platforms: parsePlatforms(r.fields[DF.platforms]),
   };
 }
 
@@ -342,8 +344,24 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
     lastRefreshed,
     benchmark: benchmarkOf(posts),
     spend: fees ? { amount: fees, basis: "fees" } : campaign.budget ? { amount: campaign.budget, basis: "budget" } : undefined,
+    spent: spentSoFar(roster, campaign.budget),
     expected: expected.total ? expected : undefined,
     incoming: incomingPosts(roster, drafts, posts, byId),
+  };
+}
+
+/** Approved creators' fees, and the part marked paid. */
+function spentSoFar(roster: Assignment[], budget?: number): CampaignView["spent"] {
+  const approved = roster.filter((a) => a.status === "Approved");
+  const paid = approved.filter((a) => a.paid);
+  const sum = (list: Assignment[]) => list.reduce((t, a) => t + (a.fee ?? 0), 0);
+  return {
+    fees: sum(approved),
+    paid: sum(paid),
+    creators: approved.length,
+    paidCreators: paid.length,
+    unpriced: approved.filter((a) => !a.fee).length,
+    budget,
   };
 }
 

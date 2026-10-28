@@ -16,6 +16,7 @@ export const partnerAssignment = (a: Assignment, showFees: boolean): Assignment 
   ...a,
   creator: partnerCreator(a.creator, showFees),
   fee: showFees ? a.fee : undefined,
+  paid: undefined,
   reviewedBy: reviewerName(a.reviewedBy),
 });
 
@@ -37,6 +38,8 @@ export function partnerView(view: CampaignView, showFees: boolean): CampaignView
     })),
     incoming: view.incoming.map((i) => ({ ...i, creator: partnerCreator(i.creator, showFees) })),
     spend: showFees && view.spend?.basis === "fees" ? view.spend : undefined,
+    // Partners see what was spent on creators (with rates shown), never the budget or who has been paid.
+    spent: showFees && view.spent?.fees ? { ...view.spent, budget: undefined, paid: 0, paidCreators: 0 } : undefined,
     expected: showFees ? view.expected : undefined,
   };
 }

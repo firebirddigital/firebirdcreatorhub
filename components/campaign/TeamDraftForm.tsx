@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import type { AssignmentStatus } from "@/lib/types";
+import { DRAFT_PLATFORMS, type AssignmentStatus, type DraftPlatform } from "@/lib/types";
 import { choiceReady, DraftSourceInput, emptyChoice, resolveDraft, UploadProgress } from "../DraftSourceInput";
 
+type Handles = { instagram?: string; tiktok?: string };
 type Who =
-  | { kind: "assignment"; assignmentId: string; name: string }
-  | { kind: "creator"; creatorId: string; name: string }
+  | ({ kind: "assignment"; assignmentId: string; name: string } & Handles)
+  | ({ kind: "creator"; creatorId: string; name: string } & Handles)
   | { kind: "new"; name: string; instagram: string; tiktok: string };
 
 export interface PickerCreator {
@@ -31,14 +32,15 @@ export function TeamDraftForm({
 }: {
   campaignId: string;
   creators?: PickerCreator[];
-  fixed?: { assignmentId: string; name: string };
+  fixed?: { assignmentId: string; name: string } & Handles;
   sample: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [who, setWho] = useState<Who | undefined>(
-    fixed ? { kind: "assignment", assignmentId: fixed.assignmentId, name: fixed.name } : undefined,
+    fixed ? { kind: "assignment", ...fixed } : undefined,
   );
+  const [platforms, setPlatforms] = useState<DraftPlatform[]>([]);
   const [choice, setChoice] = useState(emptyChoice);
   const [caption, setCaption] = useState("");
   const [progress, setProgress] = useState<number>();
@@ -55,7 +57,7 @@ export function TeamDraftForm({
   }, [creators, query]);
 
   const whoReady = who && (who.kind !== "new" || who.name.trim());
-  const ready = Boolean(whoReady && choiceReady(choice));
+  const ready = Boolean(whoReady && choiceReady(choice) && platforms.length);
   const busy = sample || saving;
 
   async function submit(e: React.FormEvent) {
@@ -76,6 +78,7 @@ export function TeamDraftForm({
         body: JSON.stringify({
           videoUrl,
           caption,
+          platforms,
           ...(who.kind === "assignment" ? { assignmentId: who.assignmentId } : {}),
           ...(who.kind === "creator" ? { creatorId: who.creatorId } : {}),
           ...(who.kind === "new" ? { newCreator: { name: who.name, instagram: who.instagram, tiktok: who.tiktok } } : {}),
@@ -86,6 +89,7 @@ export function TeamDraftForm({
         version?: number;
         createdCreator?: boolean;
         addedToCampaign?: boolean;
+        platformsSaved?: boolean;
       };
       if (!res.ok) throw new Error(data.error ?? "Saving the draft failed.");
       const extras = [
@@ -95,10 +99,12 @@ export function TeamDraftForm({
       setMessage({
         text: `Saved as ${who.name.trim()}'s version ${data.version}, waiting for partner review.${
           extras.length ? ` Also ${extras.join(" and ")}.` : ""
-        }`,
+        }${data.platformsSaved === false ? " The platforms weren't saved: add a single line text field called “Platforms” to the Drafts table in Airtable." : ""}`,
+        error: data.platformsSaved === false,
       });
       setChoice(emptyChoice());
       setCaption("");
+      setPlatforms([]);
       if (!fixed) {
         setWho(undefined);
         setQuery("");
@@ -161,8 +167,8 @@ export function TeamDraftForm({
                     onClick={() =>
                       setWho(
                         c.assignment
-                          ? { kind: "assignment", assignmentId: c.assignment.id, name: c.name }
-                          : { kind: "creator", creatorId: c.id, name: c.name },
+                          ? { kind: "assignment", assignmentId: c.assignment.id, name: c.name, instagram: c.instagram, tiktok: c.tiktok }
+                          : { kind: "creator", creatorId: c.id, name: c.name, instagram: c.instagram, tiktok: c.tiktok },
                       )
                     }
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-fb-black/5"
@@ -230,6 +236,29 @@ export function TeamDraftForm({
           )}
         </div>
       )}
+
+      <fieldset>
+        <legend className="text-sm font-bold">Where will it be posted?</legend>
+        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+          {DRAFT_PLATFORMS.map((p) => {
+            const handle = p === "TikTok" ? who?.tiktok : p === "Instagram" ? who?.instagram : undefined;
+            const on = platforms.includes(p);
+            return (
+              <label key={p} className="inline-flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => setPlatforms((cur) => (on ? cur.filter((x) => x !== p) : DRAFT_PLATFORMS.filter((x) => x === p || cur.includes(x))))}
+                  disabled={busy}
+                  className="accent-fb-red size-4"
+                />
+                <span className="font-bold">{p}</span>
+                {handle && <span className="text-sm">@{handle.replace(/^@/, "")}</span>}
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
 
       <DraftSourceInput value={choice} onChange={setChoice} disabled={busy} audience="team" />
 

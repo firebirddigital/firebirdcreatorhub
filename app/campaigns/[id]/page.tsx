@@ -18,6 +18,8 @@ import { emailEnabled, emailsIn } from "@/lib/notify";
 import { gmailConfigured, gmailSender } from "@/lib/gmail";
 import { EmailDashboard } from "@/components/campaign/EmailDashboard";
 import { getStreams } from "@/lib/streams";
+import { getRequests } from "@/lib/requests";
+import { RequestLink } from "@/components/campaign/RequestLink";
 import type { Assignment } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +48,7 @@ export default async function CampaignPage({
       await Promise.all(roster.map(async (a) => [a.id, `${origin}/submit/${a.id}/${await submitSignature(a.id)}`])),
     ) as Record<string, string>;
 
-  const rosterTools = async (roster: Assignment[]) => {
+  const rosterTools = async (roster: Assignment[], addDraft?: React.ReactNode) => {
     const creators = await getCreators();
     return (
       <RosterTools
@@ -64,6 +66,7 @@ export default async function CampaignPage({
         current={current}
         shareUrl={shareUrl}
         sample={sample}
+        addDraft={addDraft}
       />
     );
   };
@@ -100,8 +103,7 @@ export default async function CampaignPage({
         lanes={lanes}
         team={{
           uploadUrls: await uploadUrlsFor(roster),
-          tools: await rosterTools(roster),
-          addDraft: <TeamDraftForm campaignId={id} creators={pickerCreators} sample={sample} />,
+          tools: await rosterTools(roster, <TeamDraftForm campaignId={id} creators={pickerCreators} sample={sample} />),
           campaignId: id,
           sample,
         }}
@@ -156,6 +158,20 @@ export default async function CampaignPage({
             <p className="mt-1 whitespace-pre-line">{campaign.partnerContacts}</p>
           </section>
         )}
+        <RequestLink
+          campaignId={campaign.id}
+          artist={campaign.artist}
+          sample={sample}
+          requests={(await getRequests().catch(() => ({ requests: [] }))).requests.map((r) => ({
+            id: r.id,
+            name: r.name,
+            artist: r.artist,
+            source: r.source,
+            createdTime: r.createdTime,
+            hubStatus: r.hubStatus,
+            linked: r.hubCampaignIds.includes(campaign.id),
+          }))}
+        />
         <EmailDashboard
           key={campaign.partnerContacts ?? ""}
           campaignId={campaign.id}
