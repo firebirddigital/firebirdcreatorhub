@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { CampaignFilters } from "@/components/CampaignFilters";
 import { RequestImport } from "@/components/RequestImport";
 import { Header } from "@/components/Header";
-import { NewCampaign } from "@/components/campaign/CampaignEditor";
 import { RequestsInbox } from "@/components/RequestsInbox";
 import { StatusTag } from "@/components/StatusTag";
 import { isSampleMode, REQUEST_FORM_URL } from "@/lib/config";
@@ -74,11 +73,10 @@ export default async function CampaignsPage({
             target="_blank"
             rel="noreferrer"
             title="The Airtable form partners fill in. Opens in a new tab; copy the link to send it."
-            className="ml-auto subtitle border-2 border-fb-black px-6 py-3 text-sm hover:bg-fb-black hover:text-fb-white transition-colors"
+            className="ml-auto subtitle bg-fb-red text-fb-white px-6 py-3.5 text-sm hover:bg-fb-black transition-colors"
           >
             Request a campaign
           </a>
-          <NewCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
         </div>
 
         {requestsDirect() && !isSampleMode() && <RequestImport />}
@@ -134,8 +132,8 @@ export default async function CampaignsPage({
             {filtering
               ? `No ${tab.label.toLowerCase()} match.`
               : all.length
-                ? `No ${tab.label.toLowerCase()} yet. Click New campaign to set one up.`
-                : "No campaigns yet. Click New campaign to set up the first one."}
+                ? `No ${tab.label.toLowerCase()} yet. New ones appear here when the request form is submitted.`
+                : "No campaigns yet. New ones appear here when the request form is submitted."}
           </p>
         ) : (
           <ul>
