@@ -1,15 +1,17 @@
-// Email notifications through Resend. Server-side only.
-// Does nothing until RESEND_API_KEY is set, so the hub works the same without it.
+// Email notifications, sent from the team's connected Gmail (see gmail.ts) or, failing that, Resend.
+// Does nothing until one of them is set up, so the hub works the same without it.
 //   RESEND_API_KEY      Resend API key
 //   NOTIFY_FROM         Sender on a domain verified in Resend, e.g. "Firebird Creator Hub <hub@firebird-music.com>"
 //   TEAM_NOTIFY_EMAILS  Comma-separated team addresses that get every update
 import { shareSignature, submitSignature } from "./auth";
 import { campaignStage, getAssignment, getAssignments, getCampaign, getCampaignView, getCreators, getDrafts } from "./data";
 import { compact, pct } from "./format";
+import { gmailSender, sendViaGmail } from "./gmail";
 import type { Campaign } from "./types";
 
-const enabled = () => Boolean(process.env.RESEND_API_KEY && process.env.NOTIFY_FROM);
-/** Whether the hub can send email yet (Resend key and sender set). */
+const resendEnabled = () => Boolean(process.env.RESEND_API_KEY && process.env.NOTIFY_FROM);
+const enabled = async () => Boolean(await gmailSender()) || resendEnabled();
+/** Whether the hub can send email yet: Gmail connected, or the Resend key and sender set. */
 export const emailEnabled = enabled;
 
 export const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -37,7 +39,21 @@ ${opts.button ? `<p style="margin:24px 0 0"><a href="${esc(opts.button.url)}" st
 
 async function send(to: string[], subject: string, body: Parameters<typeof html>[0]): Promise<string | undefined> {
   const recipients = [...new Set(to.map((t) => t.toLowerCase()))];
-  if (!enabled() || !recipients.length) return;
+  if (!recipients.length) return;
+  const text = [body.headline, ...body.lines, body.quote ?? "", body.button ? `${body.button.label}: ${body.button.url}` : ""]
+    .filter(Boolean)
+    .join("\n\n");
+  if (await gmailSender()) {
+    // Gmail: one message per person, so nobody sees the others' addresses.
+    const errors = [];
+    for (const r of recipients) {
+      const error = await sendViaGmail(r, subject, html(body), text);
+      if (error) errors.push(error);
+    }
+    if (errors.length) console.error(errors[0]);
+    return errors[0];
+  }
+  if (!resendEnabled()) return;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
@@ -46,9 +62,7 @@ async function send(to: string[], subject: string, body: Parameters<typeof html>
       to: recipients,
       subject,
       html: html(body),
-      text: [body.headline, ...body.lines, body.quote ?? "", body.button ? `${body.button.label}: ${body.button.url}` : ""]
-        .filter(Boolean)
-        .join("\n\n"),
+      text,
     }),
   });
   if (!res.ok) {
@@ -70,7 +84,7 @@ async function partnerEmails(campaignId: string): Promise<string[]> {
 
 /** A new draft is waiting: tell the team and any partner who has reviewed on this campaign. */
 export async function notifyDraftSubmitted(opts: { origin: string; campaignId: string; assignmentId: string; version: number; byTeam?: boolean }) {
-  if (!enabled()) return;
+  if (!(await enabled())) return;
   const [campaign, assignment, creators] = await Promise.all([getCampaign(opts.campaignId), getAssignment(opts.assignmentId), getCreators()]);
   if (!campaign) return;
   const name = creators.find((c) => c.id === assignment?.creatorId)?.name ?? "A creator";
@@ -103,7 +117,7 @@ export async function notifyReview(opts: {
   comment?: string;
   reviewer: string;
 }) {
-  if (!enabled()) return;
+  if (!(await enabled())) return;
   const [campaign, creators] = await Promise.all([getCampaign(opts.campaignId), getCreators()]);
   if (!campaign) return;
   const drafts = opts.kind === "draft" ? await getDrafts(opts.campaignId, { fresh: true }) : [];

@@ -14,12 +14,15 @@ export function EmailDashboard({
   contacts,
   sharingEnabled,
   emailReady,
+  gmail,
 }: {
   campaignId: string;
   /** Emails from Partner Contacts (the request submitter and anyone added before). */
   contacts: string[];
   sharingEnabled: boolean;
   emailReady: boolean;
+  /** Gmail sending: whether Google is set up, which address is connected, and the result of a connect attempt. */
+  gmail: { configured: boolean; sender?: string; status?: string };
 }) {
   const router = useRouter();
   const [people, setPeople] = useState(() => contacts.map((email) => ({ email, on: true, added: false })));
@@ -70,17 +73,55 @@ export function EmailDashboard({
   const blocked = !sharingEnabled
     ? "Turn on the partner link in Edit campaign to email the dashboard."
     : !emailReady
-      ? "Email isn't set up yet. Add the Resend key and sender to switch this on."
+      ? gmail.configured
+        ? "Connect Gmail to send."
+        : "Email isn't set up yet: Google sign-in for the hub still needs adding."
       : undefined;
+  const statusText: Record<string, string> = {
+    connected: "Gmail connected.",
+    cancelled: "Gmail wasn't connected.",
+    expired: "That sign-in took too long. Connect Gmail again.",
+    failed: "Gmail didn't connect. Try again, and tick the box that lets the hub send email.",
+  };
+
+  async function disconnect() {
+    if (!confirm("Stop sending from this Gmail? You can connect again any time.")) return;
+    await fetch("/api/gmail/disconnect", { method: "POST" });
+    router.refresh();
+  }
 
   return (
-    <details className="-mt-6 border-2 border-fb-black p-5 max-sm:p-4">
+    <details open={Boolean(gmail.status)} className="-mt-6 border-2 border-fb-black p-5 max-sm:p-4">
       <summary className="cursor-pointer subtitle text-sm">Email the dashboard</summary>
       <div className="mt-4 space-y-4 text-sm">
         <p className="max-w-prose">
           Sends each person their own email with the latest numbers and a button to the partner dashboard. No fees or
           budget are included.
         </p>
+        {gmail.status && statusText[gmail.status] && (
+          <p className={`font-bold ${gmail.status === "connected" ? "" : "text-fb-red"}`}>{statusText[gmail.status]}</p>
+        )}
+        {gmail.configured && (
+          <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            {gmail.sender ? (
+              <>
+                <span>
+                  Sending from <span className="font-bold">{gmail.sender}</span> (Gmail)
+                </span>
+                <button type="button" onClick={disconnect} className="underline underline-offset-4 hover:text-fb-red">
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <a
+                href={`/api/gmail/connect?back=${encodeURIComponent(`/campaigns/${campaignId}`)}`}
+                className="subtitle border-2 border-fb-black px-4 py-2 text-xs hover:bg-fb-black hover:text-fb-white transition-colors"
+              >
+                Connect Gmail
+              </a>
+            )}
+          </p>
+        )}
 
         <fieldset>
           <legend className="text-xs font-bold">Send to</legend>

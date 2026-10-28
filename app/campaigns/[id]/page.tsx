@@ -15,6 +15,7 @@ import { isSampleMode } from "@/lib/config";
 import { campaignStage, getAssignments, getTrackRecords, getCampaign, getCampaignView, getCreators, getDrafts } from "@/lib/data";
 import { siteOrigin } from "@/lib/origin";
 import { emailEnabled, emailsIn } from "@/lib/notify";
+import { gmailConfigured, gmailSender } from "@/lib/gmail";
 import { EmailDashboard } from "@/components/campaign/EmailDashboard";
 import { getStreams } from "@/lib/streams";
 import type { Assignment } from "@/lib/types";
@@ -26,7 +27,7 @@ export default async function CampaignPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; gmail?: string }>;
 }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const campaign = await getCampaign(id);
@@ -159,7 +160,8 @@ export default async function CampaignPage({
           campaignId={campaign.id}
           contacts={emailsIn(campaign.partnerContacts)}
           sharingEnabled={campaign.sharingEnabled}
-          emailReady={emailEnabled()}
+          emailReady={await emailEnabled()}
+          gmail={{ configured: gmailConfigured(), sender: (await gmailSender())?.email, status: sp.gmail }}
         />
         {body}
       </CampaignShell>

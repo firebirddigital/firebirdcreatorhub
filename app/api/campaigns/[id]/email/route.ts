@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!campaign.sharingEnabled) {
     return NextResponse.json({ error: "Turn on the partner link (Edit campaign) before emailing the dashboard." }, { status: 400 });
   }
-  if (!emailEnabled()) return NextResponse.json({ error: "Email isn't set up yet." }, { status: 400 });
+  if (!(await emailEnabled())) return NextResponse.json({ error: "Connect Gmail first." }, { status: 400 });
 
   const body = (await req.json().catch(() => ({}))) as { to?: unknown; note?: unknown; save?: unknown };
   const to = [...new Set((Array.isArray(body.to) ? body.to : []).filter((e): e is string => typeof e === "string").map((e) => e.trim()))];
