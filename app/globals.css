@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* Firebird brand: red, black and white only. Headlines in Montserrat caps, body in Lato. */
+@theme {
+  --color-fb-red: #ed2124;
+  --color-fb-black: #000005;
+  --color-fb-white: #ffffff;
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Lato", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-fb-white);
+  color: var(--color-fb-black);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+  color: var(--color-fb-red);
+}
+
+.subtitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.figure {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fb-red);
+  outline-offset: 2px;
+}
+
+/* Brand rule: photography is black and white */
+.bw {
+  filter: grayscale(1) contrast(1.05);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    animation: rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Wrap report: print / Save as PDF. Keep brand colours exact and number the pages. */
+@media print {
+  @page {
+    size: letter;
+    margin: 15mm 15mm 18mm;
+    @bottom-right {
+      content: counter(page);
+      font-family: "Clarendon", "Clarendon BT", Rockwell, "Courier New", serif;
+      font-size: 10pt;
+      color: #000005;
+    }
+  }
+  html,
+  body {
+    background: #ffffff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .wrap-report a {
+    color: inherit;
+  }
+}

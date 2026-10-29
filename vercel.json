@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/refresh", "schedule": "0 11 * * *" },
+    { "path": "/api/refresh-creators", "schedule": "0 8 * * *" }
+  ]
+}
