@@ -10,7 +10,7 @@ import { CampaignTools } from "@/components/CampaignTools";
 import { StreamsUpload } from "@/components/StreamsUpload";
 import { Header } from "@/components/Header";
 import { shareSignature, submitSignature } from "@/lib/auth";
-import { signDraftUrls } from "@/lib/blob";
+import { signDraftUrls } from "@/lib/files";
 import { isSampleMode } from "@/lib/config";
 import { campaignStage, getAssignments, getTrackRecords, getCampaign, getCampaignView, getCreators, getDrafts } from "@/lib/data";
 import { siteOrigin } from "@/lib/origin";

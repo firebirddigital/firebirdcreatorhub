@@ -83,3 +83,14 @@ export async function rosterLinkKind(sig: string): Promise<"standard" | "rates" 
   if (safeEqual(sig, await rosterSignature({ rates: true }))) return "rates";
   return undefined;
 }
+
+/** Signature for a stored file's viewing link: /api/files/<key>?exp=<ms>&sig=<sig>. Expires at `exp`. */
+export async function fileSignature(key: string, exp: number): Promise<string> {
+  return (await hmac(`file:${key}:${exp}`)).slice(0, 32);
+}
+
+export async function isValidFileLink(key: string, exp: string | null, sig: string | null): Promise<boolean> {
+  const expires = Number(exp);
+  if (!sig || !Number.isFinite(expires) || expires < Date.now()) return false;
+  return safeEqual(sig, await fileSignature(key, expires));
+}

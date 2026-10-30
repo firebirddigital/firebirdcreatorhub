@@ -1,8 +1,7 @@
 // Daily Spotify streams for a campaign's song, from a Spotify for Artists CSV export.
-// Stored as a small JSON file per campaign in the private Blob store (confidential: never public).
+// Stored as a small JSON file per campaign on the hub's disk (confidential: never public).
 // Server-side only.
-import { BlobNotFoundError, del, get, put } from "@vercel/blob";
-import { privateBlobToken } from "./blob";
+import { deleteFile, readJson, writeJson } from "./storage";
 import type { StreamDay } from "./streams-lift";
 
 export type { StreamDay } from "./streams-lift";
@@ -18,29 +17,10 @@ export interface CampaignStreams {
 const path = (campaignId: string) => `streams/${campaignId.replace(/[^A-Za-z0-9]/g, "")}.json`;
 
 export async function getStreams(campaignId: string): Promise<CampaignStreams | undefined> {
-  const token = privateBlobToken();
-  if (!token) return undefined;
-  try {
-    const res = await get(path(campaignId), { access: "private", token, useCache: false });
-    if (!res || res.statusCode !== 200) return undefined;
-    return JSON.parse(await new Response(res.stream).text()) as CampaignStreams;
-  } catch (e) {
-    if (e instanceof BlobNotFoundError) return undefined;
-    throw e;
-  }
+  return readJson<CampaignStreams>(path(campaignId));
 }
 
-async function save(campaignId: string, data: CampaignStreams) {
-  const token = privateBlobToken();
-  if (!token) throw new Error("Private storage isn't set up.");
-  await put(path(campaignId), JSON.stringify(data), {
-    access: "private",
-    token,
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
-}
+const save = (campaignId: string, data: CampaignStreams) => writeJson(path(campaignId), data);
 
 /** Adds days from a new upload; a day that's in both keeps the new number. */
 export async function mergeStreams(campaignId: string, days: StreamDay[], song?: string) {
@@ -66,7 +46,5 @@ export async function setStreamsSharing(campaignId: string, shareWithPartner: bo
 
 /** Removes a campaign's saved streams (for a wrong upload). */
 export async function removeStreams(campaignId: string) {
-  const token = privateBlobToken();
-  if (!token) return;
-  await del(path(campaignId), { token }).catch(() => undefined);
+  await deleteFile(path(campaignId)).catch(() => undefined);
 }
