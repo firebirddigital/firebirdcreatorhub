@@ -41,7 +41,13 @@ export async function listAll(
       ...(opts.fresh ? { cache: "no-store" as const } : { next: { revalidate: 300, tags: ["airtable"] } }),
     });
     if (!res.ok) {
-      throw new Error(`Airtable ${table} read failed (${res.status}): ${await res.text()}`);
+      const body = await res.text();
+      // Each page is cached on its own, so a cached page can hand back a next-page token Airtable has
+      // since expired. Read the whole table again fresh rather than failing the page.
+      if (offset && !opts.fresh && body.includes("LIST_RECORDS_ITERATOR_NOT_AVAILABLE")) {
+        return listAll(table, params, { ...opts, fresh: true });
+      }
+      throw new Error(`Airtable ${table} read failed (${res.status}): ${body}`);
     }
     const data = (await res.json()) as { records: AirtableRecord[]; offset?: string };
     records.push(...data.records);
