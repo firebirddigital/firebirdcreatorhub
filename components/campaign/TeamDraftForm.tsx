@@ -69,7 +69,7 @@ export function TeamDraftForm({
       if (choice.mode === "file") setProgress(0);
       const videoUrl = await resolveDraft(choice, {
         path: `drafts/team/${campaignId}/${Date.now()}`,
-        handleUploadUrl: `/api/campaigns/${campaignId}/drafts/upload`,
+        uploadUrl: `/api/campaigns/${campaignId}/drafts/upload`,
         onProgress: setProgress,
       });
       const res = await fetch(`/api/campaigns/${campaignId}/drafts`, {

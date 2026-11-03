@@ -3,7 +3,8 @@ import { revalidateTag } from "next/cache";
 import { isValidSubmit } from "@/lib/auth";
 import { isSampleMode } from "@/lib/config";
 import { getAssignment } from "@/lib/data";
-import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
+import { checkDraftLink, hostedKey } from "@/lib/draft-links";
+import { fileUrl } from "@/lib/files";
 import { notifyDraftSubmitted } from "@/lib/notify";
 import { siteOrigin } from "@/lib/origin";
 import { createDraft, pullMissingStats } from "@/lib/roster";
@@ -24,17 +25,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ aid: st
   const { videoUrl, caption } = (await req.json().catch(() => ({}))) as { videoUrl?: string; caption?: string };
   if (!videoUrl?.trim()) return NextResponse.json({ error: "Paste a link to your draft or upload the file." }, { status: 400 });
 
-  // Uploaded files must sit in our Blob store under this creator's folder; anything else is a share link.
+  // Uploaded files must sit on the hub's disk under this creator's folder; anything else is a share link.
   let saved: string;
-  let blob = false;
-  try {
-    blob = isBlobUrl(new URL(videoUrl));
-  } catch {}
-  if (blob) {
-    if (!new URL(videoUrl).pathname.startsWith(`/drafts/${aid}/`)) {
+  const key = hostedKey(videoUrl);
+  if (key) {
+    if (!key.startsWith(`drafts/${aid}/`)) {
       return NextResponse.json({ error: "Upload the video first." }, { status: 400 });
     }
-    saved = videoUrl;
+    saved = fileUrl(await siteOrigin(), key);
   } else {
     const link = checkDraftLink(videoUrl);
     if (!link.ok) return NextResponse.json({ error: link.error }, { status: 400 });

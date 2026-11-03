@@ -33,7 +33,7 @@ export function DraftUploader({
       if (choice.mode === "file") setProgress(0);
       const videoUrl = await resolveDraft(choice, {
         path: `drafts/${aid}/v${nextVersion}`,
-        handleUploadUrl: `/api/submit/${aid}/${sig}/upload`,
+        uploadUrl: `/api/submit/${aid}/${sig}/upload`,
         onProgress: setProgress,
       });
       const res = await fetch(`/api/submit/${aid}/${sig}`, {

@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/blob": "^2.8.2",
     "next": "~15.5.7",
     "react": "~19.1.2",
     "react-dom": "~19.1.2"

@@ -1,6 +1,5 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import { checkDraftLink, draftSource, LINK_SERVICES } from "@/lib/draft-links";
 
 export const MAX_MB = 500;
@@ -13,10 +12,52 @@ export function choiceReady(c: DraftChoice) {
   return c.mode === "link" ? Boolean(c.link.trim()) : Boolean(c.file);
 }
 
-/** Turns the choice into a saved video URL: checks the link, or uploads the file to Blob. */
+/** Each piece of a file upload. Small enough that no proxy limit or timeout gets in the way. */
+const CHUNK_BYTES = 8 * 1024 * 1024;
+
+async function api<T>(url: string, init: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch {
+    throw new Error("Upload interrupted. Check your connection and try again.");
+  }
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? "Upload failed. Try again.");
+  return data;
+}
+
+/** Sends the file to the hub in pieces (see lib/upload.ts) and returns its saved address. */
+async function uploadFile(file: File, path: string, uploadUrl: string, onProgress: (pct: number) => void): Promise<string> {
+  const { uploadId } = await api<{ uploadId: string }>(uploadUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "start", path, name: file.name, size: file.size, type: file.type }),
+  });
+  let sent = 0;
+  while (sent < file.size) {
+    const piece = file.slice(sent, Math.min(sent + CHUNK_BYTES, file.size));
+    const { received } = await api<{ received: number }>(`${uploadUrl}?uploadId=${uploadId}&offset=${sent}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: piece,
+    });
+    sent = received;
+    onProgress(Math.min(99, Math.round((sent / file.size) * 100)));
+  }
+  const { url } = await api<{ url: string }>(uploadUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "finish", uploadId }),
+  });
+  onProgress(100);
+  return url;
+}
+
+/** Turns the choice into a saved video URL: checks the link, or uploads the file to the hub. */
 export async function resolveDraft(
   c: DraftChoice,
-  opts: { path: string; handleUploadUrl: string; onProgress: (pct: number) => void },
+  opts: { path: string; uploadUrl: string; onProgress: (pct: number) => void },
 ): Promise<string> {
   if (c.mode === "link") {
     const link = checkDraftLink(c.link);
@@ -27,13 +68,7 @@ export async function resolveDraft(
   if (c.file.size > MAX_MB * 1024 * 1024) {
     throw new Error(`That file is over ${MAX_MB}MB. Paste a link instead, or export a smaller version.`);
   }
-  const ext = c.file.name.split(".").pop()?.toLowerCase() || "mp4";
-  const blob = await upload(`${opts.path}.${ext}`, c.file, {
-    access: "private",
-    handleUploadUrl: opts.handleUploadUrl,
-    onUploadProgress: ({ percentage }) => opts.onProgress(Math.round(percentage)),
-  });
-  return blob.url;
+  return uploadFile(c.file, opts.path, opts.uploadUrl, opts.onProgress);
 }
 
 /** "Paste a link" (the default) or "Upload a file", with a hint about how the link will show up. */

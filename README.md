@@ -8,7 +8,7 @@ A Firebird-branded site for influencer campaigns:
 - **Partner share links**: one private link per campaign for labels and artist teams. It moves through the three stages, and partners approve creators and drafts right on it. It never shows budget, cost per view, contact details or notes, and only shows fees when you tick Show Rates.
 - **Creator upload links**: each approved creator gets a private page with the brief, the team's notes and an upload form for their draft.
 
-Airtable is the database. Apify pulls the public post stats. The site runs on Next.js and Vercel.
+Airtable is the database. Apify pulls the public post stats. Draft videos and a few small files live on the server's own disk. The site runs on Next.js on Render.
 
 It runs on sample data until you add your keys, so you can see it working first.
 
@@ -160,14 +160,15 @@ Each refresh costs a fraction of a cent per post. Check current pricing on the a
 
 ---
 
-## 3b. Set up video uploads (Vercel Blob)
+## 3b. Video uploads and other files (the disk)
 
-Draft videos are stored in Vercel Blob. After your first deploy:
+Draft videos, each campaign's Spotify streams, the removed-partners list for Analytics, the request ledger and the Gmail connection are files on the server's disk, in the folder `DATA_DIR` points to. On Render that is the persistent disk in `render.yaml`, mounted at `/var/data`. Locally it is `./.data`, which git ignores.
 
-1. In Vercel, open the project → **Storage** → **Create** → **Blob**, and connect it to the project. Vercel adds `BLOB_READ_WRITE_TOKEN` for you.
-2. To test uploads locally too, run `npx vercel env pull .env.local` (this rewrites `.env.local` with Vercel's values, so check your other keys are in Vercel first).
+Videos are uploaded in 8MB pieces and served by `/api/files/…`, which only answers to links signed with `AUTH_SECRET` that expire after six hours. The address saved in Airtable is the plain file address; pages sign it when they render.
 
-Uploaded files are public to anyone who has the exact (random) file address, which only appears on the partner link and the creator's own page.
+Nothing else to set up. Keep an eye on disk use in Render as campaigns pile up: disks can grow, not shrink.
+
+---
 
 ## 4. Environment variables
 
@@ -180,19 +181,24 @@ Copy `.env.example` to `.env.local` and fill it in:
 | `APIFY_TOKEN` | Apify API token |
 | `TEAM_PASSWORD` | The shared team password. Leave blank only for local testing. |
 | `AUTH_SECRET` | Any long random string. Changing it signs everyone out and kills every share link. |
-| `CRON_SECRET` | Any long random string. Vercel sends it to the daily refresh. |
+| `CRON_SECRET` | Any long random string. The Render cron jobs send it to the daily refresh. |
+| `DATA_DIR` | Folder for uploaded videos and the hub's small files. `/var/data` on Render; leave blank locally. |
+| `SITE_URL` | The hub's public address, for link preview images. Only needed on a custom domain. |
 
 Generate random strings with `openssl rand -hex 32`.
 
 ---
 
-## 5. Deploy to Vercel
+## 5. Deploy to Render
 
 1. Push this folder to a GitHub repo.
-2. In Vercel, **Add New → Project**, import the repo, and add the environment variables above.
-3. Deploy.
+2. In Render, **New → Blueprint**, pick the repo and apply. `render.yaml` creates the web service, its 20GB disk and the two daily jobs.
+3. Fill in the environment variables above on the web service (Render asks for the ones marked `sync: false`).
+4. If the hub uses Gmail, add `https://<your Render domain>/api/gmail/callback` as an authorized redirect URI on the Google Cloud OAuth client, then reconnect Gmail from the hub.
 
-The daily stats refresh is set in `vercel.json` to run at 11:00 UTC (6am Nashville in winter). The Hobby plan allows one cron run per day; Pro allows more often. You can also hit **Refresh stats now** on any campaign.
+The daily stats refresh runs at 11:00 UTC (6am Nashville in winter) and the creator stats refresh at 08:00 UTC, as the two cron jobs in `render.yaml`. You can also hit **Refresh stats now** on any campaign.
+
+A service with a disk runs as a single instance, and each deploy has a short pause while the disk moves to the new instance. Render takes daily snapshots of the disk; check the retention on your plan.
 
 ---
 
@@ -219,6 +225,10 @@ The daily stats refresh is set in `vercel.json` to run at 11:00 UTC (6am Nashvil
 | `app/api/refresh` | Pulls fresh stats (cron and the refresh button) |
 | `app/api/posts` | Adds a post from the dashboard |
 | `lib/config.ts` | Airtable table and field names |
+| `lib/storage.ts` | Reads and writes files under `DATA_DIR` |
+| `lib/upload.ts` | Takes draft videos in pieces |
+| `app/api/files` | Serves stored videos to signed links |
+| `render.yaml` | Render web service, disk and cron jobs |
 | `lib/apify.ts` | Scraper calls and stat mapping |
 | `lib/sample-data.ts` | The fictional sample data |
 | `middleware.ts` | Team login gate |

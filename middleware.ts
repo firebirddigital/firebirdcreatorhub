@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
 
 // Everything is team-only except the login page, link preview images, partner share links (and their review API), artist results links,
-// creator upload links, and the cron endpoint (which checks its own secret).
+// creator upload links, the cron endpoint (which checks its own secret) and signed file links.
 export async function middleware(req: NextRequest) {
   if (await isValidSession(req.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
 
@@ -16,5 +16,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/|favicon\\.ico|brand/|login|opengraph-image|share/|submit/|roster/|artist/|api/login|api/refresh|api/share/|api/submit/).*)"],
+  matcher: ["/((?!_next/|favicon\\.ico|brand/|login|opengraph-image|share/|submit/|roster/|artist/|api/login|api/refresh|api/share/|api/submit/|api/files/).*)"],
 };

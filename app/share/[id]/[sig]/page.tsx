@@ -6,7 +6,7 @@ import { CampaignShell, parseTab } from "@/components/campaign/Shell";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { Logo } from "@/components/Logo";
 import { isValidShare } from "@/lib/auth";
-import { signDraftUrls } from "@/lib/blob";
+import { signDraftUrls } from "@/lib/files";
 import { isSampleMode, REQUEST_FORM_URL } from "@/lib/config";
 import { campaignStage, getAssignments, getCampaign, getCampaignView, getDrafts } from "@/lib/data";
 import { partnerAssignment, partnerCampaign, partnerCreator, partnerView, reviewerName } from "@/lib/partner-view";
