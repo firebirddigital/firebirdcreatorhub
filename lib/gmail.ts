@@ -1,17 +1,16 @@
 // Sending email through a team member's Gmail (Google Workspace) with Gmail's API. Server-side only.
 // The hub asks Google for send-only access (it can't read, search or delete mail). The refresh token
-// Google returns is encrypted with AUTH_SECRET and kept in the private Blob store, never in Airtable.
+// Google returns is encrypted with AUTH_SECRET and kept on the hub's disk, never in Airtable.
 //   GOOGLE_CLIENT_ID      OAuth client from Google Cloud (Web application)
 //   GOOGLE_CLIENT_SECRET  Its secret
 //   GMAIL_FROM_NAME       Optional display name, e.g. "Firebird" (defaults to "Firebird")
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { BlobNotFoundError, del, get, put } from "@vercel/blob";
-import { privateBlobToken } from "./blob";
+import { deleteFile, readJson, writeJson } from "./storage";
 
 const PATH = "email/gmail-connection.json";
 const SCOPES = ["https://www.googleapis.com/auth/gmail.send", "openid", "email"];
 
-export const gmailConfigured = () => Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && privateBlobToken());
+export const gmailConfigured = () => Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 const secret = () => process.env.AUTH_SECRET || "dev-only-secret-change-me";
 const key = () => createHash("sha256").update(`gmail-token:${secret()}`).digest();
@@ -93,27 +92,13 @@ export async function finishConnect(origin: string, code: string): Promise<strin
   if (!claims.email) throw new Error("Couldn't tell which Gmail account this is. Try again.");
 
   const connection: Connection = { email: claims.email, refreshToken: encrypt(data.refresh_token), connectedAt: new Date().toISOString() };
-  await put(PATH, JSON.stringify(connection), {
-    access: "private",
-    token: privateBlobToken(),
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+  await writeJson(PATH, connection);
   return claims.email;
 }
 
 async function connection(): Promise<Connection | undefined> {
-  const token = privateBlobToken();
-  if (!token || !process.env.GOOGLE_CLIENT_ID) return undefined;
-  try {
-    const res = await get(PATH, { access: "private", token, useCache: false });
-    if (!res || res.statusCode !== 200) return undefined;
-    return JSON.parse(await new Response(res.stream).text()) as Connection;
-  } catch (e) {
-    if (e instanceof BlobNotFoundError) return undefined;
-    throw e;
-  }
+  if (!process.env.GOOGLE_CLIENT_ID) return undefined;
+  return readJson<Connection>(PATH);
 }
 
 /** The connected Gmail address, if any. */
@@ -132,11 +117,7 @@ export async function disconnectGmail() {
       // Still forget it locally; it can also be removed at myaccount.google.com/permissions.
     }
   }
-  try {
-    await del(PATH, { token: privateBlobToken() });
-  } catch (e) {
-    if (!(e instanceof BlobNotFoundError)) throw e;
-  }
+  await deleteFile(PATH);
 }
 
 // ---------- Sending ----------

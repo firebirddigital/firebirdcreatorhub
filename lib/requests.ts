@@ -12,7 +12,6 @@
 import { createRecords, listAll, num, updateRecords, type AirtableRecord, type OtherBase } from "./airtable";
 import { CAMPAIGN_FIELDS as CF, isSampleMode, TABLES } from "./config";
 import { getCampaign, getCampaigns } from "./data";
-import { privateBlobToken } from "./blob";
 import { readLedger, updateLedger, type RequestLedger } from "./request-ledger";
 import type { CampaignType } from "./types";
 
@@ -129,8 +128,7 @@ export const HUB_FIELDS = { status: "Hub Status", campaign: "Hub Campaign", reco
 
 /** The operations base, when the hub reads it directly with its read-only key. */
 const directBase = (): OtherBase | undefined =>
-  // Needs private storage too, for the hub's record of what it has done with each request.
-  process.env.REQUESTS_AIRTABLE_TOKEN && privateBlobToken()
+  process.env.REQUESTS_AIRTABLE_TOKEN
     ? { id: process.env.REQUESTS_BASE_ID || "applP9sX2S8LkcG8O", token: process.env.REQUESTS_AIRTABLE_TOKEN }
     : undefined;
 export const requestsDirect = () => Boolean(directBase());

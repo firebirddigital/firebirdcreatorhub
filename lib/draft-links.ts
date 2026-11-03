@@ -1,4 +1,4 @@
-// Draft videos can be a file in our Blob store or a link to wherever the creator keeps it.
+// Draft videos can be a file on the hub's own disk or a link to wherever the creator keeps it.
 // Safe to import from client components: no secrets, no server calls.
 
 export type DraftPlayer =
@@ -10,7 +10,7 @@ export interface DraftSource {
   /** Where the draft lives, for labels like "Open on Google Drive". */
   label: string;
   player: DraftPlayer;
-  /** True when the file sits in Firebird's own Blob store. */
+  /** True when the file sits on the hub's own disk. */
   hosted: boolean;
 }
 
@@ -30,9 +30,27 @@ const SERVICES: { test: RegExp; label: string }[] = [
 
 export const LINK_SERVICES = "Google Drive, Dropbox, YouTube (unlisted), Vimeo, iCloud, WeTransfer or Frame.io";
 
-export function isBlobUrl(url: URL) {
+/** Where stored files are served from. */
+export const FILES_PATH = "/api/files/";
+
+/** Files from the Vercel Blob stores the hub used before it moved to its own disk. */
+export function isLegacyBlobUrl(url: URL) {
   return url.hostname.endsWith(".blob.vercel-storage.com");
 }
+
+/** The storage key of a hub-hosted file address (any domain, with or without a signature), else undefined. */
+export function hostedKey(raw: string): string | undefined {
+  try {
+    const url = new URL(raw, "https://hub.invalid");
+    if (!url.pathname.startsWith(FILES_PATH)) return undefined;
+    const key = decodeURIComponent(url.pathname.slice(FILES_PATH.length));
+    return key.startsWith("drafts/") && !key.includes("..") ? key : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export const isHostedUrl = (raw: string) => Boolean(hostedKey(raw));
 
 /** A creator- or team-supplied link we're willing to save: https, and not a page on this site. */
 export function checkDraftLink(raw: string): { ok: true; url: string } | { ok: false; error: string } {
@@ -43,7 +61,7 @@ export function checkDraftLink(raw: string): { ok: true; url: string } | { ok: f
     return { ok: false, error: "That doesn't look like a link. Copy the full share link and paste it here." };
   }
   if (url.protocol !== "https:") return { ok: false, error: "Use the https:// share link." };
-  if (isBlobUrl(url)) return { ok: false, error: "Upload the file with the file option instead." };
+  if (isHostedUrl(raw) || isLegacyBlobUrl(url)) return { ok: false, error: "Upload the file with the file option instead." };
   return { ok: true, url: url.toString() };
 }
 
@@ -55,7 +73,9 @@ export function draftSource(raw: string): DraftSource {
     return { label: "the link", player: { kind: "link" }, hosted: false };
   }
   const host = url.hostname.toLowerCase();
-  if (isBlobUrl(url)) return { label: "Firebird", player: { kind: "video", src: raw }, hosted: true };
+  if (isHostedUrl(raw)) return { label: "Firebird", player: { kind: "video", src: raw }, hosted: true };
+  // Uploads from before the move to the hub's disk. The old store is gone, so these can't play.
+  if (isLegacyBlobUrl(url)) return { label: "the hub's old storage (no longer available)", player: { kind: "link" }, hosted: false };
 
   const label = SERVICES.find((s) => s.test.test(host))?.label ?? host.replace(/^www\./, "");
 

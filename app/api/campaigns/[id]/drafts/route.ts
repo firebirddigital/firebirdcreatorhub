@@ -1,15 +1,15 @@
 import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { del } from "@vercel/blob";
 import { deleteRecords } from "@/lib/airtable";
-import { isPrivateBlobUrl, privateBlobToken } from "@/lib/blob";
 import { isSampleMode, TABLES } from "@/lib/config";
 import { getCampaign, getDrafts } from "@/lib/data";
-import { checkDraftLink, isBlobUrl } from "@/lib/draft-links";
+import { checkDraftLink, hostedKey } from "@/lib/draft-links";
+import { fileUrl } from "@/lib/files";
 import { notifyDraftSubmitted, notifyReview } from "@/lib/notify";
 import { siteOrigin } from "@/lib/origin";
 import { parsePlatforms } from "@/lib/types";
 import { createDraft, ensureDraftAssignment, pullMissingStats, recordReview, refreshCreatorStats, UserError } from "@/lib/roster";
+import { deleteFile } from "@/lib/storage";
 
 const TEAM_SUBMITTER = "Firebird team";
 
@@ -34,16 +34,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const videoUrl = body.videoUrl?.trim() ?? "";
   let saved: string;
-  let blob = false;
-  try {
-    blob = isBlobUrl(new URL(videoUrl));
-  } catch {}
-  if (blob) {
+  const key = hostedKey(videoUrl);
+  if (key) {
     // Team uploads go to drafts/team/<campaign>/ via the upload route next to this one.
-    if (!new URL(videoUrl).pathname.startsWith(`/drafts/team/${id}/`)) {
+    if (!key.startsWith(`drafts/team/${id}/`)) {
       return NextResponse.json({ error: "Upload the file again." }, { status: 400 });
     }
-    saved = videoUrl;
+    saved = fileUrl(await siteOrigin(), key);
   } else {
     if (!videoUrl) return NextResponse.json({ error: "Paste a link to the draft or upload the file." }, { status: 400 });
     const link = checkDraftLink(videoUrl);
@@ -98,11 +95,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   for (const draft of drafts) {
     if (!draft.videoUrl) continue;
     try {
-      const url = new URL(draft.videoUrl);
-      if (isBlobUrl(url) && url.pathname.startsWith("/drafts/")) {
-        const token = isPrivateBlobUrl(draft.videoUrl) ? privateBlobToken() : process.env.BLOB_READ_WRITE_TOKEN;
-        await del(draft.videoUrl, { token });
-      }
+      const key = hostedKey(draft.videoUrl);
+      if (key) await deleteFile(key);
     } catch {
       failedFiles++;
     }

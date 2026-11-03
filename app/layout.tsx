@@ -3,9 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   // Link previews need full addresses for their images.
-  metadataBase: new URL(
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000",
-  ),
+  // SITE_URL is the custom domain; Render fills in RENDER_EXTERNAL_URL on its own.
+  metadataBase: new URL(process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000"),
   title: "Firebird Creator Hub",
   description: "Creator roster and live campaign results",
   robots: { index: false, follow: false },

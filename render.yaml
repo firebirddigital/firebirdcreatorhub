@@ -1,0 +1,91 @@
+# Render Blueprint for the Firebird Creator Hub.
+# In Render: New → Blueprint → pick this repo. Render creates the web service, its disk and the two
+# daily jobs from this file. Secrets marked sync: false are typed in once in the dashboard.
+services:
+  - type: web
+    name: firebird-creator-hub
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /login
+    # Draft videos and the hub's small JSON files live here. Disks can grow later, not shrink.
+    disk:
+      name: hub-data
+      mountPath: /var/data
+      sizeGB: 20
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
+      - key: SITE_URL
+        sync: false
+      - key: AIRTABLE_TOKEN
+        sync: false
+      - key: AIRTABLE_BASE_ID
+        sync: false
+      - key: APIFY_TOKEN
+        sync: false
+      - key: TEAM_PASSWORD
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFY_FROM
+        sync: false
+      - key: TEAM_NOTIFY_EMAILS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: REQUESTS_AIRTABLE_TOKEN
+        sync: false
+      - key: REQUEST_WEBHOOK_INFLUENCER
+        sync: false
+      - key: REQUEST_WEBHOOK_SEEDING
+        sync: false
+
+  # Daily stats refresh, 11:00 UTC (6am Nashville in winter). Replaces the schedule in the old vercel.json.
+  - type: cron
+    name: hub-refresh-stats
+    runtime: node
+    plan: starter
+    schedule: "0 11 * * *"
+    buildCommand: echo "nothing to build"
+    startCommand: node scripts/cron.mjs /api/refresh
+    envVars:
+      - key: HUB_HOST
+        fromService:
+          type: web
+          name: firebird-creator-hub
+          property: host
+      - key: CRON_SECRET
+        fromService:
+          type: web
+          name: firebird-creator-hub
+          envVarKey: CRON_SECRET
+
+  # Nightly creator stats refresh, 08:00 UTC.
+  - type: cron
+    name: hub-refresh-creators
+    runtime: node
+    plan: starter
+    schedule: "0 8 * * *"
+    buildCommand: echo "nothing to build"
+    startCommand: node scripts/cron.mjs /api/refresh-creators
+    envVars:
+      - key: HUB_HOST
+        fromService:
+          type: web
+          name: firebird-creator-hub
+          property: host
+      - key: CRON_SECRET
+        fromService:
+          type: web
+          name: firebird-creator-hub
+          envVarKey: CRON_SECRET
