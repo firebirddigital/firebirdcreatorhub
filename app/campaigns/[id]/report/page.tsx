@@ -13,5 +13,9 @@ export default async function TeamReportPage({ params }: { params: Promise<{ id:
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
   const [view, streams] = await Promise.all([getCampaignView(campaign), getStreams(id)]);
-  return <WrapReport view={view} audience="team" streams={streams} />;
+  return (
+    <main className="app public-page">
+      <WrapReport view={view} audience="team" streams={streams} />
+    </main>
+  );
 }

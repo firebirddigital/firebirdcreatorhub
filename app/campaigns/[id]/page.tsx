@@ -8,7 +8,7 @@ import { TeamDraftForm, type PickerCreator } from "@/components/campaign/TeamDra
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { CampaignTools } from "@/components/CampaignTools";
 import { StreamsUpload } from "@/components/StreamsUpload";
-import { Header } from "@/components/Header";
+import { TeamShell } from "@/components/Header";
 import { shareSignature, submitSignature } from "@/lib/auth";
 import { signDraftUrls } from "@/lib/files";
 import { isSampleMode } from "@/lib/config";
@@ -148,14 +148,13 @@ export default async function CampaignPage({
   }
 
   return (
-    <>
-      <Header active="campaigns" />
+    <TeamShell active="campaigns">
       <CampaignShell campaign={campaign} tab={tab} current={current} basePath={`/campaigns/${id}`} hero={hero}>
         <CampaignEditor key={JSON.stringify(campaign)} campaign={campaign} stage={current} sample={sample} />
         {campaign.partnerContacts && (
-          <section aria-label="Partner contacts" className="-mt-10 text-sm">
-            <p className="text-xs font-bold">Partner contacts (team only)</p>
-            <p className="mt-1 whitespace-pre-line">{campaign.partnerContacts}</p>
+          <section aria-label="Partner contacts" className="card text-sm">
+            <h2>Partner contacts (team only)</h2>
+            <p className="mt-2 whitespace-pre-line text-secondary">{campaign.partnerContacts}</p>
           </section>
         )}
         <RequestLink
@@ -182,6 +181,6 @@ export default async function CampaignPage({
         />
         {body}
       </CampaignShell>
-    </>
+    </TeamShell>
   );
 }

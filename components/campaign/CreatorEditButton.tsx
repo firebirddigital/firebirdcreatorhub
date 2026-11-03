@@ -4,8 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Creator } from "@/lib/types";
 
-const input =
-  "mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 font-bold outline-none focus:border-fb-red placeholder:font-normal placeholder:text-fb-black/50";
+const input = "field font-bold placeholder:font-normal placeholder:text-muted";
 
 const num = (n?: number) => (n ? String(n) : "");
 const toNum = (s: string) => (s.trim() ? Number(s.replace(/[^\d]/g, "")) : null);
@@ -75,7 +74,7 @@ export function CreatorEditButton({ creator: c }: { creator: Creator }) {
 
   const field = (k: keyof typeof f, label: string, opts: { numeric?: boolean; placeholder?: string; wide?: boolean } = {}) => (
     <label className={`block text-sm ${opts.wide ? "col-span-2" : ""}`}>
-      <span className="text-xs font-bold">{label}</span>
+      <span className="field-label">{label}</span>
       <input
         value={f[k]}
         onChange={set(k)}
@@ -87,8 +86,8 @@ export function CreatorEditButton({ creator: c }: { creator: Creator }) {
   );
 
   return (
-    <form onSubmit={save} className="border-2 border-fb-black p-4 space-y-3">
-      <p className="text-xs">Updates this creator everywhere in the hub. The campaign fee is set in the Fee box.</p>
+    <form onSubmit={save} className="rounded-card border border-line bg-wash-neutral p-4 space-y-3">
+      <p className="text-xs text-muted">Updates this creator everywhere in the hub. The campaign fee is set in the Fee box.</p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         {field("name", "Name", { wide: true })}
         {field("tiktok", "TikTok handle", { placeholder: "@handle" })}
@@ -101,20 +100,20 @@ export function CreatorEditButton({ creator: c }: { creator: Creator }) {
         {field("email", "Email", { wide: true })}
         {field("tags", "Tags", { wide: true, placeholder: "Comma separated" })}
         <label className="block text-sm col-span-2">
-          <span className="text-xs font-bold">Notes (team only)</span>
-          <textarea value={f.notes} onChange={set("notes")} rows={3} className={`${input} font-normal`} />
+          <span className="field-label">Notes (team only)</span>
+          <textarea value={f.notes} onChange={set("notes")} rows={3} className="field" />
         </label>
       </div>
       {error && <p className="text-sm text-fb-red font-bold">{error}</p>}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         <button
           type="submit"
           disabled={busy}
-          className="subtitle border-2 border-fb-red bg-fb-red text-fb-white px-4 py-2 text-xs hover:bg-fb-black hover:border-fb-black transition-colors disabled:opacity-50"
+          className="btn btn-primary btn-sm"
         >
           {busy ? "Saving…" : "Save"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-sm underline underline-offset-4">
+        <button type="button" onClick={() => setOpen(false)} className="btn btn-quiet btn-sm">
           Cancel
         </button>
       </div>

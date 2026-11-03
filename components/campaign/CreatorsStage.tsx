@@ -57,10 +57,10 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
 }
 
 const STATUS_STYLE: Record<AssignmentStatus, { label: string; className: string }> = {
-  Approved: { label: "Approved", className: "bg-fb-red text-fb-white" },
-  Proposed: { label: "Awaiting review", className: "border-2 border-fb-black bg-fb-white" },
-  "Changes requested": { label: "Changes requested", className: "bg-fb-black text-fb-white" },
-  Declined: { label: "Passed", className: "border-2 border-fb-black/40 bg-fb-white text-fb-black/60" },
+  Approved: { label: "Approved", className: "border-fb-red bg-fb-red text-white" },
+  Proposed: { label: "Awaiting review", className: "bg-surface text-fb-black" },
+  "Changes requested": { label: "Changes requested", className: "border-white/40 bg-fb-ink text-white" },
+  Declined: { label: "Passed", className: "bg-surface text-muted" },
 };
 
 export function CreatorsBody({
@@ -78,10 +78,10 @@ export function CreatorsBody({
     <>
       {team?.tools}
       <section>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 className="headline text-3xl">The creators</h2>
+        <div className="flex flex-wrap items-end justify-between gap-x-4">
+          <h2 className="section-title flex-1">The creators</h2>
           {partner && roster.some((a) => a.status === "Proposed") && (
-            <p className="max-w-md text-sm">
+            <p className="mb-3 max-w-md text-sm text-secondary">
               Approve the creators you&apos;re happy with, or request a change and tell us why. We&apos;ll update this
               page as we go.
             </p>
@@ -89,9 +89,9 @@ export function CreatorsBody({
         </div>
         {roster.length ? (
           <MaybeSelectable team={team} ids={roster.map((a) => a.id)}>
-            <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+            <ul className="mt-3.5 grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
               {roster.map((a) => (
-                <li key={a.id} className={`relative ${a.status === "Declined" ? "opacity-60" : ""}`}>
+                <li key={a.id} className={`card relative flex flex-col p-3 ${a.status === "Declined" ? "opacity-60" : ""}`}>
                   {team && <SelectBox id={a.id} label={a.creator?.name ?? "creator"} />}
                   <RosterCard
                     assignment={a}
@@ -99,7 +99,7 @@ export function CreatorsBody({
                     showPaid={Boolean(team)}
                     trackRecord={team && a.creatorId ? trackRecordText(team.trackRecords?.[a.creatorId]) ?? "First Firebird campaign" : undefined}
                   />
-                  <div className="mt-4">
+                  <div className="mt-4 px-1 empty:hidden">
                     {partner && a.status !== "Declined" && (
                       <ReviewControls
                         endpoint={partner.reviewEndpoint}
@@ -130,7 +130,7 @@ export function CreatorsBody({
             </ul>
           </MaybeSelectable>
         ) : (
-          <p className="mt-8 max-w-prose">
+          <p className="empty card">
             {team
               ? "No creators yet. Search the roster above to propose the first few."
               : "We're putting the creator list together. Check back soon."}
@@ -163,29 +163,29 @@ function RosterCard({
 
   return (
     <article>
-      <div className="relative aspect-[4/5] bg-fb-black overflow-hidden">
+      <div className="relative aspect-[4/5] bg-fb-ink overflow-hidden rounded-control">
         {c?.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.photo} alt="" className="bw absolute inset-0 h-full w-full object-cover" loading="lazy" />
         ) : (
-          <span aria-hidden className="absolute inset-0 flex items-end p-5 headline text-fb-white text-7xl">
+          <span aria-hidden className="absolute inset-0 flex items-end p-5 headline text-white text-6xl">
             {initials}
           </span>
         )}
-        <span className={`absolute left-0 top-0 px-2.5 py-1 text-xs font-bold ${status.className}`}>
+        <span className={`pill absolute left-2 top-2 shadow-lift ${status.className}`}>
           {status.label}
         </span>
         {showPaid && a.status === "Approved" && (
-          <span className={`absolute bottom-0 right-0 px-2.5 py-1 text-xs font-bold ${a.paid ? "bg-fb-white" : "bg-fb-red text-fb-white"}`}>
+          <span className={`pill absolute bottom-2 right-2 shadow-lift ${a.paid ? "bg-surface text-fb-black" : "border-fb-red bg-fb-red text-white"}`}>
             {a.paid ? "Paid" : "Unpaid"}
           </span>
         )}
       </div>
 
-      <h3 className="subtitle mt-4 text-xl">{c?.name ?? "Creator"}</h3>
-      {c?.location && <p className="text-sm">{c.location}</p>}
+      <h3 className="mt-3 px-1 font-display text-[15px] font-bold uppercase tracking-[0.04em]">{c?.name ?? "Creator"}</h3>
+      {c?.location && <p className="px-1 text-xs text-muted">{c.location}</p>}
 
-      <dl className="mt-3 border-t-2 border-fb-black">
+      <dl className="mx-1 mt-3 border-t border-line">
         {c?.tiktok && (
           <Row label="TikTok" handle={c.tiktok} href={`https://www.tiktok.com/@${c.tiktok}`} value={c.tiktokFollowers} />
         )}
@@ -197,27 +197,27 @@ function RosterCard({
             value={c.instagramFollowers}
           />
         )}
-        <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-          <dt className="text-sm">Median views (last 10 posts)</dt>
-          <dd className="figure text-lg">{c?.avgViews ? compact(c.avgViews) : "—"}</dd>
+        <div className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0">
+          <dt className="text-xs text-secondary">Median views (last 10 posts)</dt>
+          <dd className="font-display text-[15px] font-extrabold tabular-nums">{c?.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
         {trackRecord && (
-          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2" title="Across all Firebird campaigns. Team only.">
-            <dt className="text-sm">Track record</dt>
-            <dd className="text-sm font-bold text-right">{trackRecord}</dd>
+          <div className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0" title="Across all Firebird campaigns. Team only.">
+            <dt className="text-xs text-secondary">Track record</dt>
+            <dd className="text-xs font-bold text-right">{trackRecord}</dd>
           </div>
         )}
         {showFee && (
-          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-            <dt className="text-sm">Fee</dt>
-            <dd className="figure text-lg">
+          <div className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0">
+            <dt className="text-xs text-secondary">Fee</dt>
+            <dd className="font-display text-[15px] font-extrabold tabular-nums">
               {a.fee ? money(a.fee) : c?.rate ? <span title="No fee set yet; their general rate">{money(c.rate)} rate</span> : "—"}
             </dd>
           </div>
         )}
         {showFee && (
           <div
-            className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2"
+            className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0"
             title={
               (a.fee ?? c?.rate) && c?.avgViews
                 ? "Cost per post ÷ median views × 1,000"
@@ -226,8 +226,8 @@ function RosterCard({
                   : "Needs their median views (stats not pulled yet)"
             }
           >
-            <dt className="text-sm">Expected CPM</dt>
-            <dd className="figure text-lg">
+            <dt className="text-xs text-secondary">Expected CPM</dt>
+            <dd className="font-display text-[15px] font-extrabold tabular-nums">
               {(a.fee ?? c?.rate) && c?.avgViews ? money((((a.fee ?? c.rate) as number) / c.avgViews) * 1000, 2) : "—"}
             </dd>
           </div>
@@ -235,9 +235,9 @@ function RosterCard({
       </dl>
 
       {!!c?.tags.length && (
-        <ul className="mt-3 flex flex-wrap gap-1.5">
+        <ul className="mt-3 flex flex-wrap gap-1.5 px-1">
           {c.tags.map((t) => (
-            <li key={t} className="text-xs font-bold px-2 py-0.5 border border-fb-black">
+            <li key={t} className="pill text-secondary">
               {t}
             </li>
           ))}
@@ -245,9 +245,9 @@ function RosterCard({
       )}
 
       {a.partnerComment && (
-        <blockquote className="mt-4 border-l-4 border-fb-red pl-3 text-sm">
+        <blockquote className="banner mx-1 mt-4 mb-0 text-sm">
           {a.partnerComment}
-          {a.reviewedBy && <footer className="mt-1 text-xs">{a.reviewedBy}</footer>}
+          {a.reviewedBy && <footer className="mt-1 text-xs text-muted">{a.reviewedBy}</footer>}
         </blockquote>
       )}
     </article>
@@ -256,13 +256,13 @@ function RosterCard({
 
 function Row({ label, handle, href, value }: { label: string; handle: string; href: string; value: number }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-      <dt className="min-w-0 text-sm truncate">
+    <div className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0">
+      <dt className="min-w-0 text-xs text-secondary truncate">
         <a href={href} target="_blank" rel="noreferrer" className="hover:text-fb-red">
-          <span className="font-bold">{label}</span> @{handle}
+          <span className="font-bold text-fb-black">{label}</span> @{handle}
         </a>
       </dt>
-      <dd className="figure text-lg">{value ? compact(value) : "—"}</dd>
+      <dd className="font-display text-[15px] font-extrabold tabular-nums">{value ? compact(value) : "—"}</dd>
     </div>
   );
 }

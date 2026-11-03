@@ -4,8 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { parseStreamsCsv } from "@/lib/csv-import";
 
-const BUTTON =
-  "subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50";
+const BUTTON = "btn";
 
 /** Team controls for streams: upload a Spotify for Artists CSV and choose whether partners see it. */
 export function StreamsUpload({
@@ -62,20 +61,16 @@ export function StreamsUpload({
   }
 
   return (
-    <div className="mt-6 border-2 border-fb-black p-5 space-y-4">
-      <p className="text-sm">
+    <div className="mt-4 space-y-4 border-t border-line pt-4">
+      <p className="text-sm text-secondary">
         In Spotify for Artists, open the song, set the range to start at least a week before the campaign, and use the
         download (CSV) button. Upload it here; new uploads add to what&apos;s already saved.
         {uploadedAt ? ` Last upload ${new Date(uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}.` : ""}
       </p>
       <div className="flex flex-wrap items-end gap-4">
         <label className="min-w-56">
-          <span className="text-xs font-bold">Song name (optional)</span>
-          <input
-            value={song}
-            onChange={(e) => setSong(e.target.value)}
-            className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 outline-none focus:border-fb-red"
-          />
+          <span className="field-label">Song name (optional)</span>
+          <input value={song} onChange={(e) => setSong(e.target.value)} className="field" />
         </label>
         <label className={`${BUTTON} cursor-pointer ${busy ? "opacity-50 pointer-events-none" : ""}`}>
           {busy ? "Saving" : hasStreams ? "Upload more streams" : "Upload streams CSV"}
@@ -102,13 +97,13 @@ export function StreamsUpload({
               setMessage(res.ok ? { text: "Streams removed." } : { text: "Couldn't remove them. Try again.", error: true });
               router.refresh();
             }}
-            className="text-sm underline underline-offset-4 hover:text-fb-red"
+            className="btn btn-quiet"
           >
             Remove streams
           </button>
         )}
         {hasStreams && (
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-secondary">
             <input
               type="checkbox"
               checked={shareWithPartner}
@@ -117,7 +112,7 @@ export function StreamsUpload({
               className="size-4 accent-fb-red"
             />
             <span>
-              <span className="font-bold">Show streams to partner.</span> Off by default; stream numbers are confidential.
+              <span className="font-bold text-fb-black">Show streams to partner.</span> Off by default; stream numbers are confidential.
             </span>
           </label>
         )}

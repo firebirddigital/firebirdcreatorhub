@@ -57,35 +57,32 @@ export function DraftUploader({
   const busy = saving || disabled;
 
   return (
-    <form onSubmit={submit} className="border-2 border-fb-black p-6 max-sm:p-4 space-y-5">
-      <h2 className="headline text-3xl">{nextVersion === 1 ? "Your draft" : `Version ${nextVersion}`}</h2>
+    <form onSubmit={submit} className="card space-y-5">
+      <h2>{nextVersion === 1 ? "Your draft" : `Version ${nextVersion}`}</h2>
 
       <DraftSourceInput value={choice} onChange={setChoice} disabled={busy} audience="creator" />
 
       <label className="block">
-        <span className="text-sm font-bold">Caption you plan to post</span>
+        <span className="field-label">Caption you plan to post</span>
         <textarea
           rows={3}
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           disabled={busy}
-          className="mt-2 w-full border-2 border-fb-black p-2 outline-none focus:border-fb-red disabled:opacity-50"
+          className="field"
         />
       </label>
 
       <UploadProgress progress={progress} />
 
-      {disabled && <p className="text-sm">{disabledReason}</p>}
+      {disabled && <p className="text-sm text-secondary">{disabledReason}</p>}
       {error && (
         <p role="alert" className="text-sm font-bold text-fb-red">
           {error}
         </p>
       )}
 
-      <button
-        disabled={busy || !choiceReady(choice)}
-        className="subtitle bg-fb-red text-fb-white px-8 py-4 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
-      >
+      <button disabled={busy || !choiceReady(choice)} className="btn btn-primary">
         {progress !== undefined ? "Uploading" : saving ? "Sending" : "Send draft"}
       </button>
     </form>

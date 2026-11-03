@@ -93,7 +93,7 @@ export function ReviewControls({
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-sm underline underline-offset-4 hover:text-fb-red">
+      <button onClick={() => setOpen(true)} className="text-sm text-secondary underline underline-offset-4 hover:text-fb-red transition-colors">
         Change decision
       </button>
     );
@@ -108,38 +108,38 @@ export function ReviewControls({
           e.preventDefault();
           if (identified) send(askIdentity);
         }}
-        className="space-y-3 border-2 border-fb-black p-4"
+        className="space-y-3 rounded-control border border-line-strong bg-wash-neutral p-4"
       >
         <p className="text-sm font-bold">Before you {askIdentity === "approve" ? "approve" : "send feedback"}, who&apos;s reviewing?</p>
-        <p className="text-xs">So the team knows who signed off. We&apos;ll remember you on this device.</p>
+        <p className="text-xs text-muted">So the team knows who signed off. We&apos;ll remember you on this device.</p>
         <label className="block">
-          <span className="text-xs font-bold">Your name</span>
+          <span className="field-label">Your name</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
             autoComplete="name"
-            className="mt-1 w-full border-b-2 border-fb-black bg-transparent py-1 text-sm outline-none focus:border-fb-red"
+            className="field"
           />
         </label>
         <label className="block">
-          <span className="text-xs font-bold">Work email</span>
+          <span className="field-label">Work email</span>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            className="mt-1 w-full border-b-2 border-fb-black bg-transparent py-1 text-sm outline-none focus:border-fb-red"
+            className="field"
           />
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             disabled={!identified || busy}
-            className="subtitle bg-fb-red text-fb-white px-4 py-2.5 text-xs hover:bg-fb-black transition-colors disabled:opacity-50"
+            className="btn btn-primary btn-sm"
           >
             {busy ? "Saving" : askIdentity === "approve" ? "Approve" : "Send feedback"}
           </button>
-          <button type="button" onClick={() => setAskIdentity(undefined)} className="px-3 py-2.5 text-xs underline underline-offset-4">
+          <button type="button" onClick={() => setAskIdentity(undefined)} className="btn btn-quiet btn-sm">
             Cancel
           </button>
         </div>
@@ -155,14 +155,14 @@ export function ReviewControls({
   return (
     <div className="space-y-3">
       {identified && (
-        <p className="text-xs">
+        <p className="text-xs text-muted">
           Reviewing as {name} ({email}) ·{" "}
           <button
             type="button"
             onClick={() => {
               saveIdentity("", "");
             }}
-            className="underline underline-offset-2"
+            className="underline underline-offset-2 hover:text-fb-red transition-colors"
           >
             not you?
           </button>
@@ -171,7 +171,7 @@ export function ReviewControls({
       {mode && (
         <div className="space-y-2">
           <label className="block">
-            <span className="text-sm font-bold">
+            <span className="field-label">
               {mode === "decline" ? `Why pass on this ${noun}?` : "What should change?"}
             </span>
             <textarea
@@ -179,7 +179,7 @@ export function ReviewControls({
               onChange={(e) => setComment(e.target.value)}
               rows={3}
               autoFocus
-              className="mt-1 w-full border-2 border-fb-black p-2 text-sm outline-none focus:border-fb-red"
+              className="field"
             />
           </label>
         </div>
@@ -190,7 +190,7 @@ export function ReviewControls({
           <button
             onClick={() => send("approve")}
             disabled={busy}
-            className="subtitle bg-fb-red text-fb-white px-4 py-2.5 text-xs hover:bg-fb-black transition-colors disabled:opacity-50"
+            className="btn btn-primary btn-sm"
           >
             {busy ? "Saving" : "Approve"}
           </button>
@@ -200,11 +200,11 @@ export function ReviewControls({
             <button
               onClick={() => send(mode)}
               disabled={busy || !comment.trim()}
-              className="subtitle bg-fb-black text-fb-white px-4 py-2.5 text-xs hover:bg-fb-red transition-colors disabled:opacity-50"
+              className="btn btn-primary btn-sm"
             >
               {busy ? "Sending" : mode === "decline" ? "Pass on creator" : "Send feedback"}
             </button>
-            <button onClick={() => setMode(undefined)} className="px-3 py-2.5 text-xs underline underline-offset-4">
+            <button onClick={() => setMode(undefined)} className="btn btn-quiet btn-sm">
               Cancel
             </button>
           </>
@@ -213,12 +213,12 @@ export function ReviewControls({
             <button
               onClick={() => setMode("changes")}
               disabled={busy}
-              className="subtitle border-2 border-fb-black px-4 py-2 text-xs hover:bg-fb-black hover:text-fb-white transition-colors"
+              className="btn btn-sm"
             >
               Request changes
             </button>
             {allowDecline && (
-              <button onClick={() => setMode("decline")} disabled={busy} className="px-2 py-2 text-xs underline underline-offset-4">
+              <button onClick={() => setMode("decline")} disabled={busy} className="btn btn-quiet btn-sm text-secondary">
                 Pass
               </button>
             )}

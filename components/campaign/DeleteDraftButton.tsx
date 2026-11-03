@@ -28,7 +28,12 @@ export function DeleteDraftButton({ campaignId, draftId, label }: { campaignId: 
 
   return (
     <span className="text-xs">
-      <button type="button" onClick={remove} disabled={busy} className="underline underline-offset-2 hover:text-fb-red disabled:opacity-50">
+      <button
+        type="button"
+        onClick={remove}
+        disabled={busy}
+        className="text-muted underline underline-offset-2 transition-colors hover:text-fb-red disabled:opacity-50"
+      >
         {busy ? "Deleting…" : "Delete draft"}
       </button>
       {error && <span className="ml-2 font-bold text-fb-red">{error}</span>}

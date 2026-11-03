@@ -25,7 +25,7 @@ export function RequestImport() {
 
   if (!created.length) return null;
   return (
-    <p role="status" className="mt-6 border-2 border-fb-red p-4 text-sm">
+    <p role="status" className="banner mt-3.5">
       <span className="font-bold">
         {created.length === 1 ? "A new request became a campaign: " : `${created.length} new requests became campaigns: `}
       </span>

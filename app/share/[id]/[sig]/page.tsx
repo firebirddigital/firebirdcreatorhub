@@ -73,10 +73,7 @@ export default async function SharePage({
     hero = <LiveHero view={safe} internal={false} />;
     body = (
       <>
-        <a
-          href={`${basePath}/report`}
-          className="subtitle inline-block border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors"
-        >
+        <a href={`${basePath}/report`} className="btn">
           Download wrap report
         </a>
         <LiveBody
@@ -90,24 +87,20 @@ export default async function SharePage({
   }
 
   return (
-    <>
-      <header className="bg-fb-black px-[57px] max-sm:px-6 pt-[57px] max-sm:pt-8 flex flex-wrap items-start justify-between gap-6">
-        <Logo variant="white" />
-        <a
-          href={REQUEST_FORM_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="subtitle border-2 border-fb-white px-5 py-2.5 text-sm text-fb-white hover:bg-fb-white hover:text-fb-black transition-colors"
-        >
+    <main className="app public-page">
+      {/* Brand rule: the red logo anchors the top-left with clear space around it. */}
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-6 py-2">
+        <Logo />
+        <a href={REQUEST_FORM_URL} target="_blank" rel="noreferrer" className="btn btn-primary">
           Request a campaign
         </a>
       </header>
       <CampaignShell campaign={safeCampaign} tab={tab} current={current} basePath={basePath} hero={hero}>
         {body}
       </CampaignShell>
-      <footer className="px-[57px] max-sm:px-6 pb-14 text-sm">
+      <footer className="mt-10 border-t border-line pt-5 text-xs text-muted">
         Live stats refresh daily from public post data and can lag the apps by up to 24 hours.
       </footer>
-    </>
+    </main>
   );
 }

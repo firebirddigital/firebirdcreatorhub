@@ -12,7 +12,7 @@ export function CopyLinkButton({ url, label = "Copy share link", className = "" 
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className={className || "text-xs underline underline-offset-4 hover:text-fb-red"}
+      className={className || "btn btn-quiet btn-sm"}
     >
       {copied ? "Copied" : label}
     </button>

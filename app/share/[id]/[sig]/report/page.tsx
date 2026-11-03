@@ -17,10 +17,12 @@ export default async function PartnerReportPage({ params }: { params: Promise<{ 
   if (!campaign || !campaign.sharingEnabled) notFound();
   const [view, streams] = await Promise.all([getCampaignView(campaign), getStreams(id)]);
   return (
-    <WrapReport
-      view={partnerView(view, campaign.showRates)}
-      audience="partner"
-      streams={streams?.shareWithPartner ? streams : undefined}
-    />
+    <main className="app public-page">
+      <WrapReport
+        view={partnerView(view, campaign.showRates)}
+        audience="partner"
+        streams={streams?.shareWithPartner ? streams : undefined}
+      />
+    </main>
   );
 }

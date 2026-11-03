@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { CampaignFilters } from "@/components/CampaignFilters";
 import { RequestImport } from "@/components/RequestImport";
-import { Header } from "@/components/Header";
+import { TeamShell } from "@/components/Header";
+import { PageHead, SegLinks } from "@/components/nest/Rail";
 import { RequestsInbox } from "@/components/RequestsInbox";
 import { ManualCampaign } from "@/components/campaign/CampaignEditor";
 import { StatusTag } from "@/components/StatusTag";
@@ -64,72 +65,58 @@ export default async function CampaignsPage({
     !isSampleMode() && all.length > 0 && all.every((s) => !s.campaign.type);
 
   return (
-    <>
-      <Header active="campaigns" />
-      <main className="px-[57px] max-sm:px-6 pb-24">
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-6">
-          <h1 className="headline text-7xl max-sm:text-5xl mr-3">Campaigns</h1>
-          <a
-            href={REQUEST_FORM_URL}
-            target="_blank"
-            rel="noreferrer"
-            title="The Airtable form partners fill in. Opens in a new tab; copy the link to send it."
-            className="ml-auto subtitle bg-fb-red text-fb-white px-6 py-3.5 text-sm hover:bg-fb-black transition-colors"
-          >
-            Request a campaign
-          </a>
-        </div>
+    <TeamShell active="campaigns">
+      <PageHead title="Campaigns">
+        <a
+          href={REQUEST_FORM_URL}
+          target="_blank"
+          rel="noreferrer"
+          title="The Airtable form partners fill in. Opens in a new tab; copy the link to send it."
+          className="btn btn-primary"
+        >
+          Request a campaign
+        </a>
+      </PageHead>
 
-        {requestsDirect() && !isSampleMode() && <RequestImport />}
-        <RequestsInbox
-          requests={inbox.requests}
-          missingTables={inbox.missingTables}
-          sample={isSampleMode()}
-          campaigns={all.map(({ campaign }) => ({
-            id: campaign.id,
-            name: campaign.name,
-            artist: campaign.artist,
+      {requestsDirect() && !isSampleMode() && <RequestImport />}
+      <RequestsInbox
+        requests={inbox.requests}
+        missingTables={inbox.missingTables}
+        sample={isSampleMode()}
+        campaigns={all.map(({ campaign }) => ({
+          id: campaign.id,
+          name: campaign.name,
+          artist: campaign.artist,
+        }))}
+      />
+
+      <div className="filters page-filters">
+        <SegLinks
+          label="Campaign type"
+          options={TABS.map((t) => ({
+            href: `/campaigns?${new URLSearchParams({ type: t.key, ...(sp.q ? { q: sp.q } : {}), ...(sp.partner ? { partner: sp.partner } : {}) })}`,
+            label: t.label,
+            active: t.key === tab.key,
+            count: count(t.type),
           }))}
         />
+      </div>
 
+      <section className="card">
         <Suspense>
           <CampaignFilters partners={analytics.options.partners} />
         </Suspense>
-
-        <nav
-          aria-label="Campaign type"
-          className="mt-10 flex flex-wrap gap-x-8 gap-y-3 border-b-2 border-fb-black"
-        >
-          {TABS.map((t) => (
-            <Link
-              key={t.key}
-              href={`/campaigns?${new URLSearchParams({ type: t.key, ...(sp.q ? { q: sp.q } : {}), ...(sp.partner ? { partner: sp.partner } : {}) })}`}
-              aria-current={t.key === tab.key ? "page" : undefined}
-              className={`subtitle -mb-0.5 pb-3 text-lg border-b-4 transition-colors ${
-                t.key === tab.key
-                  ? "border-fb-red"
-                  : "border-transparent hover:border-fb-black"
-              }`}
-            >
-              {t.label}{" "}
-              <span className="font-sans font-normal text-base">
-                {count(t.type)}
-              </span>
-            </Link>
-          ))}
-        </nav>
         {typeFieldMissing && (
-          <p className="mt-4 max-w-prose text-sm">
+          <p className="banner max-w-prose">
             Sorted by name for now: anything with “seeding” in the name or song
             counts as Content Seeding. Add a single select field called{" "}
-            <span className="font-bold">Type</span> (Influencer, Content
-            Seeding) to the Campaigns table in Airtable to set it per campaign
-            from Edit campaign.
+            <strong>Type</strong> (Influencer, Content Seeding) to the Campaigns
+            table in Airtable to set it per campaign from Edit campaign.
           </p>
         )}
 
         {summaries.length === 0 ? (
-          <p className="mt-10 max-w-prose">
+          <p className="empty">
             {filtering
               ? `No ${tab.label.toLowerCase()} match.`
               : all.length
@@ -137,59 +124,51 @@ export default async function CampaignsPage({
                 : "No campaigns yet. New ones appear here when the request form is submitted."}
           </p>
         ) : (
-          <ul>
+          <ul className="-mx-2">
             {summaries.map(({ campaign, totals, posts, engagementRate }) => (
-              <li key={campaign.id} className="border-b border-fb-black/20">
+              <li key={campaign.id} className="border-b border-line last:border-b-0">
                 <Link
                   href={`/campaigns/${campaign.id}`}
-                  className="group grid grid-cols-[1fr_auto] md:grid-cols-[1.4fr_0.8fr_0.5fr_0.5fr] items-center gap-x-8 gap-y-2 py-7"
+                  className="group grid grid-cols-[1fr_auto] md:grid-cols-[1.6fr_0.7fr_0.45fr_0.45fr] items-center gap-x-6 gap-y-2 rounded-control px-2 py-4 transition-colors hover:bg-wash-neutral"
                 >
-                  <div>
-                    <p className="text-sm">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted truncate">
                       {campaign.artist}
                       {(partnersOf.get(campaign.id) ?? []).length > 0 && (
-                        <span>
-                          {" "}
-                          · {partnersOf.get(campaign.id)!.join(", ")}
-                        </span>
+                        <span> · {partnersOf.get(campaign.id)!.join(", ")}</span>
                       )}
                     </p>
-                    <h2 className="subtitle text-2xl mt-1 group-hover:text-fb-red transition-colors">
+                    <h2 className="mt-0.5 font-display text-[15px] font-bold tracking-[0.02em] group-hover:text-fb-red transition-colors">
                       {campaign.name}
                     </h2>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
                       <StatusTag status={campaign.status} />
-                      <span>
-                        {dateRange(campaign.startDate, campaign.endDate)}
-                      </span>
+                      <span>{dateRange(campaign.startDate, campaign.endDate)}</span>
                     </div>
                   </div>
                   <div className="text-right md:text-left">
-                    <p className="figure text-5xl max-sm:text-4xl text-fb-red">
-                      {posts ? compact(totals.views) : "—"}
-                    </p>
-                    <p className="text-sm mt-1">views</p>
+                    <p className="tile-label">Views</p>
+                    <p className="tile-value text-fb-red">{posts ? compact(totals.views) : "—"}</p>
                   </div>
                   <div className="max-md:hidden">
-                    <p className="figure text-2xl">{posts}</p>
-                    <p className="text-sm mt-1">posts live</p>
+                    <p className="tile-label">Posts live</p>
+                    <p className="tile-value text-[22px]">{posts}</p>
                   </div>
                   <div className="max-md:hidden">
-                    <p className="figure text-2xl">
-                      {posts ? pct(engagementRate) : "—"}
-                    </p>
-                    <p className="text-sm mt-1">engagement</p>
+                    <p className="tile-label">Engagement</p>
+                    <p className="tile-value text-[22px]">{posts ? pct(engagementRate) : "—"}</p>
                   </div>
                 </Link>
               </li>
             ))}
           </ul>
         )}
+      </section>
 
-        <section aria-label="Manual upload" className="mt-16">
-          <ManualCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
-        </section>
-      </main>
-    </>
+      <h2 className="section-title">Manual upload</h2>
+      <section aria-label="Manual upload">
+        <ManualCampaign key={tab.key} sample={isSampleMode()} type={tab.type} />
+      </section>
+    </TeamShell>
   );
 }

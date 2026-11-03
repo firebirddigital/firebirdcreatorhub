@@ -204,17 +204,17 @@ export function CreatorBrowser({
   const selectedShown = selected.filter((id) => shownIds.includes(id));
 
   return (
-    <div className="mt-12">
-      <div className="md:sticky md:top-0 z-10 bg-fb-white border-y-2 border-fb-black py-5 space-y-5">
-        <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
-          <label className="flex-1 min-w-60">
+    <div className="mt-3.5">
+      <section aria-label="Filter creators" className="card md:sticky md:top-0 z-10">
+        <div className="filter-row">
+          <label className="basis-full">
             <span className="sr-only">Search creators</span>
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, handle, city or notes"
-              className="w-full border-b-2 border-fb-black bg-transparent py-2 text-lg outline-none focus:border-fb-red"
+              className="w-full"
             />
           </label>
           <Select
@@ -284,7 +284,7 @@ export function CreatorBrowser({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div role="group" aria-label="Filter by tag" className="flex flex-wrap gap-2">
+          <div role="group" aria-label="Filter by tag" className="flex flex-wrap gap-1.5">
             {allTags.map(([t, count]) => {
               const on = tags.includes(t);
               return (
@@ -292,11 +292,13 @@ export function CreatorBrowser({
                   key={t}
                   onClick={() => toggleTag(t)}
                   aria-pressed={on}
-                  className={`px-3 py-1.5 text-sm font-bold border-2 transition-colors ${
-                    on ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+                  className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${
+                    on
+                      ? "border-fb-red bg-fb-red text-white"
+                      : "border-line-strong bg-surface text-secondary hover:bg-wash-neutral hover:text-fb-black"
                   }`}
                 >
-                  {t} <span className="font-normal">{count}</span>
+                  {t} <span className={`font-normal ${on ? "text-white/80" : "text-muted"}`}>{count}</span>
                 </button>
               );
             })}
@@ -307,49 +309,47 @@ export function CreatorBrowser({
                   setUntaggedOnly((v) => !v);
                 }}
                 aria-pressed={untaggedOnly}
-                className={`px-3 py-1.5 text-sm font-bold border-2 border-dashed transition-colors ${
-                  untaggedOnly ? "bg-fb-black border-fb-black text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+                className={`rounded-full border border-dashed px-3 py-1 text-xs font-bold transition-colors ${
+                  untaggedOnly
+                    ? "border-fb-red bg-wash text-fb-red"
+                    : "border-line-strong text-secondary hover:bg-wash-neutral hover:text-fb-black"
                 }`}
               >
-                Needs tags <span className="font-normal">{untaggedCount}</span>
+                Needs tags <span className="font-normal text-muted">{untaggedCount}</span>
               </button>
             )}
           </div>
           {tags.length > 1 && (
-            <label className="ml-2 flex items-center gap-2 text-sm">
+            <label className="ml-2 flex items-center gap-2 text-xs text-secondary">
               <input type="checkbox" checked={matchAll} onChange={(e) => setMatchAll(e.target.checked)} className="size-4 accent-fb-red" />
               Must have all {tags.length}
             </label>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="figure text-2xl">
-            {shown.length} <span className="font-sans font-normal text-base tracking-normal">of {creators.length} creators</span>
+          <p className="tile-value mb-0 text-[22px]">
+            {shown.length}{" "}
+            <span className="font-sans text-sm font-normal tracking-normal text-muted">of {creators.length} creators</span>
           </p>
           {team && <StatsFreshness creators={creators} />}
         </div>
-        <div className="flex flex-wrap items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
           {filtersOn && (
-            <button onClick={clearFilters} className="underline underline-offset-4 hover:text-fb-red">
+            <button onClick={clearFilters} className="btn btn-quiet btn-sm">
               Clear filters
             </button>
           )}
           {team && (
-            <button onClick={exportCsv} disabled={!shown.length} className="font-bold underline underline-offset-4 hover:text-fb-red">
+            <button onClick={exportCsv} disabled={!shown.length} className="btn btn-sm">
               Download this list
             </button>
           )}
-          <div role="group" aria-label="View" className="flex border-2 border-fb-black">
+          <div role="group" aria-label="View" className="seg">
             {(["table", "cards"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                aria-pressed={view === v}
-                className={`px-3 py-1 font-bold ${view === v ? "bg-fb-black text-fb-white" : "hover:bg-fb-black/10"}`}
-              >
+              <button key={v} onClick={() => setView(v)} aria-pressed={view === v}>
                 {v === "table" ? "Table" : "Cards"}
               </button>
             ))}
@@ -399,13 +399,15 @@ export function CreatorBrowser({
         />
       )}
       {message && (
-        <p role="status" className={`mt-4 text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
+        <p role="status" className={message.error ? "mt-3.5 text-sm font-bold text-fb-red" : "banner mt-3.5 mb-0"}>
           {message.text}
         </p>
       )}
 
       {!shown.length ? (
-        <p className="mt-10 max-w-prose">No creators match these filters. Remove a tag or loosen a filter.</p>
+        <div className="card mt-3.5">
+          <p className="empty">No creators match these filters. Remove a tag or loosen a filter.</p>
+        </div>
       ) : view === "table" ? (
         <CreatorTable
           creators={shown}
@@ -421,7 +423,7 @@ export function CreatorBrowser({
           onTags={(c, next) => applyTags([{ id: c.id, tags: next }], `Saved tags for ${c.name}.`)}
         />
       ) : (
-        <ul className="mt-8 grid gap-x-8 gap-y-12 grid-cols-[repeat(auto-fill,minmax(250px,1fr))]">
+        <ul className="mt-3.5 grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
           {shown.map((c) => (
             <li key={c.id}>
               <CreatorCard creator={c} activeTags={tags} trackRecord={team ? trackRecordText(trackRecords[c.id]) : undefined} />
@@ -451,18 +453,18 @@ function BulkTagBar({
   const [tag, setTag] = useState("");
   const t = tag.trim();
   return (
-    <div className="mt-4 flex flex-wrap items-end gap-4 border-2 border-fb-red p-4">
-      <p className="font-bold">
+    <div className="card hero mt-3.5 flex flex-wrap items-end gap-3">
+      <p className="self-center font-display text-[15px] font-bold">
         {count} selected
       </p>
       <label className="min-w-48 flex-1">
-        <span className="text-xs font-bold">Tag</span>
+        <span className="field-label">Tag</span>
         <input
           list="creator-tag-options"
           value={tag}
           onChange={(e) => setTag(e.target.value)}
           placeholder="Pick or type a tag"
-          className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 outline-none focus:border-fb-red"
+          className="field"
         />
         <datalist id="creator-tag-options">
           {allTags.map((x) => (
@@ -473,14 +475,14 @@ function BulkTagBar({
       <button
         disabled={!t}
         onClick={() => onApply(t, "add")}
-        className="subtitle bg-fb-red text-fb-white px-4 py-2 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+        className="btn btn-primary"
       >
         Add tag
       </button>
       <button
         disabled={!t}
         onClick={() => onApply(t, "remove")}
-        className="subtitle border-2 border-fb-black px-4 py-1.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
+        className="btn"
       >
         Remove tag
       </button>
@@ -488,11 +490,11 @@ function BulkTagBar({
         onClick={onPullStats}
         disabled={Boolean(pulling)}
         title="Followers and median views across their last 10 posts. Uses a little Apify credit per creator."
-        className="subtitle border-2 border-fb-black px-4 py-1.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
+        className="btn"
       >
         {pulling ? `Pulling stats ${pulling.done} of ${pulling.total}` : "Pull stats"}
       </button>
-      <button onClick={onClear} className="text-sm underline underline-offset-4">
+      <button onClick={onClear} className="btn btn-quiet">
         Clear selection
       </button>
     </div>
@@ -521,14 +523,14 @@ function CreatorTable({
   onTags: (c: Creator, tags: string[]) => void;
 }) {
   const allOn = creators.every((c) => selected.includes(c.id));
-  const th = "py-2 pr-4 text-left text-xs font-bold whitespace-nowrap";
   return (
-    <div className="mt-6 overflow-x-auto">
-      <table className="w-full min-w-[1160px] border-t-2 border-fb-black text-sm">
+    <div className="card mt-3.5">
+    <div className="table-wrap">
+      <table className="min-w-[1160px]">
         <thead>
-          <tr className="border-b-2 border-fb-black">
+          <tr>
             {editable && (
-              <th className="py-2 pr-3 w-8">
+              <th className="w-8">
                 <input
                   type="checkbox"
                   aria-label="Select all shown"
@@ -538,30 +540,30 @@ function CreatorTable({
                 />
               </th>
             )}
-            <th className={th}>Creator</th>
-            <th className={`${th} text-right`}>TikTok</th>
-            <th className={`${th} text-right`}>Instagram</th>
-            <th className={`${th} text-right`} title="Median views across their last 10 posts">Median views<span className="block font-normal">last 10 posts</span></th>
-            {team && <th className={`${th} text-right`}>Rate</th>}
+            <th>Creator</th>
+            <th className="num">TikTok</th>
+            <th className="num">Instagram</th>
+            <th className="num" title="Median views across their last 10 posts">Median views<span className="cell-sub normal-case tracking-normal">last 10 posts</span></th>
+            {team && <th className="num">Rate</th>}
             {team && (
-              <th className={`${th} text-right`} title="Rate ÷ median views (last 10 posts) × 1,000">
+              <th className="num" title="Rate ÷ median views (last 10 posts) × 1,000">
                 CPM
               </th>
             )}
-            {team && <th className={th} title="Across all Firebird campaigns">Track record</th>}
+            {team && <th title="Across all Firebird campaigns">Track record</th>}
             {team && (
-              <th className={th} title="Followers and median views. Refreshed automatically every night, oldest first.">
+              <th title="Followers and median views. Refreshed automatically every night, oldest first.">
                 Stats updated
               </th>
             )}
-            <th className={th}>Tags</th>
+            <th>Tags</th>
           </tr>
         </thead>
         <tbody>
           {creators.map((c) => (
-            <tr key={c.id} className="border-b border-fb-black/20 align-top">
+            <tr key={c.id} className={`align-top ${selected.includes(c.id) ? "bg-wash" : ""}`}>
               {editable && (
-                <td className="py-3 pr-3">
+                <td>
                   <input
                     type="checkbox"
                     aria-label={`Select ${c.name}`}
@@ -571,46 +573,47 @@ function CreatorTable({
                   />
                 </td>
               )}
-              <td className="py-3 pr-4">
+              <td>
                 <p className="font-bold">{c.name}</p>
-                {c.location && <p className="text-xs">{c.location}</p>}
+                {c.location && <p className="text-xs text-muted">{c.location}</p>}
               </td>
-              <td className="py-3 pr-4 text-right whitespace-nowrap">
+              <td className="num">
                 {c.tiktok ? (
                   <a href={`https://www.tiktok.com/@${c.tiktok}`} target="_blank" rel="noreferrer" className="hover:text-fb-red">
-                    <span className="figure text-base">{c.tiktokFollowers ? compact(c.tiktokFollowers) : "—"}</span>
-                    <span className="block text-xs">@{c.tiktok}</span>
+                    <span className="font-bold">{c.tiktokFollowers ? compact(c.tiktokFollowers) : "—"}</span>
+                    <span className="cell-sub">@{c.tiktok}</span>
                   </a>
                 ) : (
                   "—"
                 )}
               </td>
-              <td className="py-3 pr-4 text-right whitespace-nowrap">
+              <td className="num">
                 {c.instagram ? (
                   <a href={`https://www.instagram.com/${c.instagram}/`} target="_blank" rel="noreferrer" className="hover:text-fb-red">
-                    <span className="figure text-base">{c.instagramFollowers ? compact(c.instagramFollowers) : "—"}</span>
-                    <span className="block text-xs">@{c.instagram}</span>
+                    <span className="font-bold">{c.instagramFollowers ? compact(c.instagramFollowers) : "—"}</span>
+                    <span className="cell-sub">@{c.instagram}</span>
                   </a>
                 ) : (
                   "—"
                 )}
               </td>
-              <td className="py-3 pr-4 text-right figure text-base">{c.avgViews ? compact(c.avgViews) : "—"}</td>
-              {team && <td className="py-3 pr-4 text-right whitespace-nowrap">{c.rate ? money(c.rate) : "—"}</td>}
-              {team && <td className="py-3 pr-4 text-right whitespace-nowrap">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</td>}
-              {team && <td className="py-3 pr-4 text-xs">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>}
+              <td className="num font-bold">{c.avgViews ? compact(c.avgViews) : "—"}</td>
+              {team && <td className="num">{c.rate ? money(c.rate) : "—"}</td>}
+              {team && <td className="num">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</td>}
+              {team && <td className="min-w-48 whitespace-normal text-xs text-secondary">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>}
               {team && (
-                <td className="py-3 pr-4 text-xs whitespace-nowrap" title={c.statsUpdated ? new Date(c.statsUpdated).toLocaleString("en-US") : undefined}>
+                <td className="text-xs text-secondary" title={c.statsUpdated ? new Date(c.statsUpdated).toLocaleString("en-US") : undefined}>
                   {c.tiktok || c.instagram ? (c.statsUpdated ? updatedLabel(c.statsUpdated) : "Never") : "No handle"}
                 </td>
               )}
-              <td className="py-3 min-w-64">
+              <td className="min-w-64 whitespace-normal">
                 <TagCell creator={c} activeTags={activeTags} allTags={allTags} editable={editable} onTags={onTags} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }
@@ -648,8 +651,8 @@ function TagCell({
       {c.tags.map((t) => (
         <li
           key={t}
-          className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 ${
-            activeTags.includes(t) ? "bg-fb-red text-fb-white" : "border border-fb-black"
+          className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
+            activeTags.includes(t) ? "border-fb-red bg-fb-red text-white" : "border-line-strong text-secondary"
           }`}
         >
           {t}
@@ -664,7 +667,7 @@ function TagCell({
           )}
         </li>
       ))}
-      {!c.tags.length && <li className="text-xs italic">No tags</li>}
+      {!c.tags.length && <li className="text-xs italic text-muted">No tags</li>}
       {editable && (
         <li>
           {adding ? (
@@ -688,7 +691,7 @@ function TagCell({
                 }}
                 placeholder="Tag"
                 aria-label={`Add a tag to ${c.name}`}
-                className="w-28 border-b-2 border-fb-black bg-transparent py-0.5 text-xs outline-none focus:border-fb-red"
+                className="w-28 rounded-control border border-line-strong bg-surface px-2 py-0.5 text-xs text-fb-black outline-none focus:border-fb-red"
               />
               <datalist id={listId}>
                 {allTags
@@ -705,7 +708,7 @@ function TagCell({
                 setAdding(true);
               }}
               aria-label={`Add a tag to ${c.name}`}
-              className="text-xs font-bold px-2 py-0.5 border border-dashed border-fb-black hover:bg-fb-black hover:text-fb-white"
+              className="rounded-full border border-dashed border-line-strong px-2 py-0.5 text-xs font-bold text-secondary transition-colors hover:border-fb-red hover:text-fb-red"
             >
               + Tag
             </button>
@@ -724,29 +727,30 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
     .join("");
 
   return (
-    <article>
-      <div className="relative aspect-[4/5] bg-fb-black overflow-hidden">
+    <article className="card h-full overflow-hidden p-0">
+      <div className="relative aspect-[4/5] overflow-hidden bg-fb-ink">
         {c.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.photo} alt="" className="bw absolute inset-0 h-full w-full object-cover" loading="lazy" />
         ) : (
-          <span aria-hidden className="absolute inset-0 flex items-end p-5 headline text-fb-white text-7xl">
+          <span aria-hidden className="absolute inset-0 flex items-end p-4 font-display text-5xl font-extrabold uppercase text-white">
             {initials}
           </span>
         )}
       </div>
-      <h3 className="subtitle mt-4 text-xl">{c.name}</h3>
-      {c.location && <p className="text-sm">{c.location}</p>}
+      <div className="p-4">
+      <h3 className="font-display text-[15px] font-bold tracking-[0.02em]">{c.name}</h3>
+      {c.location && <p className="text-xs text-muted">{c.location}</p>}
 
-      <dl className="mt-3 border-t-2 border-fb-black">
+      <dl className="mt-3 border-t border-line">
         {c.tiktok && <Handle platform="TikTok" handle={c.tiktok} followers={c.tiktokFollowers} href={`https://www.tiktok.com/@${c.tiktok}`} />}
         {c.instagram && (
           <Handle platform="Instagram" handle={c.instagram} followers={c.instagramFollowers} href={`https://www.instagram.com/${c.instagram}/`} />
         )}
         {c.avgViews ? (
-          <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-            <dt className="text-sm font-bold">Median views <span className="font-normal">(last 10 posts)</span></dt>
-            <dd className="figure text-lg">{compact(c.avgViews)}</dd>
+          <div className="flex items-baseline justify-between gap-3 border-b border-line py-2">
+            <dt className="text-xs font-bold">Median views <span className="font-normal text-muted">(last 10 posts)</span></dt>
+            <dd className="font-display font-bold tabular-nums">{compact(c.avgViews)}</dd>
           </div>
         ) : null}
       </dl>
@@ -755,33 +759,36 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
         {c.tags.map((t) => (
           <li
             key={t}
-            className={`text-xs font-bold px-2 py-0.5 ${activeTags.includes(t) ? "bg-fb-red text-fb-white" : "border border-fb-black"}`}
+            className={`rounded-full border px-2 py-0.5 text-xs font-bold ${
+              activeTags.includes(t) ? "border-fb-red bg-fb-red text-white" : "border-line-strong text-secondary"
+            }`}
           >
             {t}
           </li>
         ))}
       </ul>
       {c.rate && (
-        <p className="mt-3 text-sm">
+        <p className="mt-3 text-xs text-secondary">
           Rate {money(c.rate)} per post
           {creatorCpm(c) !== undefined && <> · CPM {money(creatorCpm(c)!, 2)}</>}
         </p>
       )}
-      {trackRecord && <p className="mt-1 text-sm">Track record: {trackRecord}</p>}
-      {c.statsUpdated && <p className="mt-1 text-xs">Stats updated {updatedLabel(c.statsUpdated)}</p>}
+      {trackRecord && <p className="mt-1 text-xs text-secondary">Track record: {trackRecord}</p>}
+      {c.statsUpdated && <p className="mt-1 text-xs text-muted">Stats updated {updatedLabel(c.statsUpdated)}</p>}
+      </div>
     </article>
   );
 }
 
 function Handle({ platform, handle, followers, href }: { platform: string; handle: string; followers: number; href: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-fb-black/20 py-2">
-      <dt className="min-w-0 text-sm truncate">
+    <div className="flex items-baseline justify-between gap-3 border-b border-line py-2">
+      <dt className="min-w-0 truncate text-xs">
         <a href={href} target="_blank" rel="noreferrer" className="hover:text-fb-red">
           <span className="font-bold">{platform}</span> @{handle}
         </a>
       </dt>
-      <dd className="figure text-lg">{followers ? compact(followers) : "—"}</dd>
+      <dd className="font-display font-bold tabular-nums">{followers ? compact(followers) : "—"}</dd>
     </div>
   );
 }
@@ -799,7 +806,7 @@ function StatsFreshness({ creators }: { creators: Creator[] }) {
   const fresh = withHandles.filter((c) => c.statsUpdated && new Date(c.statsUpdated).getTime() >= weekAgo).length;
   const never = withHandles.filter((c) => !c.statsUpdated).length;
   return (
-    <p className="mt-1 text-xs" title="About 3am Nashville time: creators never updated or not updated in 14 days, oldest first, within the Apify budget.">
+    <p className="mt-1 text-xs text-muted" title="About 3am Nashville time: creators never updated or not updated in 14 days, oldest first, within the Apify budget.">
       Stats refresh automatically every night, oldest first. {fresh} of {withHandles.length} updated this week
       {never ? `, ${never} never updated` : ""}.
     </p>
@@ -818,13 +825,9 @@ function Select({
   options: { label: string; value: string }[];
 }) {
   return (
-    <label className="block">
-      <span className="text-xs font-bold">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 block border-b-2 border-fb-black bg-transparent py-2 pr-6 font-bold outline-none focus:border-fb-red"
-      >
+    <label>
+      {label}
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

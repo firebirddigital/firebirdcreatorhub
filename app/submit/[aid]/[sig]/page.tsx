@@ -37,15 +37,15 @@ export default async function SubmitPage({ params }: { params: Promise<{ aid: st
         : "Draft received";
 
   return (
-    <main className="min-h-dvh">
-      <header className="bg-fb-black text-fb-white px-[57px] max-sm:px-6 pt-[57px] max-sm:pt-8 pb-14">
-        <Logo variant="white" />
-        <p className="subtitle mt-16 text-lg">
+    <main className="app public-page">
+      <header>
+        <Logo />
+        <p className="subtitle mt-12 max-sm:mt-8 text-[13px] tracking-[0.06em] text-muted">
           {campaign.artist}
           {campaign.song ? `, “${campaign.song}”` : ""}
         </p>
-        <h1 className="headline mt-2 text-6xl max-sm:text-4xl">{headline}</h1>
-        <p className="mt-4 max-w-prose text-lg text-fb-white/85">
+        <h1 className="headline mt-2 text-4xl max-sm:text-3xl">{headline}</h1>
+        <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-secondary">
           {!latest &&
             `${firstName ? `Hi ${firstName}. ` : ""}Read the brief, then send your draft here: paste a share link or upload the file. The team will review it and you'll see their notes on this page.`}
           {latest?.status === "Pending review" &&
@@ -57,42 +57,46 @@ export default async function SubmitPage({ params }: { params: Promise<{ aid: st
         </p>
       </header>
 
-      <div className="px-[57px] max-sm:px-6 py-14 grid gap-14 lg:grid-cols-[1fr_1fr] max-w-6xl">
-        <section>
+      <div className="mt-8 grid gap-3.5 items-start lg:grid-cols-2">
+        <section className="flex flex-col gap-3.5">
           {latest?.status === "Changes requested" && latest.partnerComment && (
-            <div className="mb-10">
-              <h2 className="headline text-3xl">What to change</h2>
-              <blockquote className="mt-4 border-l-4 border-fb-red pl-4 text-lg">{latest.partnerComment}</blockquote>
+            <div className="card hero">
+              <h2>What to change</h2>
+              <blockquote className="mt-3 border-l-[3px] border-fb-red pl-3 text-[15px] leading-relaxed">
+                {latest.partnerComment}
+              </blockquote>
             </div>
           )}
-          <h2 className="headline text-3xl">The brief</h2>
-          <p className="mt-4 whitespace-pre-line max-w-prose">
-            {campaign.brief ?? "Your Firebird contact will send the brief separately."}
-          </p>
+          <div className="card">
+            <h2>The brief</h2>
+            <p className="mt-3 whitespace-pre-line max-w-prose leading-relaxed">
+              {campaign.brief ?? "Your Firebird contact will send the brief separately."}
+            </p>
+          </div>
 
           {mine.length > 0 && (
-            <>
-              <h2 className="headline mt-12 text-3xl">Your versions</h2>
-              <ol className="mt-4 border-t-2 border-fb-black">
+            <div className="card">
+              <h2>Your versions</h2>
+              <ol className="mt-2">
                 {mine.map((d) => (
-                  <li key={d.id} className="border-b border-fb-black/20 py-3">
+                  <li key={d.id} className="border-b border-line py-3 last:border-b-0 last:pb-0">
                     <p>
                       <span className="font-bold">Version {d.version}</span>, sent {shortDate(d.submittedAt)}.{" "}
                       {d.status === "Pending review" ? "Waiting for review." : d.status === "Approved" ? "Approved." : "Changes requested."}
                     </p>
-                    {d.partnerComment && d !== latest && <p className="mt-1 text-sm">{d.partnerComment}</p>}
+                    {d.partnerComment && d !== latest && <p className="mt-1 text-sm text-secondary">{d.partnerComment}</p>}
                   </li>
                 ))}
               </ol>
-            </>
+            </div>
           )}
         </section>
 
         <section>
           {latest?.status === "Approved" ? (
-            <div className="border-2 border-fb-black p-6">
+            <div className="card">
               <p className="font-bold">Nothing more to upload.</p>
-              <p className="mt-2 text-sm">
+              <p className="mt-2 text-sm text-secondary">
                 Need to send an updated cut anyway? Ask your Firebird contact and they&apos;ll reopen it.
               </p>
             </div>

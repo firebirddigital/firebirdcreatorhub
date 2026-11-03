@@ -20,12 +20,10 @@ async function call(url: string, method: string, body?: object) {
   return data;
 }
 
-/** Outlined button for team actions. */
-export const BUTTON =
-  "subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-fb-black";
-/** Filled red button for the main next step. */
-export const BUTTON_PRIMARY =
-  "subtitle border-2 border-fb-red bg-fb-red text-fb-white px-5 py-2.5 text-sm hover:bg-fb-black hover:border-fb-black transition-colors disabled:opacity-50";
+/** The kit's button for team actions. */
+export const BUTTON = "btn";
+/** The kit's red button for the main next step. */
+export const BUTTON_PRIMARY = "btn btn-primary";
 
 export function CopyButton({
   text,
@@ -173,7 +171,7 @@ function NewCreatorForm({
     if (t && !v.tags.includes(t)) set({ tags: [...v.tags, t] });
     setTagDraft("");
   };
-  const field = "mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 outline-none focus:border-fb-red";
+  const field = "field";
   const canSave = v.name.trim() && !busy;
 
   return (
@@ -182,15 +180,15 @@ function NewCreatorForm({
         e.preventDefault();
         if (canSave) onSubmit();
       }}
-      className="mt-4 border-2 border-fb-red p-5 space-y-4"
+      className="mt-4 rounded-card border border-line bg-wash-neutral p-5 space-y-4"
     >
       <div>
-        <h3 className="subtitle text-lg">New creator</h3>
-        <p className="text-xs">Saved to the Creators database and added to this campaign. If someone already has this handle, we use them instead.</p>
+        <h3 className="font-display text-xs font-bold uppercase tracking-[0.08em]">New creator</h3>
+        <p className="mt-1 text-xs text-muted">Saved to the Creators database and added to this campaign. If someone already has this handle, we use them instead.</p>
       </div>
       <label className="block">
-        <span className="text-xs font-bold">Profile link</span>
-        <span className="block text-xs">Paste their TikTok or Instagram profile link and we&apos;ll fill in the name, handle and stats. Paste the other one too if they have both.</span>
+        <span className="field-label">Profile link</span>
+        <span className="mb-2 block text-xs text-muted">Paste their TikTok or Instagram profile link and we&apos;ll fill in the name, handle and stats. Paste the other one too if they have both.</span>
         <input
           autoFocus
           inputMode="url"
@@ -208,7 +206,7 @@ function NewCreatorForm({
           </span>
         )}
         {lookup && (
-          <span role="status" className="mt-1 block text-xs">
+          <span role="status" className="mt-1 block text-xs text-secondary">
             {lookup.state === "loading" && <>Looking up @{lookup.handle}. This can take up to a minute; you can keep filling in the rest.</>}
             {lookup.state === "error" && <>Couldn&apos;t look up @{lookup.handle}{lookup.error ? `: ${lookup.error}` : ""}. Type the name and save anyway.</>}
             {lookup.state === "done" && lookup.result && (
@@ -223,7 +221,7 @@ function NewCreatorForm({
                   <>Couldn&apos;t read @{lookup.handle}&apos;s profile (it may be private). Type the name and save anyway.</>
                 )}
                 {lookup.result.existing && (
-                  <span className="block font-bold">
+                  <span className="block font-bold text-fb-black">
                     Already in the database as {lookup.result.existing.name}. Saving adds them to this campaign without a duplicate.
                   </span>
                 )}
@@ -232,7 +230,7 @@ function NewCreatorForm({
           </span>
         )}
       </label>
-      <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+      <div className="grid gap-x-4 gap-y-4 sm:grid-cols-3">
         <label>
           <span className="text-xs font-bold">Name</span>
           <input required value={v.name} onChange={(e) => set({ name: e.target.value, nameAuto: false })} className={field} />
@@ -264,7 +262,7 @@ function NewCreatorForm({
         </label>
       </div>
       <div>
-        <span className="text-xs font-bold">Tags</span>
+        <span className="field-label">Tags</span>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {[...new Set([...allTags, ...v.tags])].map((t) => {
             const on = v.tags.includes(t);
@@ -274,8 +272,8 @@ function NewCreatorForm({
                 type="button"
                 onClick={() => toggleTag(t)}
                 aria-pressed={on}
-                className={`px-2 py-0.5 text-xs font-bold border ${
-                  on ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-bold transition-colors ${
+                  on ? "bg-fb-red border-fb-red text-white" : "border-line-strong bg-surface text-secondary hover:bg-wash-neutral hover:text-fb-black"
                 }`}
               >
                 {t}
@@ -294,18 +292,18 @@ function NewCreatorForm({
             onBlur={addTypedTag}
             placeholder="+ new tag"
             aria-label="Add a new tag"
-            className="w-28 border-b-2 border-fb-black bg-transparent py-0.5 text-xs outline-none focus:border-fb-red"
+            className="field w-28 min-h-0 px-2.5 py-1 text-xs"
           />
         </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         <button
           disabled={!canSave}
-          className="subtitle bg-fb-red text-fb-white px-6 py-3 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+          className="btn btn-primary"
         >
           {busy ? "Adding" : "Add to database and campaign"}
         </button>
-        <button type="button" onClick={onCancel} className="text-sm underline underline-offset-4">
+        <button type="button" onClick={onCancel} className="btn btn-quiet">
           Cancel
         </button>
       </div>
@@ -375,24 +373,24 @@ export function RosterTools({
     <div className="space-y-5">
       <div>
         <label className="block">
-          <span className="text-sm font-bold">Add creators to this campaign</span>
+          <span className="field-label">Add creators to this campaign</span>
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search the roster by name, handle or niche"
             disabled={sample}
-            className="mt-2 w-full border-b-2 border-fb-black bg-transparent py-2.5 outline-none focus:border-fb-red disabled:opacity-50"
+            className="field"
           />
         </label>
         {query && (
-          <ul className="mt-2 divide-y divide-fb-black/15 border-x-2 border-b-2 border-fb-black">
+          <ul className="mt-2 overflow-hidden rounded-control border border-line divide-y divide-line bg-surface">
             {options.length ? (
               options.map((c) => {
                 const on = picked.includes(c.id);
                 return (
                   <li key={c.id}>
-                    <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-fb-black/5">
+                    <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-wash-neutral">
                       <input
                         type="checkbox"
                         checked={on}
@@ -400,14 +398,14 @@ export function RosterTools({
                         className="accent-fb-red size-4"
                       />
                       <span className="font-bold">{c.name}</span>
-                      <span className="text-sm truncate">{c.tags.join(", ")}</span>
-                      <span className="ml-auto figure text-sm">{compact(c.instagramFollowers + c.tiktokFollowers)}</span>
+                      <span className="text-sm text-muted truncate">{c.tags.join(", ")}</span>
+                      <span className="ml-auto text-sm font-bold tabular-nums">{compact(c.instagramFollowers + c.tiktokFollowers)}</span>
                     </label>
                   </li>
                 );
               })
             ) : (
-              <li className="px-3 py-2.5 text-sm">No one on the roster matches.</li>
+              <li className="px-3 py-2.5 text-sm text-muted">No one on the roster matches.</li>
             )}
             <li>
               <button
@@ -422,7 +420,7 @@ export function RosterTools({
                   setQuery("");
                 }}
                 disabled={sample}
-                className="w-full px-3 py-2.5 text-left font-bold hover:bg-fb-black/5"
+                className="w-full px-3 py-2.5 text-left font-bold text-fb-red hover:bg-wash-neutral disabled:opacity-50"
               >
                 {profileFromUrl(query)
                   ? `+ Add the creator from this ${profileFromUrl(query)!.platform === "tiktok" ? "TikTok" : "Instagram"} link`
@@ -481,14 +479,14 @@ export function RosterTools({
               })
             }
             disabled={busy === "add"}
-            className="mt-3 subtitle bg-fb-red text-fb-white px-6 py-3 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+            className="mt-3 btn btn-primary"
           >
             {busy === "add" ? "Adding" : `Add ${picked.length} ${picked.length === 1 ? "creator" : "creators"}`}
           </button>
         )}
       </div>
 
-      {sample && <p className="text-sm">These tools turn on once Airtable and Apify are connected.</p>}
+      {sample && <p className="text-sm text-muted">These tools turn on once Airtable and Apify are connected.</p>}
       {message && message.at === "box" && (
         <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
           {message.text}
@@ -498,11 +496,11 @@ export function RosterTools({
   );
 
   return (
-    <div className="space-y-4">
-      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-3">
+    <div className="card space-y-3">
+      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-2">
         {addDraft && (
           <ModalButton label="+ Add a draft" title="Add a draft" className={BUTTON}>
-            <p className="mb-5 max-w-prose text-sm">
+            <p className="mb-5 max-w-prose text-sm text-secondary">
               Got a draft by email or text? Add it here for any creator, even one who isn&apos;t on this campaign yet.
             </p>
             {addDraft}
@@ -540,7 +538,7 @@ export function RosterTools({
         {shareUrl ? (
           <CopyButton text={shareUrl} label="Copy partner share link" copiedLabel="Share link copied" variant="button" />
         ) : (
-          <span className="text-sm">Tick “Partner link on” in Edit campaign to get a partner link.</span>
+          <span className="text-sm text-muted">Tick “Partner link on” in Edit campaign to get a partner link.</span>
         )}
       </div>
       {message && message.at === "actions" && (
@@ -585,10 +583,10 @@ export function FeeField({
 
   return (
     <label className={`block ${className}`}>
-      <span className="text-xs font-bold">
+      <span className="field-label">
         Fee ($)
-        {state === "saving" && <span className="ml-2 font-normal">Saving…</span>}
-        {state === "saved" && <span className="ml-2 font-normal">Saved</span>}
+        {state === "saving" && <span className="ml-2 normal-case tracking-normal font-normal">Saving…</span>}
+        {state === "saved" && <span className="ml-2 normal-case tracking-normal font-normal">Saved</span>}
       </span>
       <input
         inputMode="numeric"
@@ -597,7 +595,7 @@ export function FeeField({
         onChange={(e) => setFeeInput(e.target.value.replace(/[^\d]/g, ""))}
         onBlur={save}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 font-bold outline-none focus:border-fb-red placeholder:font-normal placeholder:text-fb-black/50"
+        className="field font-bold placeholder:font-normal placeholder:text-muted"
       />
       {typeof state === "object" && <span className="mt-1 block text-xs text-fb-red font-bold">{state.error}</span>}
     </label>
@@ -637,11 +635,11 @@ export function AssignmentControls({
     <div className="space-y-3 text-sm">
       <div className="flex gap-3">
         <label className="flex-1">
-          <span className="text-xs font-bold">Status</span>
+          <span className="field-label">Status</span>
           <select
             value={status}
             onChange={(e) => patch({ status: e.target.value })}
-            className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 font-bold outline-none focus:border-fb-red"
+            className="field font-bold"
           >
             {STATUSES.map((s) => (
               <option key={s}>{s}</option>
@@ -654,7 +652,7 @@ export function AssignmentControls({
       {status === "Approved" ? (
         <CopyButton text={uploadUrl} label="Copy draft upload link" copiedLabel="Upload link copied" />
       ) : (
-        <p className="text-xs">The draft upload link appears once this creator is approved.</p>
+        <p className="text-xs text-muted">The draft upload link appears once this creator is approved.</p>
       )}
       {error && <p className="text-fb-red font-bold">{error}</p>}
     </div>
@@ -682,16 +680,16 @@ export function PaidToggle({ campaignId, assignmentId, paid }: { campaignId: str
 
   return (
     <div className="text-sm">
-      <label className="inline-flex cursor-pointer items-center gap-2 font-bold">
+      <label className="switch relative text-sm font-bold has-[:disabled]:cursor-wait">
         <input
           type="checkbox"
           checked={on}
           onChange={(e) => toggle(e.target.checked)}
           disabled={state === "saving"}
-          className="accent-fb-red size-4"
         />
+        <span aria-hidden className="track" />
         {on ? "Paid" : "Not paid yet"}
-        {state === "saving" && <span className="font-normal text-xs">Saving…</span>}
+        {state === "saving" && <span className="font-normal text-xs text-muted">Saving…</span>}
       </label>
       {typeof state === "object" && <p className="mt-1 text-xs font-bold text-fb-red">{state.error}</p>}
     </div>

@@ -42,18 +42,17 @@ const toPayload = (f: FormState) => ({
 });
 
 function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => void }) {
-  const input =
-    "mt-1 block w-full border-b-2 border-fb-black bg-transparent py-2 outline-none focus:border-fb-red";
+  const input = "field";
   return (
-    <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+    <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
       <fieldset className="md:col-span-2">
-        <legend className="text-sm font-bold">Type</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <legend className="field-label">Type</legend>
+        <div className="seg flex-wrap">
           {CAMPAIGN_TYPES.map((t) => (
             <label
               key={t}
-              className={`cursor-pointer px-4 py-2 text-sm font-bold border-2 transition-colors ${
-                f.type === t ? "bg-fb-red border-fb-red text-fb-white" : "border-fb-black hover:bg-fb-black hover:text-fb-white"
+              className={`cursor-pointer rounded-full px-[13px] py-1.5 text-[13px] transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-fb-red ${
+                f.type === t ? "bg-fb-red font-bold text-white shadow-tile" : "text-secondary hover:bg-surface hover:text-fb-black"
               }`}
             >
               <input
@@ -70,27 +69,27 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
         </div>
       </fieldset>
       <label className="md:col-span-2">
-        <span className="text-sm font-bold">Campaign name</span>
-        <input required value={f.name} onChange={(e) => set({ name: e.target.value })} className={`${input} text-lg`} />
+        <span className="field-label">Campaign name</span>
+        <input required value={f.name} onChange={(e) => set({ name: e.target.value })} className={input} />
       </label>
       <label>
-        <span className="text-sm font-bold">Artist</span>
+        <span className="field-label">Artist</span>
         <input value={f.artist} onChange={(e) => set({ artist: e.target.value })} className={input} />
       </label>
       <label>
-        <span className="text-sm font-bold">Song</span>
+        <span className="field-label">Song</span>
         <input value={f.song} onChange={(e) => set({ song: e.target.value })} className={input} />
       </label>
       <label>
-        <span className="text-sm font-bold">Start date</span>
+        <span className="field-label">Start date</span>
         <input type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} className={input} />
       </label>
       <label>
-        <span className="text-sm font-bold">End date</span>
+        <span className="field-label">End date</span>
         <input type="date" value={f.endDate} onChange={(e) => set({ endDate: e.target.value })} className={input} />
       </label>
       <label>
-        <span className="text-sm font-bold">Budget ($)</span>
+        <span className="field-label">Budget ($)</span>
         <input
           inputMode="numeric"
           value={f.budget}
@@ -98,13 +97,13 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
           className={input}
         />
       </label>
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-3.5">
         <label>
-          <span className="text-sm font-bold">Status</span>
+          <span className="field-label">Status</span>
           <select
             value={f.status}
             onChange={(e) => set({ status: e.target.value as CampaignStatus })}
-            className={`${input} font-bold`}
+            className={input}
           >
             <option>Planning</option>
             <option>Live</option>
@@ -112,8 +111,8 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
           </select>
         </label>
         <label>
-          <span className="text-sm font-bold">Stage</span>
-          <select value={f.stage} onChange={(e) => set({ stage: e.target.value as Stage })} className={`${input} font-bold`}>
+          <span className="field-label">Stage</span>
+          <select value={f.stage} onChange={(e) => set({ stage: e.target.value as Stage })} className={input}>
             <option value="creators">Creators</option>
             <option value="drafts">Drafts</option>
             <option value="live">Live</option>
@@ -121,16 +120,16 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
         </label>
       </div>
       <label className="md:col-span-2">
-        <span className="text-sm font-bold">Brief</span>
-        <span className="block text-xs">Creators see this on their upload page.</span>
+        <span className="field-label">Brief</span>
+        <span className="-mt-0.5 mb-1.5 block text-xs text-muted">Creators see this on their upload page.</span>
         <textarea
           rows={4}
           value={f.brief}
           onChange={(e) => set({ brief: e.target.value })}
-          className="mt-2 w-full border-2 border-fb-black p-2 outline-none focus:border-fb-red"
+          className="field"
         />
       </label>
-      <div className="md:col-span-2 flex flex-wrap gap-x-8 gap-y-3">
+      <div className="md:col-span-2 flex flex-wrap gap-x-6 gap-y-2.5">
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -190,18 +189,18 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
 
   if (!open) {
     return (
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
           onClick={() => {
             setF(fromCampaign(campaign, stage));
             setOpen(true);
           }}
-          className="subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors"
+          className="btn"
         >
           Edit campaign
         </button>
         {saved && (
-          <span role="status" className="text-sm">
+          <span role="status" className="text-sm text-secondary">
             {saved === "type-missing"
               ? "Campaign saved, except Type: add a single select field called Type to the Campaigns table in Airtable."
               : "Campaign saved."}
@@ -212,23 +211,23 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
   }
 
   return (
-    <form onSubmit={save} className="border-2 border-fb-black p-6 max-sm:p-4 space-y-6">
-      <h2 className="headline text-3xl">Edit campaign</h2>
+    <form onSubmit={save} className="card space-y-4">
+      <h2>Edit campaign</h2>
       <Fields f={f} set={(p) => setF((cur) => ({ ...cur, ...p }))} />
-      {sample && <p className="text-sm">Editing turns on once Airtable is connected.</p>}
+      {sample && <p className="text-xs text-muted">Editing turns on once Airtable is connected.</p>}
       {error && (
         <p role="alert" className="text-sm font-bold text-fb-red">
           {error}
         </p>
       )}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2.5 border-t border-line pt-4">
         <button
           disabled={busy || sample}
-          className="subtitle bg-fb-red text-fb-white px-8 py-3.5 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+          className="btn btn-primary"
         >
           {busy ? "Saving" : "Save campaign"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-sm underline underline-offset-4">
+        <button type="button" onClick={() => setOpen(false)} className="btn btn-quiet">
           Cancel
         </button>
       </div>
@@ -268,7 +267,7 @@ export function ManualCampaign({ sample, type }: { sample: boolean; type?: Campa
 
   if (!open) {
     return (
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
           onClick={() => {
             setF(blank());
@@ -276,20 +275,20 @@ export function ManualCampaign({ sample, type }: { sample: boolean; type?: Campa
           }}
           disabled={sample}
           title={sample ? "Connect Airtable to create campaigns" : undefined}
-          className="subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50"
+          className="btn"
         >
           Manual upload
         </button>
-        <span className="text-sm">No request form? Set up a dashboard by hand, for example just to track some posts.</span>
+        <span className="text-xs text-muted">No request form? Set up a dashboard by hand, for example just to track some posts.</span>
       </div>
     );
   }
 
   return (
-    <form onSubmit={create} className="border-2 border-fb-black p-6 max-sm:p-4 space-y-6">
+    <form onSubmit={create} className="card space-y-4">
       <div>
-        <h2 className="headline text-3xl">Manual upload</h2>
-        <p className="mt-1 text-sm">It starts Live so you can add posts straight away. Change the stage below if you need to.</p>
+        <h2>Manual upload</h2>
+        <p className="caption mb-0">It starts Live so you can add posts straight away. Change the stage below if you need to.</p>
       </div>
       <Fields f={f} set={(p) => setF((cur) => ({ ...cur, ...p }))} />
       {error && (
@@ -297,14 +296,14 @@ export function ManualCampaign({ sample, type }: { sample: boolean; type?: Campa
           {error}
         </p>
       )}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2.5 border-t border-line pt-4">
         <button
           disabled={busy}
-          className="subtitle bg-fb-red text-fb-white px-8 py-3.5 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+          className="btn btn-primary"
         >
           {busy ? "Creating" : "Create campaign"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-sm underline underline-offset-4">
+        <button type="button" onClick={() => setOpen(false)} className="btn btn-quiet">
           Cancel
         </button>
       </div>

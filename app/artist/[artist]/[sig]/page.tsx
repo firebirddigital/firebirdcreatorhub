@@ -35,70 +35,69 @@ export default async function ArtistResultsPage({ params }: { params: Promise<{ 
   const campaigns = a.campaigns.filter((c) => c.posts > 0 || c.status !== "Planning");
 
   return (
-    <>
-      <header className="bg-fb-black px-[57px] max-sm:px-6 pt-[57px] max-sm:pt-8 flex flex-wrap items-start justify-between gap-6">
-        <Logo variant="white" />
-        <a
-          href={REQUEST_FORM_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="subtitle border-2 border-fb-white px-5 py-2.5 text-sm text-fb-white hover:bg-fb-white hover:text-fb-black transition-colors"
-        >
+    <main className="app public-page">
+      {/* Brand rule: the red logo anchors the top-left with clear space around it. */}
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-6 py-2">
+        <Logo />
+        <a href={REQUEST_FORM_URL} target="_blank" rel="noreferrer" className="btn btn-primary">
           Request a campaign
         </a>
       </header>
-      <main className="pb-24">
-        <section className="bg-fb-black text-fb-white px-[57px] max-sm:px-6 py-14">
-          <p className="subtitle text-lg">Creator campaign results</p>
-          <h1 className="headline mt-2 text-6xl max-sm:text-4xl">{row.name}</h1>
-          <p className="figure mt-10 text-8xl max-sm:text-6xl text-fb-red">{compact(t.stats.views)}</p>
-          <p className="mt-2 text-lg">total views</p>
-          <HeroStats
-            items={[
-              { label: "Posts", value: compact(t.posts) },
-              { label: "Campaigns", value: String(campaigns.length) },
-              { label: "Engagements", value: compact(engagements) },
-              { label: "Engagement rate", value: t.stats.views ? pct(t.engagementRate) : "—" },
-            ]}
-          />
-        </section>
 
-        <section className="px-[57px] max-sm:px-6 pt-12">
-          <h2 className="headline text-3xl">Campaigns</h2>
-          {campaigns.length === 0 ? (
-            <p className="mt-4">Results will show here once the first campaign goes live.</p>
-          ) : (
-            <ul className="mt-6 border-t-2 border-fb-black">
-              {campaigns.map((c) => (
-                <li
-                  key={c.id}
-                  className="grid grid-cols-[1fr_auto] md:grid-cols-[1.6fr_0.6fr_0.4fr] items-center gap-x-8 gap-y-1 border-b border-fb-black/20 py-5"
-                >
-                  <div>
-                    <h3 className="subtitle text-xl">{c.name}</h3>
-                    <p className="mt-1 text-sm">
-                      {[c.status === "Live" ? "Live" : c.status === "Wrapped" ? "Wrapped" : "", dateRange(c.startDate)]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                  <p className="text-right md:text-left">
-                    <span className="figure text-4xl text-fb-red">{c.stats.views ? compact(c.stats.views) : "—"}</span>
-                    <span className="block text-sm">views</span>
+      <section className="card hero px-8 py-8 max-sm:px-5 max-sm:py-6">
+        <p className="tile-label">Creator campaign results</p>
+        <h1 className="headline mt-1 text-5xl max-sm:text-3xl">{row.name}</h1>
+        <p className="tile-value mt-8 text-[72px] leading-none max-sm:text-5xl text-fb-red">{compact(t.stats.views)}</p>
+        <p className="mt-2 text-[15px] text-secondary">total views</p>
+      </section>
+      {/* Outside the hero card: inside it, every tile would take the hero's large red number style. */}
+      <div className="mt-3.5">
+        <HeroStats
+          items={[
+            { label: "Posts", value: compact(t.posts) },
+            { label: "Campaigns", value: String(campaigns.length) },
+            { label: "Engagements", value: compact(engagements) },
+            { label: "Engagement rate", value: t.stats.views ? pct(t.engagementRate) : "—" },
+          ]}
+        />
+      </div>
+
+      <h2 className="section-title">Campaigns</h2>
+      <section className="card" aria-label="Campaigns">
+        {campaigns.length === 0 ? (
+          <p className="empty">Results will show here once the first campaign goes live.</p>
+        ) : (
+          <ul className="-mx-2">
+            {campaigns.map((c) => (
+              <li
+                key={c.id}
+                className="grid grid-cols-[1fr_auto] md:grid-cols-[1.6fr_0.6fr_0.4fr] items-center gap-x-8 gap-y-1 rounded-control border-b border-line px-2 py-4 last:border-b-0"
+              >
+                <div className="min-w-0">
+                  <h3 className="font-display text-[15px] font-bold tracking-[0.02em]">{c.name}</h3>
+                  <p className="mt-1 text-xs text-muted">
+                    {[c.status === "Live" ? "Live" : c.status === "Wrapped" ? "Wrapped" : "", dateRange(c.startDate)]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
-                  <p className="max-md:hidden">
-                    <span className="figure text-2xl">{c.posts}</span>
-                    <span className="block text-sm">posts</span>
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
-      <footer className="px-[57px] max-sm:px-6 pb-14 text-sm">
+                </div>
+                <div className="text-right md:text-left">
+                  <p className="tile-label">views</p>
+                  <p className="tile-value text-fb-red">{c.stats.views ? compact(c.stats.views) : "—"}</p>
+                </div>
+                <div className="max-md:hidden">
+                  <p className="tile-label">posts</p>
+                  <p className="tile-value text-[22px]">{c.posts}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <footer className="mt-10 border-t border-line pt-5 text-xs text-muted">
         Live stats refresh daily from public post data and can lag the apps by up to 24 hours.
       </footer>
-    </>
+    </main>
   );
 }

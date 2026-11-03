@@ -28,14 +28,14 @@ export function SelectBox({ id, label }: { id: string; label: string }) {
   const on = ctx.selected.has(id);
   return (
     <label
-      className={`absolute right-2 top-2 z-10 flex size-8 cursor-pointer items-center justify-center border-2 ${
-        on ? "bg-fb-red border-fb-red" : "bg-fb-white/90 border-fb-black"
+      className={`absolute right-2 top-2 z-10 flex size-8 cursor-pointer items-center justify-center rounded-control border shadow-lift transition-colors ${
+        on ? "bg-fb-red border-fb-red" : "bg-surface border-line-strong hover:bg-wash"
       }`}
       title={on ? "Selected" : "Select"}
     >
       <input type="checkbox" checked={on} onChange={() => ctx.toggle(id)} aria-label={`Select ${label}`} className="sr-only" />
       {on && (
-        <span aria-hidden className="text-fb-white font-bold">
+        <span aria-hidden className="text-white font-bold">
           ✓
         </span>
       )}
@@ -87,11 +87,11 @@ export function BulkBar({
   }
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
       <button
         type="button"
         onClick={() => ctx.set(ids.length === allIds.length ? [] : allIds)}
-        className="underline underline-offset-4 hover:text-fb-red"
+        className="btn btn-sm"
       >
         {ids.length === allIds.length ? "Clear selection" : `Select all ${allIds.length}`}
       </button>
@@ -104,12 +104,12 @@ export function BulkBar({
             type="button"
             onClick={run}
             disabled={busy}
-            className="subtitle border-2 border-fb-black bg-fb-black text-fb-white px-4 py-2 text-xs hover:bg-fb-red hover:border-fb-red disabled:opacity-50"
+            className="btn btn-primary btn-sm"
           >
             {busy ? "Working…" : action}
           </button>
           {ids.length !== allIds.length && (
-            <button type="button" onClick={() => ctx.set([])} className="underline underline-offset-4">
+            <button type="button" onClick={() => ctx.set([])} className="btn btn-quiet btn-sm">
               Clear
             </button>
           )}

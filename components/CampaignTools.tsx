@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { timeAgo } from "@/lib/format";
 import type { Creator } from "@/lib/types";
-import { BUTTON } from "./campaign/TeamControls";
 
 /** Pull every link out of pasted text: one per line, comma-separated, or mixed in with other words. */
 function extractLinks(text: string): string[] {
@@ -105,32 +104,32 @@ export function CampaignTools({
   }
 
   return (
-    <div className="space-y-4">
-      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-3">
-        <button onClick={refresh} disabled={sample || refreshing} className={BUTTON}>
+    <div className="space-y-3.5">
+      <div role="group" aria-label="Campaign actions" className="flex flex-wrap items-center gap-2.5">
+        <button onClick={refresh} disabled={sample || refreshing} className="btn">
           {refreshing ? "Refreshing stats" : "Refresh stats now"}
         </button>
         {shareUrl ? (
-          <button onClick={copyShare} className={BUTTON}>
+          <button onClick={copyShare} className="btn">
             {copied ? "Share link copied" : "Copy partner share link"}
           </button>
         ) : (
-          <span className="text-sm">Tick “Partner link on” in Edit campaign to get a partner link.</span>
+          <span className="text-xs text-muted">Tick “Partner link on” in Edit campaign to get a partner link.</span>
         )}
-        <a href={`/campaigns/${campaignId}/report`} className={BUTTON}>
+        <a href={`/campaigns/${campaignId}/report`} className="btn">
           Wrap report
         </a>
-        <span className="text-sm">Stats last updated {timeAgo(lastRefreshed)}</span>
+        <span className="text-xs text-muted">Stats last updated {timeAgo(lastRefreshed)}</span>
       </div>
       {message?.at === "actions" && (
         <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
           {message.text}
         </p>
       )}
-    <section aria-label="Campaign tools" className="border-2 border-fb-black p-6 max-sm:p-4">
+    <section aria-label="Campaign tools" className="card">
       <form onSubmit={addPost} className="grid gap-3 md:grid-cols-[1fr_220px_auto] items-end">
         <label className="block">
-          <span className="text-sm font-bold">Add live posts</span>
+          <span className="field-label">Add live posts</span>
           <textarea
             required
             rows={Math.min(Math.max(links.length, 1), 6)}
@@ -138,16 +137,16 @@ export function CampaignTools({
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             disabled={sample}
-            className="mt-2 w-full resize-y border-b-2 border-fb-black bg-transparent py-2.5 outline-none focus:border-fb-red disabled:opacity-50"
+            className="field resize-y"
           />
         </label>
         <label className="block">
-          <span className="text-sm font-bold">{links.length > 1 ? "Creator (for every link)" : "Creator"}</span>
+          <span className="field-label">{links.length > 1 ? "Creator (for every link)" : "Creator"}</span>
           <select
             value={creatorId}
             onChange={(e) => setCreatorId(e.target.value)}
             disabled={sample}
-            className="mt-2 w-full border-b-2 border-fb-black bg-transparent py-2.5 outline-none focus:border-fb-red disabled:opacity-50"
+            className="field"
           >
             <option value="">Detect from the post</option>
             {creators.map((c) => (
@@ -159,7 +158,7 @@ export function CampaignTools({
         </label>
         <button
           disabled={sample || adding}
-          className="subtitle bg-fb-red text-fb-white px-6 py-3.5 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+          className="btn btn-primary"
         >
           {adding
             ? links.length > 1 ? `Adding ${links.length} posts` : "Adding post"
@@ -167,9 +166,9 @@ export function CampaignTools({
         </button>
       </form>
 
-      {sample && <p className="mt-4 text-sm">Adding posts and refreshing stats turn on once Airtable and Apify are connected.</p>}
+      {sample && <p className="mt-3 text-xs text-muted">Adding posts and refreshing stats turn on once Airtable and Apify are connected.</p>}
       {message?.at === "box" && (
-        <p role="status" className={`mt-4 text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
+        <p role="status" className={`mt-3 text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
           {message.text}
         </p>
       )}

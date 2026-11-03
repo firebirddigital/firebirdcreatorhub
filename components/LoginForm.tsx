@@ -26,9 +26,9 @@ export function LoginForm({ next }: { next: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="mt-10 space-y-4">
+    <form onSubmit={submit} className="text-left">
       <label className="block">
-        <span className="text-sm">Team password</span>
+        <span className="signin-label">Team password</span>
         <input
           type="password"
           autoComplete="current-password"
@@ -36,18 +36,14 @@ export function LoginForm({ next }: { next: string }) {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-2 w-full bg-transparent border-b-2 border-fb-white py-3 text-lg outline-none focus:border-fb-red"
+          className="signin-input"
         />
       </label>
-      {error && (
-        <p role="alert" className="text-sm text-fb-red">
-          {error}
-        </p>
-      )}
-      <button
-        disabled={busy}
-        className="subtitle bg-fb-red text-fb-white px-8 py-4 text-sm hover:bg-fb-white hover:text-fb-black transition-colors disabled:opacity-60"
-      >
+      {/* Always rendered: .signin-error keeps its height so the button doesn't jump when a message appears. */}
+      <p role="alert" className="signin-error">
+        {error}
+      </p>
+      <button disabled={busy} className="signin-submit">
         {busy ? "Signing in" : "Sign in"}
       </button>
     </form>

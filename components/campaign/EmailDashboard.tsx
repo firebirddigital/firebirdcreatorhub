@@ -91,10 +91,10 @@ export function EmailDashboard({
   }
 
   return (
-    <details open={Boolean(gmail.status)} className="-mt-6 border-2 border-fb-black p-5 max-sm:p-4">
-      <summary className="cursor-pointer subtitle text-sm">Email the dashboard</summary>
-      <div className="mt-4 space-y-4 text-sm">
-        <p className="max-w-prose">
+    <details open={Boolean(gmail.status)} className="card">
+      <summary className="cursor-pointer font-display text-xs font-bold uppercase tracking-[0.08em] hover:text-fb-red">Email the dashboard</summary>
+      <div className="mt-3.5 space-y-4 text-sm">
+        <p className="max-w-prose text-xs text-muted">
           Sends each person their own email with the latest numbers and a button to the partner dashboard. No fees or
           budget are included.
         </p>
@@ -102,20 +102,20 @@ export function EmailDashboard({
           <p className={`font-bold ${gmail.status === "connected" ? "" : "text-fb-red"}`}>{statusText[gmail.status]}</p>
         )}
         {gmail.configured && (
-          <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {gmail.sender ? (
               <>
                 <span>
                   Sending from <span className="font-bold">{gmail.sender}</span> (Gmail)
                 </span>
-                <button type="button" onClick={disconnect} className="underline underline-offset-4 hover:text-fb-red">
+                <button type="button" onClick={disconnect} className="btn btn-quiet btn-sm">
                   Disconnect
                 </button>
               </>
             ) : (
               <a
                 href={`/api/gmail/connect?back=${encodeURIComponent(`/campaigns/${campaignId}`)}`}
-                className="subtitle border-2 border-fb-black px-4 py-2 text-xs hover:bg-fb-black hover:text-fb-white transition-colors"
+                className="btn btn-sm"
               >
                 Connect Gmail
               </a>
@@ -124,9 +124,9 @@ export function EmailDashboard({
         )}
 
         <fieldset>
-          <legend className="text-xs font-bold">Send to</legend>
+          <legend className="field-label">Send to</legend>
           {people.length ? (
-            <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+            <ul className="flex flex-wrap gap-x-6 gap-y-2">
               {people.map((p) => (
                 <li key={p.email}>
                   <label className="flex items-center gap-2">
@@ -137,19 +137,19 @@ export function EmailDashboard({
                       className="size-4 accent-fb-red"
                     />
                     {p.email}
-                    {p.added && <span className="text-xs">(new, saved on send)</span>}
+                    {p.added && <span className="text-xs text-muted">(new, saved on send)</span>}
                   </label>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-2">No contacts on this campaign yet. Add an email below.</p>
+            <p className="text-muted">No contacts on this campaign yet. Add an email below.</p>
           )}
         </fieldset>
 
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-2.5">
           <label className="block grow max-w-sm">
-            <span className="text-xs font-bold">Add people</span>
+            <span className="field-label">Add people</span>
             <input
               type="email"
               multiple
@@ -162,32 +162,32 @@ export function EmailDashboard({
                 }
               }}
               placeholder="name@label.com"
-              className="mt-1 block w-full border-b-2 border-fb-black bg-transparent py-1.5 outline-none focus:border-fb-red"
+              className="field"
             />
           </label>
-          <button type="button" onClick={add} disabled={!adding.trim()} className="pb-2 font-bold underline underline-offset-4 disabled:opacity-50">
+          <button type="button" onClick={add} disabled={!adding.trim()} className="btn">
             Add
           </button>
         </div>
 
         <label className="block max-w-xl">
-          <span className="text-xs font-bold">Note (optional)</span>
+          <span className="field-label">Note (optional)</span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder="e.g. Great first week. The top two posts are already past 1M."
-            className="mt-1 block w-full border-2 border-fb-black bg-transparent p-2 outline-none focus:border-fb-red"
+            className="field"
           />
         </label>
 
         {blocked && <p className="font-bold">{blocked}</p>}
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={send}
             disabled={busy || !chosen.length || Boolean(blocked)}
-            className="subtitle border-2 border-fb-red bg-fb-red text-fb-white px-5 py-2.5 text-sm hover:bg-fb-black hover:border-fb-black transition-colors disabled:opacity-50"
+            className="btn btn-primary"
           >
             {busy ? "Sending…" : `Send to ${chosen.length} ${chosen.length === 1 ? "person" : "people"}`}
           </button>
@@ -195,7 +195,7 @@ export function EmailDashboard({
             href={`/api/campaigns/${campaignId}/email${note.trim() ? `?note=${encodeURIComponent(note.trim())}` : ""}`}
             target="_blank"
             rel="noreferrer"
-            className="underline underline-offset-4 hover:text-fb-red"
+            className="btn btn-quiet"
           >
             Preview email
           </a>

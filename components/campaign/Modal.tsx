@@ -36,15 +36,15 @@ export function ModalButton({
         onClose={() => setOpen(false)}
         onClick={(e) => e.target === ref.current && setOpen(false)}
         aria-label={title}
-        className="m-auto w-[min(44rem,calc(100vw-2rem))] max-h-[calc(100vh-4rem)] overflow-y-auto border-2 border-fb-black bg-fb-white p-0 text-fb-black backdrop:bg-fb-black/60"
+        className="sheet m-auto w-[min(44rem,calc(100vw-2rem))] max-h-[calc(100vh-4rem)] overflow-y-auto"
       >
-        <div className="p-6 max-sm:p-4">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <h2 className="headline text-2xl">{title}</h2>
-            <button type="button" onClick={() => setOpen(false)} className="text-sm font-bold underline underline-offset-4 hover:text-fb-red">
-              Close
-            </button>
-          </div>
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-surface px-5 py-3.5">
+          <h2 className="font-display text-xs font-bold uppercase tracking-[0.08em]">{title}</h2>
+          <button type="button" onClick={() => setOpen(false)} className="btn btn-quiet btn-sm">
+            Close
+          </button>
+        </div>
+        <div className="p-5 max-sm:p-4">
           {/* Mounted only while open, so each opening starts fresh. */}
           {open && children}
         </div>

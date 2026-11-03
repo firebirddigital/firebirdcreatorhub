@@ -26,25 +26,27 @@ export function AnalyticsFilters({
   const router = useRouter();
   const go = (change: { period?: Period; artist?: string; partner?: string }) =>
     router.push(analyticsHref({ period, artist, partner, ...change }));
-  const select = "border-2 border-fb-black bg-fb-white px-3 py-2 text-sm min-w-[200px] max-sm:w-full";
   const portfolio = partners.filter((p) => p.portfolio);
   const others = partners.filter((p) => !p.portfolio);
 
+  // Sits inside the page's sticky `.filters` bar, which supplies the rule and spacing.
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      <label className="block max-sm:w-full">
-        <span className="subtitle block text-xs mb-1">Period</span>
-        <select className={select} value={period} onChange={(e) => go({ period: e.target.value as Period })}>
+    <div className="filter-row m-0 border-b-0 pb-0">
+      <div className="flex flex-col gap-1 max-sm:w-full">
+        <span className="field-label mb-0" id="analytics-period">
+          Period
+        </span>
+        <div className="seg" role="group" aria-labelledby="analytics-period">
           {PERIODS.map(([p, label]) => (
-            <option key={p} value={p}>
+            <button key={p} type="button" aria-pressed={period === p} onClick={() => go({ period: p })}>
               {label}
-            </option>
+            </button>
           ))}
-        </select>
-      </label>
-      <label className="block max-sm:w-full">
-        <span className="subtitle block text-xs mb-1">Partner</span>
-        <select className={select} value={partner ?? ""} onChange={(e) => go({ partner: e.target.value || undefined })}>
+        </div>
+      </div>
+      <label>
+        Partner
+        <select className="min-w-[200px] max-sm:min-w-0" value={partner ?? ""} onChange={(e) => go({ partner: e.target.value || undefined })}>
           <option value="">All partners</option>
           {portfolio.length > 0 && (
             <optgroup label="Portfolio companies">
@@ -66,9 +68,9 @@ export function AnalyticsFilters({
           )}
         </select>
       </label>
-      <label className="block max-sm:w-full">
-        <span className="subtitle block text-xs mb-1">Artist</span>
-        <select className={select} value={artist ?? ""} onChange={(e) => go({ artist: e.target.value || undefined })}>
+      <label>
+        Artist
+        <select className="min-w-[200px] max-sm:min-w-0" value={artist ?? ""} onChange={(e) => go({ artist: e.target.value || undefined })}>
           <option value="">All artists</option>
           {artists.map((a) => (
             <option key={a} value={a}>
@@ -78,7 +80,7 @@ export function AnalyticsFilters({
         </select>
       </label>
       {(artist || partner || period !== "all") && (
-        <Link href="/analytics" className="pb-2 text-sm font-bold underline underline-offset-4 hover:text-fb-red">
+        <Link href="/analytics" className="btn btn-quiet btn-sm">
           Clear filters
         </Link>
       )}

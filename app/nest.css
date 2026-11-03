@@ -1,0 +1,1090 @@
+/*
+ * The Nest UI kit's design system, trimmed to what the Creator Hub uses.
+ * Tokens, the rail, cards, stat tiles, segmented controls, tables, tabs and print.
+ * Kept in the components layer so Tailwind utilities on an element still win.
+ */
+:root {
+  color-scheme: light;
+
+  --red: #ed2124;
+  --black: #000005;
+  --white: #ffffff;
+
+  --surface-1: #ffffff;
+  --page: #ffffff;
+  --text-primary: #000005;
+  --text-secondary: #3d3d40;
+  --text-muted: #6b6b6e;
+  --grid: #e6e6e7;
+  --axis: #c9c9cb;
+  --border: rgba(0, 0, 5, 0.14);
+  --border-soft: rgba(0, 0, 5, 0.07);
+  --wash: rgba(237, 33, 36, 0.06);
+  --wash-neutral: rgba(0, 0, 5, 0.04);
+
+  /* Categorical series, Firebird Red first. Validated light on #ffffff. */
+  --series-1: #ed2124;
+  --series-2: #2a78d6;
+  --series-3: #eda100;
+  --series-4: #1baf7a;
+  --series-5: #4a3aa7;
+
+  /* Attention vs neutral - no traffic-light palette. */
+  --attention: #ed2124;
+  --neutral-mark: #000005;
+  --delta-up: #000005;
+  --delta-down: #ed2124;
+
+  /* Single-hue ramp for magnitude, stepped from Firebird Red. */
+  --seq-100: #fbd0d1;
+  --seq-250: #f6989a;
+  --seq-400: #ed2124;
+  --seq-550: #b7191b;
+  --seq-700: #7c1112;
+
+  /*
+   * Radii and shadows carry the modern feel, because colour cannot: the brand is
+   * red, black and white with no tints, so there is no warm page wash to lift
+   * cards off. Instead the page is a hair of black over white, cards are pure
+   * white, and a very soft black shadow does the separating a heavy border used
+   * to do. Every value here is black at low alpha — no new hue enters.
+   */
+  --radius: 12px;
+  --radius-sm: 9px;
+  --radius-pill: 999px;
+  --page-wash: rgba(0, 0, 5, 0.025);
+  --shadow-card: 0 1px 2px rgba(0, 0, 5, 0.04), 0 8px 24px rgba(0, 0, 5, 0.035);
+  --shadow-raised: 0 1px 3px rgba(0, 0, 5, 0.1);
+
+  --sans: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --display: 'Montserrat', 'Lato', system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+    --surface-1: #0d0d10;
+    --page: #000005;
+    --text-primary: #ffffff;
+    --text-secondary: #c9c9cb;
+    --text-muted: #8a8a8d;
+    --grid: #232326;
+    --axis: #35353a;
+    --border: rgba(255, 255, 255, 0.16);
+  --border-soft: rgba(255, 255, 255, 0.09);
+    --wash: rgba(237, 33, 36, 0.14);
+    --wash-neutral: rgba(255, 255, 255, 0.06);
+    --page-wash: rgba(255, 255, 255, 0.03);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --series-1: #ed2124;
+    --series-2: #3987e5;
+    --series-3: #c98500;
+    --series-4: #199e70;
+    --series-5: #9085e9;
+    --neutral-mark: #ffffff;
+    --delta-up: #ffffff;
+    --seq-100: #7c1112;
+    --seq-250: #b7191b;
+    --seq-400: #ed2124;
+    --seq-550: #f6989a;
+    --seq-700: #fbd0d1;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-1: #0d0d10;
+  --page: #000005;
+  --text-primary: #ffffff;
+  --text-secondary: #c9c9cb;
+  --text-muted: #8a8a8d;
+  --grid: #232326;
+  --axis: #35353a;
+  --border: rgba(255, 255, 255, 0.16);
+  --border-soft: rgba(255, 255, 255, 0.09);
+  --wash: rgba(237, 33, 36, 0.14);
+  --wash-neutral: rgba(255, 255, 255, 0.06);
+  --page-wash: rgba(255, 255, 255, 0.03);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --series-1: #ed2124;
+  --series-2: #3987e5;
+  --series-3: #c98500;
+  --series-4: #199e70;
+  --series-5: #9085e9;
+  --neutral-mark: #ffffff;
+  --delta-up: #ffffff;
+  --seq-100: #7c1112;
+  --seq-250: #b7191b;
+  --seq-400: #ed2124;
+  --seq-550: #f6989a;
+  --seq-700: #fbd0d1;
+}
+
+@layer base {
+  html { background: var(--page); color: var(--text-primary); }
+  /*
+   * The page is a hair of black over white so pure-white cards read as surfaces
+   * sitting on it. No tint and no grey — the brand allows neither — just black at
+   * 2.5%, which is the same move the border and wash tokens already make.
+   */
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    font-weight: 400;
+    background: var(--page-wash);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+
+/*
+ * Wider than before the rail, not narrower. The rail takes 224px, so keeping the
+ * old 1400 cap left a dashboard sitting in the middle of a big monitor with a
+ * third of the screen empty on either side.
+ */
+.app {
+  max-width: 1560px; margin: 0 auto;
+  /* Safe areas: an iPhone's notch and home indicator eat the edges otherwise. */
+  padding:
+    max(24px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right))
+    max(64px, calc(40px + env(safe-area-inset-bottom))) max(28px, env(safe-area-inset-left));
+}
+
+/* ==================================================================== *
+ * Shell
+ *
+ * A fixed black rail down the left with the sections on it, and the page
+ * beside it. Black is the brand's own second colour, so the rail reads as
+ * Firebird rather than as a generic dark sidebar, and it gives the red
+ * active state something to sit against.
+ * ==================================================================== */
+.shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: 100vh; }
+/* Collapsed, the rail keeps just enough width for the control that reopens it. */
+.shell[data-rail='closed'] { grid-template-columns: 44px minmax(0, 1fr); }
+/*
+ * The rail is fixed, so it leaves the grid flow and `main` would otherwise fall
+ * into the first column and sit underneath it. Placing it explicitly keeps the
+ * reserved column doing its job as a gutter.
+ *
+ * `width: 100%` is doing real work. `.app` centres itself with `margin: 0 auto`,
+ * which in normal flow means "fill up to max-width, then centre" — but on a grid
+ * item an auto margin switches off stretch, so the box fell back to fitting its
+ * content and the dashboard sat in a 1295px column of a 1776px one. Asking for
+ * the full column width restores the intent; max-width still caps it.
+ */
+.shell > main { grid-column: 2; min-width: 0; width: 100%; }
+
+.sidenav {
+  position: fixed; inset: 0 auto 0 0; z-index: 40; width: 224px;
+  display: flex; flex-direction: column;
+  background: var(--black); color: rgba(255, 255, 255, 0.72);
+  padding:
+    max(22px, env(safe-area-inset-top)) 14px
+    max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+}
+
+/*
+ * Brand rule: the logo anchors the top-left with a clear zone around it.
+ *
+ * align-items matters here. A column flex container stretches its children to
+ * its width by default, which overrode the logo's `width: auto` and pulled the
+ * wordmark to 8:1 against its natural 5.57:1 — the one thing the brand says
+ * never to do to it.
+ */
+.sidenav-brand {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 10px; padding: 4px 10px 0;
+}
+.sidenav-brand .brand-logo { height: 22px; }
+/* Width leads, height follows - the mark keeps its own proportions. */
+.nest-logo { display: block; width: 118px; height: auto; }
+
+.sidenav-nav { margin-top: 28px; display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; }
+
+/*
+ * Collapse control.
+ *
+ * Sits at the top of the rail rather than on its edge: an edge handle on a fixed
+ * element is a 4px target, and this one has to be findable again once the rail it
+ * lives in is 44px wide.
+ */
+.rail-toggle {
+  appearance: none; background: transparent; border: 0; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  margin: 16px 0 0; padding: 6px 8px; border-radius: var(--radius-sm);
+  font-family: var(--display); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+.rail-toggle:hover { background: rgba(255, 255, 255, 0.07); color: var(--white); }
+.rail-toggle:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; }
+.rail-toggle span[aria-hidden] { font-size: 13px; line-height: 1; }
+
+/*
+ * Closed: everything but the control goes, and the rail narrows to the width of
+ * it. Hidden rather than squeezed - a wordmark at 44px is a smear, and a nav item
+ * clipped mid-name is worse than no nav item.
+ */
+.shell[data-rail='closed'] .sidenav {
+  width: 44px; padding-left: 0; padding-right: 0; align-items: center;
+}
+.shell[data-rail='closed'] .sidenav-brand,
+.shell[data-rail='closed'] .sidenav-nav { display: none; }
+.shell[data-rail='closed'] .rail-toggle { margin-top: 18px; padding: 6px; }
+.shell[data-rail='closed'] .rail-toggle-say { display: none; }
+
+
+.nav-label {
+  margin: 18px 12px 8px; font-family: var(--display); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255, 255, 255, 0.38);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 38px; padding: 0 12px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: rgba(255, 255, 255, 0.68);
+  font-family: var(--display); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-item:hover { background: rgba(255, 255, 255, 0.07); color: var(--white); }
+.nav-item[aria-selected='true'] { background: var(--red); color: var(--white); }
+
+/*
+ * Artist rows.
+ *
+ * Their own case, not the rail's uppercase: one of these acts is spelled in
+ * lowercase on purpose, and a stylesheet is not the place to overrule that.
+ */
+.nav-item.nav-artist {
+  font-weight: 600; letter-spacing: 0.02em; text-transform: none; font-size: 12.5px;
+}
+
+.nav-count {
+  margin-left: auto; padding: 1px 7px; border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.8);
+  font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.nav-item[aria-selected='true'] .nav-count { background: rgba(0, 0, 5, 0.25); color: var(--white); }
+
+.sidenav-foot { margin-top: auto; padding: 14px 8px 0; }
+.sidenav-foot .seg {
+  width: 100%; background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.12);
+}
+.sidenav-foot .seg button { flex: 1; color: rgba(255, 255, 255, 0.6); font-size: 11px; padding: 6px 8px; }
+.sidenav-foot .seg button:not(:disabled):hover { background: rgba(255, 255, 255, 0.1); color: var(--white); }
+
+/* The page name, now that the rail carries the product name. */
+.page-head { padding-top: 2px; }
+.page-head h1 {
+  font-family: var(--display); font-size: 20px; font-weight: 800; margin: 0;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--red);
+}
+
+/* ---------- masthead ---------- */
+/* Brand rule: the logo anchors the top-left with a clear zone around it. */
+.masthead {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding-bottom: 18px; border-bottom: 2px solid var(--black);
+}
+:root[data-theme='dark'] .masthead,
+:root:where(:not([data-theme='light'])) .masthead { border-bottom-color: var(--red); }
+@media (prefers-color-scheme: light) { :root:where(:not([data-theme='dark'])) .masthead { border-bottom-color: var(--black); } }
+
+.brand-logo { height: 26px; width: auto; display: block; }
+/*
+ * The red wordmark reads fine on white. On the black theme a slight lift keeps it
+ * legible without recolouring the mark. The official white wordmark, when supplied,
+ * needs no lift - hence the data-white opt-out rather than a media query.
+ */
+.brand-logo[data-white='false'] { filter: none; }
+:root[data-theme='dark'] .brand-logo[data-white='false'],
+:root:where(:not([data-theme='light'])) .brand-logo[data-white='false'] { filter: brightness(1.15); }
+@media (prefers-color-scheme: light) {
+  :root:where(:not([data-theme='dark'])) .brand-logo[data-white='false'] { filter: none; }
+}
+
+.topbar { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.topbar h1 {
+  font-family: var(--display); font-size: 19px; font-weight: 800; margin: 0;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--red);
+}
+.topbar .sub {
+  font-family: var(--display); font-weight: 600; font-size: 12px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-primary);
+}
+.spacer { flex: 1; }
+.filters {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 14px 0 18px; padding: 10px 0 14px;
+  border-bottom: 1px solid var(--border-soft);
+  /*
+   * Sticky, because every number below is scoped by it — scrolling to a chart and
+   * not knowing which range it covers is the whole problem. Translucent with a
+   * blur so content passing under it stays legible as motion rather than mush.
+   */
+  position: sticky; top: 0; z-index: 30;
+  background: color-mix(in srgb, var(--page) 86%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+/*
+ * The page's own filter bar outranks the ones views put inside themselves.
+ *
+ * Listening, Posts and Roster each render a second `.filters`, sticky and at the
+ * same z-index, and later in the document - so they painted over the Export menu,
+ * which hangs out of the page bar and is trapped in its stacking context by the
+ * backdrop filter. Same class, one rank apart.
+ */
+.filters.page-filters { z-index: 35; }
+
+/*
+ * A view's own controls are not a second sticky bar.
+ *
+ * Listening, Posts and Roster each put one inside the page, and two elements
+ * stuck to top: 0 occupy the same strip the moment anything is scrolled - the
+ * page bar paints over the view's switch, and the view's bar sits invisibly over
+ * the page's range chips. One of them has to let go, and it is the inner one:
+ * the range applies to everything below it and has to stay reachable.
+ */
+.filters.is-inline {
+  position: static; z-index: auto;
+  background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+
+@supports not (backdrop-filter: blur(1px)) { .filters { background: var(--page); } }
+.filters label {
+  font-family: var(--display); font-weight: 600; font-size: 10px; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--text-muted); margin-right: 2px;
+}
+
+.control {
+  appearance: none; background: var(--surface-1); border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; cursor: pointer;
+  box-shadow: var(--shadow-raised); transition: background 0.15s, border-color 0.15s;
+}
+.control:hover { background: var(--wash-neutral); }
+
+/*
+ * The one action on a reporting screen, so it carries the brand red rather than
+ * sitting in the same grey as a view toggle. Normal case, because a section
+ * title in caps beside a button in caps is two headings shouting at each other.
+ */
+.request-ad {
+  background: var(--red); color: var(--white); border-color: var(--red);
+  text-decoration: none; white-space: nowrap;
+  font-family: var(--sans); font-size: 12px; font-weight: 700;
+  letter-spacing: 0; text-transform: none;
+}
+.request-ad:hover { background: var(--black); border-color: var(--black); color: var(--white); }
+.request-ad:focus-visible { outline: 2px solid var(--black); outline-offset: 2px; }
+
+/*
+ * A row of filter controls inside a card.
+ *
+ * Each control carries its label above it rather than beside it, because the
+ * labels are different lengths and a single baseline row of "Reach / Origin /
+ * Country / Search" reads as a sentence someone has to parse. Stacked, the eye
+ * runs along the controls and drops to the label only when it needs to.
+ */
+.filter-row {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+  margin: 0 0 14px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.filter-row label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-family: var(--display); font-weight: 600; font-size: 10px; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.filter-row select,
+.filter-row input[type='search'] {
+  appearance: none; -webkit-appearance: none;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+  padding: 7px 10px; min-height: 34px; font-size: 13px;
+  /* font: inherit would pull the label's display face and weight down into the
+     control, so the value reads as a heading rather than as body text. */
+  font-family: var(--sans); font-weight: 400;
+  letter-spacing: normal; text-transform: none;
+  box-shadow: var(--shadow-raised);
+}
+.filter-row select { padding-right: 26px; cursor: pointer; }
+.filter-row input[type='search'] { min-width: 170px; }
+.filter-row select:focus-visible,
+.filter-row input[type='search']:focus-visible {
+  outline: 2px solid var(--red); outline-offset: 1px;
+}
+/* The date chips hold two dates, so they get the room rather than being clipped. */
+.filter-row .seg button { white-space: nowrap; }
+
+@media (max-width: 620px) {
+  /*
+   * Two controls per row, not four squeezed onto one. flex: 1 alone splits the
+   * row evenly however many there are, which on a phone clipped every value to
+   * "Every…" and "All cou…". A flex-basis wide enough to read forces the wrap
+   * instead.
+   */
+  .filter-row { gap: 8px; }
+  .filter-row label { flex: 1 1 140px; min-width: 140px; }
+  .filter-row select,
+  .filter-row input[type='search'] { width: 100%; min-width: 0; }
+  .filter-row .seg { width: 100%; }
+}
+
+/*
+ * A recessed track with the selected chip raised out of it, rather than a row of
+ * bordered buttons. The active chip stays Firebird red — it is the one place the
+ * brand colour earns its keep in the chrome.
+ */
+.seg {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--wash-neutral); border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+}
+.seg button {
+  background: transparent; border: 0; padding: 6px 13px; font-size: 13px; cursor: pointer;
+  color: var(--text-secondary); border-radius: var(--radius-pill);
+  transition: background 0.15s, color 0.15s;
+}
+.seg button:disabled { opacity: 0.35; cursor: not-allowed; }
+.seg button:not(:disabled):hover { background: var(--surface-1); color: var(--text-primary); }
+.seg button[aria-pressed='true'] {
+  background: var(--red); color: var(--white); font-weight: 700;
+  box-shadow: var(--shadow-raised);
+}
+
+/* ---------- cards ---------- */
+.grid { display: grid; gap: 14px; }
+/*
+ * Every stat row in this app is exactly four tiles, so the grid steps 4 -> 2 -> 1
+ * and never lands on three. auto-fit used to pick three columns across a wide
+ * middle band, which stranded the fourth tile alone on its own row - the ragged
+ * "3, then 1, then 3, then 1" stack on Merch. Stepping by halves keeps every row
+ * full at every width.
+ */
+.cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+/* Three tiles that must stay three, not wrap to 2+1 and look broken. */
+.cards-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 860px) { .cards-3 { grid-template-columns: minmax(0, 1fr); } }
+.two-col { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 1000px) { .two-col { grid-template-columns: minmax(0, 1fr); } }
+
+.card {
+  background: var(--surface-1); border: 1px solid var(--border-soft);
+  border-radius: var(--radius); padding: 18px 20px; min-width: 0;
+  box-shadow: var(--shadow-card);
+}
+/* The hero tile is the one number a view leads with - give it the red rule.
+   Inset so the rule follows the rounded corner instead of cutting across it. */
+.card.hero {
+  border-top: 0;
+  box-shadow: inset 0 3px 0 var(--red), var(--shadow-card);
+}
+.card h2 {
+  font-family: var(--display); font-size: 12px; font-weight: 700; margin: 0 0 4px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-primary);
+}
+.card .caption { color: var(--text-muted); font-size: 12px; margin: 0 0 16px; line-height: 1.45; }
+.card-head { display: flex; align-items: flex-start; gap: 12px; }
+.card-head .spacer { flex: 1; }
+
+/* A unit, a basis, a percentage — second-order detail that belongs under its
+   number rather than in a column of its own. */
+.cell-sub {
+  display: block; margin-top: 2px; font-size: 10.5px; font-weight: 400;
+  color: var(--text-muted); font-variant-numeric: normal; white-space: nowrap;
+}
+/* ---------- stat tiles ---------- */
+.tile-label {
+  font-family: var(--display); font-weight: 600; font-size: 10px; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+}
+.tile-value {
+  font-family: var(--display); font-size: 29px; font-weight: 800;
+  letter-spacing: -0.015em; line-height: 1.05;
+}
+/* The hero is still clearly the lead at 44px; 50 was buying presence with page. */
+.hero .tile-value { font-size: 44px; color: var(--red); }
+.tile-foot { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-height: 18px; }
+.delta { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.delta.up { color: var(--delta-up); }
+.delta.down { color: var(--delta-down); }
+.delta.flat { color: var(--text-muted); }
+.delta-note { color: var(--text-muted); font-size: 11px; }
+
+/* ---------- legend ---------- */
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.legend-line { width: 14px; height: 2px; border-radius: 1px; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+/* ---------- tooltip ---------- */
+.tooltip {
+  position: absolute; pointer-events: none; z-index: 20;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 11px; min-width: 150px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+}
+.tooltip-title { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+.tooltip-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 2px 0; }
+.tooltip-row .k { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+.tooltip-row .v { font-weight: 650; font-variant-numeric: tabular-nums; margin-left: auto; }
+.tooltip-row .n { color: var(--text-secondary); }
+/* Wider than a value column, because a marker's rows carry sentences. */
+.tooltip-note {
+  margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--grid);
+  font-size: 11px; line-height: 1.45; color: var(--text-muted);
+}
+
+/* ---------- tables ---------- */
+.table-wrap { overflow-x: auto; }
+.table-wrap table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.table-wrap :is(th, td) { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+.table-wrap th {
+  font-family: var(--display); color: var(--text-muted); font-weight: 700; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.1em; padding-bottom: 10px;
+}
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap tbody tr:hover { background: var(--wash-neutral); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--display);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border);
+}
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.roster-row { cursor: pointer; }
+.linkish { background: none; border: 0; padding: 0; cursor: pointer; font-weight: 600; text-align: left; }
+.linkish:hover { text-decoration: underline; }
+.banner {
+  border: 1px solid var(--border); border-left: 3px solid var(--red);
+  background: var(--surface-1); border-radius: 8px; padding: 11px 14px;
+  font-size: 12px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.55;
+}
+.banner strong { color: var(--text-primary); }
+.banner ul { margin: 6px 0 0; padding-left: 18px; }
+
+.muted { color: var(--text-muted); }
+.loading { opacity: 0.45; transition: opacity 0.15s; }
+.empty { color: var(--text-muted); font-size: 13px; padding: 28px 0; text-align: center; }
+.section-title {
+  font-family: var(--display); font-size: 13px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--red); margin: 26px 0 12px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title::after { content: ''; flex: 1; height: 2px; background: var(--red); opacity: 0.18; }
+
+/* ---------- tabs ---------- */
+.tabs {
+  display: flex; gap: 22px; border-bottom: 1px solid var(--border-soft); margin: 18px 0 0;
+  /* Eight tabs do not fit a phone; they swipe rather than wrap or squash. */
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { flex: none; scroll-snap-align: start; }
+.tabs button {
+  background: none; border: 0; padding: 0 0 11px; cursor: pointer;
+  font-family: var(--display); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tabs button:hover { color: var(--text-primary); }
+.tabs button[aria-selected='true'] { color: var(--red); border-bottom-color: var(--red); }
+.tab-count { font-weight: 500; color: var(--text-muted); margin-left: 5px; font-size: 12px; }
+
+.search {
+  appearance: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 11px; font-size: 13px; min-width: 220px; color: inherit;
+}
+.search::placeholder { color: var(--text-muted); }
+
+/* ---------- accounts ---------- */
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .track {
+  width: 34px; height: 20px; border-radius: 999px; background: var(--axis);
+  position: relative; transition: background 0.15s; flex: none;
+}
+.switch .track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--white); transition: transform 0.15s;
+}
+.switch input:checked + .track { background: var(--red); }
+.switch input:checked + .track::after { transform: translateX(14px); }
+.switch input:focus-visible + .track { outline: 2px solid var(--red); outline-offset: 2px; }
+tr.excluded td { opacity: 0.45; }
+.reason { font-size: 11px; color: var(--text-muted); }
+
+/* ==================================================================== *
+ * Phones
+ *
+ * Breakpoints follow the content, not device names: 900 is where the
+ * two-column grids stop earning their width, 620 is a large phone in
+ * portrait, 420 a small one. The rules below only reflow — no number,
+ * column or caveat is dropped on a smaller screen, because a figure that
+ * disappears on a phone is worse than one that needs a swipe.
+ * ==================================================================== */
+
+html { -webkit-text-size-adjust: 100%; }
+
+@media (max-width: 900px) {
+  /*
+   * The rail lies back down. A 224px column on a 390px screen is most of it, and
+   * a bottom bar would need icons this app does not have — eight word labels in
+   * 60px of height is unreadable. So it becomes the horizontal strip it used to
+   * be, swipeable, pinned under the brand.
+   */
+  .shell { display: block; }
+  .shell > main { grid-column: auto; }
+  .sidenav {
+    /* `inset` first: it resets top/right/bottom/left, so setting it after `top`
+       silently un-sticks the rail. */
+    inset: auto;
+    position: sticky; top: 0; width: auto; z-index: 40;
+    padding:
+      max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+      8px max(12px, env(safe-area-inset-left));
+    gap: 8px;
+  }
+  /*
+   * Two rows, laid out rather than stacked by absolute positioning: brand and
+   * theme switch share the first, the sections get the second to themselves.
+   * Floating the switch over the row put it on top of "Posts" and "UGC".
+   */
+  .sidenav { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .sidenav-brand {
+    flex: 0 1 auto; order: 1;
+    flex-direction: row; align-items: center; gap: 10px; padding: 0 2px;
+  }
+  .sidenav-brand .brand-logo { height: 18px; }
+  .nest-logo { width: 86px; }
+  /* The strip is already the collapsed form, so the control has no job here. */
+  .rail-toggle { display: none; }
+  .shell[data-rail='closed'] .sidenav {
+    width: auto; align-items: center;
+    padding-left: max(14px, env(safe-area-inset-left)); padding-right: 14px;
+  }
+  .shell[data-rail='closed'] .sidenav-brand,
+  .shell[data-rail='closed'] .sidenav-nav { display: flex; }
+
+  .sidenav-nav {
+    order: 3; flex-basis: 100%;
+    flex-direction: row; margin: 0; gap: 4px;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+  }
+  .sidenav-nav::-webkit-scrollbar { display: none; }
+  .nav-item { width: auto; flex: none; scroll-snap-align: start; white-space: nowrap; }
+  /* The artist's name is already the page heading; in a row it is a divider. */
+  .nav-label { display: none; }
+
+  .sidenav-foot { order: 2; margin: 0 0 0 auto; padding: 0; }
+  .sidenav-foot .seg { width: auto; }
+  .sidenav-foot .seg button { font-size: 10px; padding: 5px 9px; }
+
+  .page-head h1 { font-size: 17px; }
+}
+@media (max-width: 620px) {
+  .app {
+    padding:
+      max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+      max(48px, calc(32px + env(safe-area-inset-bottom))) max(14px, env(safe-area-inset-left));
+  }
+
+  /* The logo already says Firebird and the heading says the artist; the product
+     name is the line to drop so the brand and the theme switch share one row. */
+  .sidenav { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: 6px; gap: 6px; }
+  .nav-item { min-height: 36px; font-size: 10.5px; padding: 0 10px; }
+
+  .masthead { gap: 10px; padding-bottom: 12px; }
+  .topbar { gap: 8px; }
+  .topbar h1 { font-size: 15px; }
+  .topbar .sub { font-size: 10px; }
+  .brand-logo { height: 20px; }
+  /*
+   * Each filter group gets its own line and fills it, so the controls are
+   * thumb-sized instead of a wrapped jumble of half-width chips.
+   *
+   * The chips grow to fill a wide row but never shrink below their own label —
+   * five networks will not fit 320px, and "Faceb…" is not a filter. Past that
+   * they swipe, like the tabs.
+   */
+  /*
+   * Not sticky here. Stacked, the bar is most of a phone screen tall, so pinning
+   * it would leave a sliver of chart under a wall of controls. On a phone you
+   * scroll past the filters once; on a desktop the bar is one line and worth
+   * keeping in view.
+   */
+  .filters { position: static; backdrop-filter: none; background: none; gap: 8px 6px; padding: 8px 0 12px; }
+  .filters .seg {
+    width: 100%; overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filters .seg::-webkit-scrollbar { display: none; }
+  .filters .seg button { flex: 1 0 auto; text-align: center; white-space: nowrap; }
+  .filters .spacer { display: none; }
+  .control { width: 100%; }
+
+  /* iOS zooms a focused input under 16px; it also needs a real touch target. */
+  select.control, input.control, .search { font-size: 16px; min-height: 44px; }
+  .seg button, .tabs button { min-height: 40px; }
+
+  .card { padding: 14px 14px; border-radius: var(--radius); }
+  .grid { gap: 10px; }
+  .section-title { margin: 20px 0 10px; font-size: 12px; }
+
+  .tile-value { font-size: 25px; }
+  .hero .tile-value { font-size: 36px; }
+
+  /* Tables keep every column and swipe, rather than squashing a number into
+     two lines or dropping it. The card clips, the table scrolls. */
+  .card > .table-wrap, .table-wrap {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    margin: 0 -14px; padding: 0 14px;
+  }
+  .table-wrap table { min-width: 560px; }
+
+}
+@media (max-width: 420px) {
+  .tile-value { font-size: 22px; }
+  .hero .tile-value { font-size: 32px; }
+}
+/* A touch device has no hover, so a chart tooltip that only appears on hover is
+   unreachable. The marks already respond to pointer events, which covers touch;
+   this only stops hover-only affordances from looking broken. */
+@media (hover: none) {
+  .control:hover, .seg button:hover { background: inherit; }
+}
+
+/* ---------- export + custom range ---------- */
+.export-wrap { position: relative; display: inline-flex; }
+.export-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; min-width: 200px;
+  display: flex; flex-direction: column; padding: 5px;
+  background: var(--surface-1); border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-card);
+}
+.export-menu button {
+  padding: 8px 10px; border: 0; border-radius: 7px; background: none;
+  color: var(--text-primary); font-size: 13px; text-align: left; cursor: pointer;
+}
+.export-menu button:hover { background: var(--wash-neutral); }
+
+.date-range { display: inline-flex; align-items: center; gap: 6px; }
+/* A date input is its own control; the chrome is the browser's, so this only
+   stops Safari rendering it at a different height from everything beside it. */
+.date-range .control { min-height: 36px; padding: 6px 10px; }
+
+@media (max-width: 620px) {
+  .date-range { width: 100%; }
+  .date-range .control { flex: 1; min-width: 0; }
+  .export-menu { right: auto; left: 0; }
+}
+/* ---------------------------------------------------------------------------
+ * Sign-in
+ *
+ * The signed-out screen is the one page somebody outside the company might
+ * ever see, so it carries the brand and says what this is, and nothing else.
+ * It names no artist and shows no number.
+ * ------------------------------------------------------------------------- */
+.signin {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--page);
+}
+.signin-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  background: var(--surface-1);
+  border: 1px solid var(--border, #e8e8ec);
+  border-radius: 14px;
+  padding: 36px 28px;
+}
+.signin-card h1 { font-family: var(--display); font-size: 20px; margin: 20px 0 10px; }
+.signin-card p { color: var(--text-secondary); font-size: 14px; line-height: 1.55; margin: 0 0 22px; }
+.signin-foot { font-size: 12px !important; margin: 18px 0 0 !important; }
+
+/* Google's button, to Google's rules: their mark in full colour on white, with
+   our type. Recolouring it red to match us is a brand violation of theirs. */
+.signin-button {
+  display: inline-flex; align-items: center; gap: 10px;
+  width: 100%; justify-content: center;
+  padding: 11px 18px;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font-family: var(--display); font-weight: 600; font-size: 14px;
+  cursor: pointer;
+}
+.signin-button:hover { background: #f8f9fa; border-color: #d2d5d9; }
+
+/* The shared-password form. Left-aligned inside a centred card, because a
+   label floating centred over its own field reads as a heading. */
+.signin-label {
+  display: block; text-align: left;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.signin-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  font: inherit; font-size: 15px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.signin-input:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+.signin-input:disabled { opacity: 0.6; }
+.signin-submit {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 18px;
+  background: var(--red);
+  color: #fff;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  font-family: var(--display); font-weight: 600; font-size: 14px;
+  cursor: pointer;
+}
+.signin-submit:disabled { opacity: 0.45; cursor: default; }
+.signin-submit:not(:disabled):hover { filter: brightness(0.93); }
+/* Holds its height whether or not there is an error, so submitting does not
+   shunt the card upward under the pointer. */
+.signin-error {
+  min-height: 18px;
+  margin-top: 10px;
+  font-size: 12.5px; line-height: 1.4;
+  color: var(--red);
+  text-align: left;
+}
+/* A rule with the word sitting in it, for when both ways in are offered. */
+.signin-or {
+  display: flex; align-items: center; gap: 10px;
+  margin: 16px 0;
+  font-size: 12px; color: var(--text-muted);
+}
+.signin-or::before, .signin-or::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* Account chip, pinned to the foot of the rail. */
+.nav-account {
+  margin-top: auto;
+  display: flex; align-items: center; gap: 9px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.nav-account img, .nav-account-initial {
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff; font-size: 12px; font-weight: 700;
+}
+.nav-account-who {
+  flex: 1; min-width: 0;
+  color: rgba(255, 255, 255, 0.82); font-size: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nav-account-out {
+  flex: none; background: none; border: 0; cursor: pointer;
+  color: rgba(255, 255, 255, 0.55); font-size: 11px; text-decoration: underline;
+}
+.nav-account-out:hover { color: #fff; }
+/* Collapsed rail: the avatar alone, which is all that fits in 44px. */
+.shell[data-rail='closed'] .nav-account { padding: 12px 9px; }
+.shell[data-rail='closed'] .nav-account-who,
+.shell[data-rail='closed'] .nav-account-out { display: none; }
+
+.export-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+/* ---------------------------------------------------------------------------
+ * Print / Save as PDF
+ *
+ * The export menu's PDF option is the browser's own print-to-PDF, so this
+ * stylesheet IS the document design. Everything that is a control rather than
+ * content comes off; what is left should read as a report somebody meant to
+ * produce, not a screenshot of an app.
+ * ------------------------------------------------------------------------- */
+@media print {
+  /* Light, always, whatever the screen was set to — a dark page prints as a
+     wall of ink and costs a cartridge. */
+  :root, :root[data-theme='dark'] {
+    --page: #ffffff;
+    --surface-1: #ffffff;
+    --text-primary: #16161a;
+    --text-secondary: #44444c;
+    --text-muted: #5b5b66;
+    --border: #d8d8de;
+    --grid: #e6e6ec;
+  }
+
+  @page { margin: 14mm 12mm; }
+
+  body { background: #fff; }
+
+  /* Controls, navigation and anything that only exists to be clicked. The
+     page-head goes too: print-head already carries the artist, and two
+     headings is a document that looks like it was printed by accident. */
+  .sidenav, .filters, .export-wrap, .bm-bar, .seg, .control,
+  .recent-row, .nav-account, .banner, .splash, .bm-results, .page-head {
+    display: none !important;
+  }
+
+  /* The rail is a fixed column the content is pushed past; on paper there is
+     no rail, so the page reclaims the width. */
+  .shell, .shell[data-rail='closed'], .shell[data-rail='open'] {
+    display: block !important;
+    grid-template-columns: none !important;
+  }
+  main { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+
+  /* A card is a unit of meaning; splitting one across a page break orphans a
+     chart from the sentence that explains it. */
+  .card, .table-wrap, .bm-verdict { break-inside: avoid; page-break-inside: avoid; }
+  .card {
+    border: 1px solid var(--border) !important;
+    box-shadow: none !important;
+    margin-bottom: 10mm;
+  }
+
+  /* Long tables are the one thing allowed to break, but never mid-row, and the
+     header repeats so page three is still readable. */
+  .table-wrap { overflow: visible !important; max-height: none !important; break-inside: auto; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Charts measure themselves off the container, which is wider here. */
+  svg { max-width: 100% !important; }
+
+  /*
+   * A sheet is narrower than a browser window, and these tables were laid out
+   * for one. Smaller type and tighter cells keep every column on the page —
+   * a table whose last column is cut off at the margin is worse than a table
+   * nobody can read comfortably.
+   */
+  table { font-size: 10px !important; width: 100% !important; table-layout: auto; }
+  th, td { padding: 4px 6px !important; }
+  /*
+   * Headers may wrap on paper. On screen they are nowrap, which is right there
+   * and is exactly what pushed a real column off the right margin here: a
+   * two-word heading was holding the whole column open.
+   */
+  th { white-space: normal !important; vertical-align: bottom; }
+  /* Figures still do not wrap — a number split across two lines is unreadable. */
+  td.num, td .delta { white-space: nowrap !important; }
+  .cell-sub, .muted { font-size: 9px !important; }
+  /* Nothing may spill past the margin — but clipping is the last resort, so
+     the action columns come out first and the rest is given room. */
+  .print-hide { display: none !important; }
+  .card, .table-wrap, main, .grid { max-width: 100% !important; }
+  /* Not hidden: a clipped column is a silently wrong document. If something
+     still does not fit, it should be visible that it did not. */
+  .table-wrap { overflow-x: visible !important; }
+
+  /* Who and when, on every sheet. A printed chart with no artist and no dates
+     on it is a chart nobody can safely file. */
+  .print-head { display: block !important; }
+}
+
+/* Only ever on paper. */
+.print-head { display: none; }
+.print-head h1 { font-family: var(--display); font-size: 17px; margin: 0 0 2px; }
+.print-head p { margin: 0 0 8mm; font-size: 11px; color: var(--text-secondary); }
+
+/* ---------------------------------------------------------------------------
+ * Creator Hub additions: the kit's states on links instead of buttons, since
+ * the hub's sections and filters are addresses (so they can be bookmarked).
+ * ------------------------------------------------------------------------- */
+.nav-item { text-decoration: none; }
+.nav-item[aria-current='page'] { background: var(--red); color: var(--white); }
+.nav-item[aria-current='page'] .nav-count { background: rgba(0, 0, 5, 0.25); color: var(--white); }
+.seg > a {
+  display: inline-flex; align-items: center; padding: 6px 13px; font-size: 13px;
+  color: var(--text-secondary); border-radius: var(--radius-pill); text-decoration: none;
+  transition: background 0.15s, color 0.15s; white-space: nowrap;
+}
+.seg > a:hover { background: var(--surface-1); color: var(--text-primary); }
+.seg > a[aria-pressed='true'] { background: var(--red); color: var(--white); font-weight: 700; box-shadow: var(--shadow-raised); }
+.tabs > a {
+  flex: none; padding: 0 0 11px; text-decoration: none;
+  font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tabs > a:hover { color: var(--text-primary); }
+.tabs > a[aria-current='page'] { color: var(--red); border-bottom-color: var(--red); }
+.sidenav-foot { display: flex; flex-direction: column; gap: 4px; }
+/* Buttons in the kit's style, for actions that aren't filters. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 14px; min-height: 36px; border-radius: var(--radius-sm);
+  font-family: var(--sans); font-size: 13px; font-weight: 700; line-height: 1.2;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); box-shadow: var(--shadow-raised);
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn:hover:not(:disabled) { background: var(--wash-neutral); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--red); color: var(--white); border-color: var(--red); }
+.btn-primary:hover:not(:disabled) { background: var(--black); border-color: var(--black); color: var(--white); }
+:root[data-theme='dark'] .btn-primary:hover:not(:disabled) { background: var(--white); border-color: var(--white); color: var(--black); }
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) .btn-primary:hover:not(:disabled) { background: var(--white); border-color: var(--white); color: var(--black); }
+}
+.btn-quiet { background: transparent; border-color: transparent; box-shadow: none; }
+.btn-quiet:hover:not(:disabled) { background: var(--wash-neutral); }
+.btn-sm { padding: 5px 10px; min-height: 30px; font-size: 12px; }
+/* Form fields in the kit's style. */
+.field {
+  width: 100%; appearance: none; background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 11px; min-height: 38px; font-family: var(--sans); font-size: 14px;
+  box-shadow: var(--shadow-raised);
+}
+.field:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; border-color: transparent; }
+.field:disabled { opacity: 0.55; }
+textarea.field { min-height: 90px; line-height: 1.45; }
+select.field { padding-right: 28px; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+.field-label {
+  display: block; margin-bottom: 5px;
+  font-family: var(--display); font-weight: 600; font-size: 10px; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+/* Native dialogs (popups) as raised cards. */
+dialog.sheet {
+  border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 0;
+  background: var(--surface-1); color: var(--text-primary); box-shadow: 0 24px 60px rgba(0, 0, 5, 0.25);
+}
+dialog.sheet::backdrop { background: rgba(0, 0, 5, 0.45); backdrop-filter: blur(2px); }
+/* Partner, creator and artist pages: no rail, the logo top-left over a centred column. */
+.public-page { max-width: 1240px; margin: 0 auto; }
+/* The hub's stat rows run to seven tiles; one per row on a phone is a long scroll, so they stay two across. */
+@media (max-width: 480px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) {
+  .seg > a { min-height: 40px; }
+  .field { font-size: 16px; min-height: 44px; }
+}
+@media print {
+  .rail-toggle, .sidenav-foot { display: none !important; }
+}
+}

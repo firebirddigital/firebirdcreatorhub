@@ -27,10 +27,8 @@ const ACTION_LABEL: Record<ImportAction, string> = {
   skip: "Skipped",
 };
 
-const BUTTON =
-  "subtitle border-2 border-fb-black px-5 py-2.5 text-sm hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50";
-const BUTTON_PRIMARY =
-  "subtitle border-2 border-fb-red bg-fb-red text-fb-white px-5 py-2.5 text-sm hover:bg-fb-black hover:border-fb-black transition-colors disabled:opacity-50";
+const BUTTON = "btn";
+const BUTTON_PRIMARY = "btn btn-primary";
 
 async function post(rows: RawCreatorRow[], dryRun: boolean, firstRow: number) {
   const res = await fetch("/api/creators/import", {
@@ -180,18 +178,18 @@ export function CreatorImport() {
   const toWrite = preview ? preview.counts.create + preview.counts.update : 0;
 
   return (
-    <section aria-label="Import creators" className="basis-full w-full mt-4 border-2 border-fb-black p-6 max-sm:p-4 space-y-6">
+    <section aria-label="Import creators" className="card basis-full w-full mt-3.5 space-y-5 text-left">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="headline text-3xl">Import creators</h2>
-          <p className="mt-1 max-w-prose text-sm">
+          <h2>Import creators</h2>
+          <p className="caption mb-0 max-w-prose">
             Upload a CSV with one creator per row: name, TikTok and Instagram links or handles, email, tags, location, rate.
             Anyone already in the database is matched by handle, so they get your new tags and any missing details added,
             never overwritten. Nothing saves until you click Import.
           </p>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <button onClick={downloadTemplate} className="font-bold underline underline-offset-4 hover:text-fb-red">
+        <div className="flex items-center gap-2">
+          <button onClick={downloadTemplate} className="btn btn-sm">
             Download a template
           </button>
           <button
@@ -199,7 +197,7 @@ export function CreatorImport() {
               reset();
               setOpen(false);
             }}
-            className="underline underline-offset-4"
+            className="btn btn-quiet btn-sm"
           >
             Close
           </button>
@@ -208,7 +206,7 @@ export function CreatorImport() {
 
       {!done && (
         <label
-          className="block border-2 border-dashed border-fb-black p-6 text-center cursor-pointer hover:bg-fb-black/5"
+          className="block cursor-pointer rounded-card border border-dashed border-line-strong bg-page p-6 text-center transition-colors hover:border-fb-red hover:bg-wash"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
@@ -217,7 +215,7 @@ export function CreatorImport() {
           }}
         >
           <span className="font-bold">{fileName ? `${fileName} · ${body.length.toLocaleString()} rows` : "Choose a CSV file or drop it here"}</span>
-          <span className="block text-xs mt-1">From Google Sheets or Excel: File → Download / Save as → CSV.</span>
+          <span className="mt-1 block text-xs text-muted">From Google Sheets or Excel: File → Download / Save as → CSV.</span>
           <input
             type="file"
             accept=".csv,.tsv,.txt,text/csv"
@@ -233,23 +231,23 @@ export function CreatorImport() {
 
       {headers.length > 0 && !done && (
         <div>
-          <h3 className="subtitle text-lg">Match the columns</h3>
-          <p className="text-xs">We guessed from the headers. Fix any that are wrong; several columns can go into Tags.</p>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm border-t-2 border-fb-black">
+          <h3 className="section-title mt-0">Match the columns</h3>
+          <p className="text-xs text-muted">We guessed from the headers. Fix any that are wrong; several columns can go into Tags.</p>
+          <div className="table-wrap mt-3">
+            <table className="min-w-[560px]">
               <thead>
-                <tr className="border-b-2 border-fb-black text-left text-xs">
-                  <th className="py-2 pr-4">Column in your file</th>
-                  <th className="py-2 pr-4">First value</th>
-                  <th className="py-2">Import as</th>
+                <tr>
+                  <th>Column in your file</th>
+                  <th>First value</th>
+                  <th>Import as</th>
                 </tr>
               </thead>
               <tbody>
                 {headers.map((h, i) => (
-                  <tr key={i} className="border-b border-fb-black/20">
-                    <td className="py-2 pr-4 font-bold">{h || `Column ${i + 1}`}</td>
-                    <td className="py-2 pr-4 max-w-64 truncate">{body.find((r) => r[i]?.trim())?.[i] ?? "—"}</td>
-                    <td className="py-2">
+                  <tr key={i}>
+                    <td className="font-bold">{h || `Column ${i + 1}`}</td>
+                    <td className="max-w-64 truncate text-secondary">{body.find((r) => r[i]?.trim())?.[i] ?? "—"}</td>
+                    <td>
                       <select
                         value={mapping[i]}
                         onChange={(e) => {
@@ -258,9 +256,7 @@ export function CreatorImport() {
                           setMapping(next);
                           setPreview(undefined);
                         }}
-                        className={`border-b-2 border-fb-black bg-transparent py-1 font-bold outline-none focus:border-fb-red ${
-                          mapping[i] === "skip" ? "text-fb-black/50" : ""
-                        }`}
+                        className={`field w-auto min-w-48 ${mapping[i] === "skip" ? "text-muted" : ""}`}
                       >
                         {(Object.keys(FIELD_LABELS) as ImportField[]).map((f) => (
                           <option key={f} value={f}>
@@ -289,8 +285,8 @@ export function CreatorImport() {
 
       {preview && !done && (
         <div>
-          <h3 className="subtitle text-lg">Before you import</h3>
-          <div role="group" aria-label="Filter rows" className="mt-3 flex flex-wrap gap-2 text-sm">
+          <h3 className="section-title mt-0">Before you import</h3>
+          <div role="group" aria-label="Filter rows" className="seg flex-wrap">
             {(
               [
                 ["all", `All ${preview.results.length}`],
@@ -308,46 +304,43 @@ export function CreatorImport() {
                   key={k}
                   onClick={() => setFilter(k)}
                   aria-pressed={filter === k}
-                  className={`px-3 py-1.5 font-bold border-2 ${
-                    filter === k ? "bg-fb-black border-fb-black text-fb-white" : "border-fb-black hover:bg-fb-black/10"
-                  }`}
                 >
                   {label}
                 </button>
               ))}
           </div>
-          <div className="mt-3 max-h-96 overflow-auto border-t-2 border-fb-black">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-fb-white">
-                <tr className="border-b-2 border-fb-black text-left text-xs">
-                  <th className="py-2 pr-3">Row</th>
-                  <th className="py-2 pr-3">Creator</th>
-                  <th className="py-2 pr-3">What happens</th>
-                  <th className="py-2">Notes</th>
+          <div className="table-wrap mt-3 max-h-96 overflow-y-auto">
+            <table>
+              <thead className="sticky top-0 bg-surface">
+                <tr>
+                  <th className="num pr-4">Row</th>
+                  <th>Creator</th>
+                  <th>What happens</th>
+                  <th>Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {shown.slice(0, 500).map((r) => (
-                  <tr key={r.row} className="border-b border-fb-black/20 align-top">
-                    <td className="py-2 pr-3 tabular-nums">{r.row}</td>
-                    <td className="py-2 pr-3 font-bold">{r.name ?? "—"}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">
+                  <tr key={r.row} className="align-top">
+                    <td className="num pr-4 text-muted">{r.row}</td>
+                    <td className="font-bold">{r.name ?? "—"}</td>
+                    <td>
                       <span
-                        className={`px-1.5 py-0.5 text-xs font-bold ${
+                        className={`pill ${
                           r.action === "create"
-                            ? "bg-fb-red text-fb-white"
+                            ? "border-fb-red bg-fb-red text-white"
                             : r.action === "update"
-                              ? "bg-fb-black text-fb-white"
-                              : "border border-fb-black"
+                              ? "border-fb-red bg-wash text-fb-red"
+                              : "text-secondary"
                         }`}
                       >
                         {ACTION_LABEL[r.action]}
                       </span>
                     </td>
-                    <td className="py-2 text-xs">
+                    <td className="whitespace-normal text-xs text-secondary">
                       {r.detail}
                       {r.warnings.map((w, i) => (
-                        <span key={i} className="block text-fb-red">
+                        <span key={i} className="block font-bold text-fb-red">
                           {w}
                         </span>
                       ))}
@@ -356,7 +349,7 @@ export function CreatorImport() {
                 ))}
               </tbody>
             </table>
-            {shown.length > 500 && <p className="py-2 text-xs">Showing the first 500 of {shown.length}.</p>}
+            {shown.length > 500 && <p className="py-2 text-xs text-muted">Showing the first 500 of {shown.length}.</p>}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <button onClick={runImport} disabled={!toWrite || Boolean(busy)} className={BUTTON_PRIMARY}>
@@ -366,11 +359,11 @@ export function CreatorImport() {
                   ? `Import: ${preview.counts.create} new, ${preview.counts.update} updated`
                   : "Nothing new to import"}
             </button>
-            <span className="text-xs">Rows marked Skipped or Already there aren&apos;t changed.</span>
+            <span className="text-xs text-muted">Rows marked Skipped or Already there aren&apos;t changed.</span>
           </div>
           {busy === "importing" && (
-            <div className="mt-3 h-2 bg-fb-black/10" aria-hidden>
-              <div className="h-full bg-fb-red transition-[width]" style={{ width: `${(progress / rawRows.length) * 100}%` }} />
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-wash-neutral" aria-hidden>
+              <div className="h-full rounded-full bg-fb-red transition-[width]" style={{ width: `${(progress / rawRows.length) * 100}%` }} />
             </div>
           )}
         </div>
@@ -378,14 +371,14 @@ export function CreatorImport() {
 
       {done && (
         <div role="status">
-          <p className="subtitle text-xl">Import finished</p>
-          <p className="mt-1 text-sm">
+          <p className="tile-label">Import finished</p>
+          <p className="text-sm">
             Added {done.create} new {done.create === 1 ? "creator" : "creators"}, updated {done.update}
             {done.skip ? `, skipped ${done.skip}` : ""}. They&apos;re in the list below. Use Needs tags to find anyone still untagged.
           </p>
           {newIds.length > 0 && (
-            <div className="mt-4 border-2 border-fb-black p-4">
-              <p className="text-sm">
+            <div className="banner mt-4 mb-0">
+              <p>
                 Pull followers and median views (last 10 posts) for the {newIds.length} new{" "}
                 {newIds.length === 1 ? "creator" : "creators"}? It runs about 10 at a time and uses a little Apify credit
                 per creator{newIds.length > 50 ? ", so a big list takes a few minutes. Keep this page open" : ""}.
@@ -395,7 +388,7 @@ export function CreatorImport() {
                   {stats?.state === "pulling" ? `Pulling stats ${stats.done} of ${newIds.length}` : "Pull stats now"}
                 </button>
               )}
-              {stats?.text && <p className="mt-3 text-sm font-bold">{stats.text}</p>}
+              {stats?.text && <p className="mt-3 font-bold text-fb-black">{stats.text}</p>}
             </div>
           )}
           <button onClick={reset} className={`mt-4 ${BUTTON}`}>

@@ -5,10 +5,8 @@ import { useMemo, useState } from "react";
 import { money, shortDate } from "@/lib/format";
 import type { CampaignRequest, HubStatus } from "@/lib/requests";
 
-const BUTTON =
-  "subtitle border-2 border-fb-black px-4 py-2 text-xs hover:bg-fb-black hover:text-fb-white transition-colors disabled:opacity-50";
-const BUTTON_PRIMARY =
-  "subtitle border-2 border-fb-red bg-fb-red text-fb-white px-4 py-2 text-xs hover:bg-fb-black hover:border-fb-black transition-colors disabled:opacity-50";
+const BUTTON = "btn btn-sm";
+const BUTTON_PRIMARY = "btn btn-primary btn-sm";
 
 type CampaignOption = { id: string; name: string; artist: string };
 
@@ -37,7 +35,7 @@ export function RequestsInbox({
 
   if (!requests.length && missingTables.length === 2) {
     return (
-      <p className="mt-6 max-w-prose text-sm">
+      <p className="banner mt-3.5 max-w-prose">
         Campaign requests will show here once the hub can read the request forms (couldn&apos;t find{" "}
         {missingTables.join(" or ")}).
       </p>
@@ -45,18 +43,17 @@ export function RequestsInbox({
   }
 
   return (
-    <section aria-label="Campaign requests" className="mt-10 border-2 border-fb-black p-6 max-sm:p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 className="headline text-3xl">
+    <section aria-label="Campaign requests" className="card mt-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="mb-0">
           {counts.New ? `${counts.New} new ${counts.New === 1 ? "request" : "requests"}` : "Requests"}
         </h2>
-        <div role="group" aria-label="Show requests" className="flex gap-2 text-sm">
+        <div role="group" aria-label="Show requests" className="seg">
           {(["New", "Accepted", "Dismissed"] as HubStatus[]).map((s) => (
             <button
               key={s}
               onClick={() => setView(s)}
               aria-pressed={view === s}
-              className={`px-3 py-1 font-bold border-2 ${view === s ? "bg-fb-black border-fb-black text-fb-white" : "border-fb-black hover:bg-fb-black/10"}`}
             >
               {s} {counts[s]}
             </button>
@@ -64,15 +61,15 @@ export function RequestsInbox({
         </div>
       </div>
       {missingTables.length > 0 && (
-        <p className="mt-2 text-xs">Couldn&apos;t read: {missingTables.join(" and ")}.</p>
+        <p className="mt-2 text-xs text-muted">Couldn&apos;t read: {missingTables.join(" and ")}.</p>
       )}
 
       {shown.length === 0 ? (
-        <p className="mt-6 text-sm">{view === "New" ? "No new requests. New form submissions show up here within a few minutes." : `Nothing ${view.toLowerCase()}.`}</p>
+        <p className="empty">{view === "New" ? "No new requests. New form submissions show up here within a few minutes." : `Nothing ${view.toLowerCase()}.`}</p>
       ) : (
-        <ul className="mt-6 space-y-6">
+        <ul className="mt-4">
           {shown.map((r) => (
-            <li key={r.id}>
+            <li key={r.id} className="border-t border-line py-4 last:pb-0">
               <RequestCard request={r} campaigns={campaigns} sample={sample} />
             </li>
           ))}
@@ -131,19 +128,19 @@ function RequestCard({ request: r, campaigns, sample }: { request: CampaignReque
   ].filter(Boolean);
 
   return (
-    <article className="border-t-2 border-fb-black pt-4">
+    <article>
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <div>
-          <p className="text-sm">
+          <p className="text-xs text-muted">
             {r.artist} · {r.source === "influencer" ? "Influencer" : "Content Seeding"} request
             {r.status ? ` · ${r.status} in the ops base` : ""}
           </p>
-          <h3 className="subtitle mt-1 text-xl">{r.name}</h3>
+          <h3 className="mt-0.5 font-display text-[15px] font-bold tracking-[0.02em]">{r.name}</h3>
         </div>
-        <span className="text-xs">Submitted {shortDate(r.createdTime)}</span>
+        <span className="text-xs text-muted">Submitted {shortDate(r.createdTime)}</span>
       </div>
-      <p className="mt-2 text-sm">{facts.join(" · ")}</p>
-      <p className="mt-1 text-xs">
+      <p className="mt-2 text-sm text-secondary">{facts.join(" · ")}</p>
+      <p className="mt-1 text-xs text-muted">
         {[r.submitterEmail && `From ${r.submitterEmail}`, (r.billingName || r.billingEmail) && `Billing: ${[r.billingName, r.billingEmail].filter(Boolean).join(", ")}`]
           .filter(Boolean)
           .join(" · ")}
@@ -151,11 +148,11 @@ function RequestCard({ request: r, campaigns, sample }: { request: CampaignReque
 
       {r.sections.length > 0 && (
         <details className="mt-3 text-sm">
-          <summary className="cursor-pointer font-bold underline underline-offset-4">Read the request</summary>
-          <dl className="mt-3 space-y-3">
+          <summary className="cursor-pointer text-xs font-bold underline underline-offset-4 hover:text-fb-red">Read the request</summary>
+          <dl className="mt-3 space-y-3 rounded-control bg-wash-neutral p-3.5">
             {r.sections.map((s) => (
               <div key={s.label}>
-                <dt className="text-xs font-bold">{s.label}</dt>
+                <dt className="field-label mb-0">{s.label}</dt>
                 <dd className="mt-1 whitespace-pre-line">{s.text}</dd>
               </div>
             ))}
@@ -163,19 +160,19 @@ function RequestCard({ request: r, campaigns, sample }: { request: CampaignReque
         </details>
       )}
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
+      <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
         {r.hubStatus === "New" && (
           <>
             <button onClick={() => act("create")} disabled={sample || Boolean(busy)} className={BUTTON_PRIMARY}>
               {busy === "create" ? "Creating" : "Create campaign"}
             </button>
-            <label className="flex items-end gap-2">
+            <label className="flex items-center gap-2">
               <span className="sr-only">Add to an existing campaign</span>
               <select
                 value={linkTo}
                 onChange={(e) => setLinkTo(e.target.value)}
                 disabled={sample || Boolean(busy)}
-                className="max-w-64 border-b-2 border-fb-black bg-transparent py-1.5 text-sm font-bold outline-none focus:border-fb-red"
+                className="field w-auto max-w-64 min-h-[30px] py-1 text-[13px]"
               >
                 <option value="">Add to existing…</option>
                 {[...sameArtist, ...campaigns.filter((c) => !sameArtist.includes(c))].map((c) => (
@@ -191,7 +188,7 @@ function RequestCard({ request: r, campaigns, sample }: { request: CampaignReque
             <button
               onClick={() => act("dismiss")}
               disabled={sample || Boolean(busy)}
-              className="text-xs underline underline-offset-4 hover:text-fb-red disabled:opacity-50"
+              className="btn btn-quiet btn-sm"
             >
               Dismiss
             </button>
@@ -209,7 +206,7 @@ function RequestCard({ request: r, campaigns, sample }: { request: CampaignReque
           </button>
         )}
       </div>
-      {sample && <p className="mt-2 text-xs">Sample request. Actions turn on once Airtable is connected.</p>}
+      {sample && <p className="mt-2 text-xs text-muted">Sample request. Actions turn on once Airtable is connected.</p>}
       {note && <p className="mt-2 text-sm font-bold">{note}</p>}
       {error && (
         <p role="alert" className="mt-2 text-sm font-bold text-fb-red">

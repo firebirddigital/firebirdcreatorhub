@@ -31,7 +31,7 @@ export function PartnerRemoveButton({ name, restore = false, leaveFilter }: { na
       onClick={go}
       disabled={busy}
       aria-label={`${restore ? "Restore" : "Remove"} ${name}`}
-      className="text-xs underline underline-offset-4 hover:text-fb-red disabled:opacity-50"
+      className="text-xs text-muted underline underline-offset-4 transition-colors hover:text-fb-red disabled:cursor-not-allowed disabled:opacity-50"
     >
       {busy ? "Saving…" : restore ? "Restore" : "Remove"}
     </button>

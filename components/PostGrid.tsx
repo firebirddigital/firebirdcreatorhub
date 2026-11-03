@@ -53,7 +53,7 @@ export function PostGrid({
 
   if (!posts.length) {
     return (
-      <p className="max-w-prose">
+      <p className="empty card">
         No posts yet.{" "}
         {internal ? "Paste the first live link above and its stats will load in about a minute." : "Check back soon."}
       </p>
@@ -63,24 +63,23 @@ export function PostGrid({
   const grid = (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div role="group" aria-label="Filter by platform" className="flex border-2 border-fb-black">
+        <div role="group" aria-label="Filter by platform" className="seg">
           {(["all", "tiktok", "instagram"] as const).map((key) => (
             <button
               key={key}
               onClick={() => setPlatform(key)}
               aria-pressed={platform === key}
-              className={`px-4 py-2 text-sm font-bold ${platform === key ? "bg-fb-black text-fb-white" : "hover:bg-fb-black/5"}`}
             >
-              {key === "all" ? "All" : PLATFORM_LABEL[key]} <span className="font-normal">{counts[key]}</span>
+              {key === "all" ? "All" : PLATFORM_LABEL[key]} <span className="font-normal opacity-75">{counts[key]}</span>
             </button>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          Sort by
+        <label className="flex items-center gap-2">
+          <span className="field-label mb-0">Sort by</span>
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
-            className="border-2 border-fb-black bg-fb-white px-3 py-2 font-bold"
+            className="field w-auto min-w-[190px]"
           >
             <option value="views">Most views</option>
             <option value="engagement">Highest engagement</option>
@@ -90,9 +89,9 @@ export function PostGrid({
         </label>
       </div>
 
-      <ul className="mt-8 grid gap-x-6 gap-y-12 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+      <ul className="mt-3.5 grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
         {shown.map((p) => (
-          <li key={p.id} className="relative">
+          <li key={p.id} className="card relative flex flex-col p-3">
             <SelectBox id={p.id} label={`post by ${p.creator?.name ?? "creator"}`} />
             <PostCard post={p} sample={sample} internal={internal} />
             {internal && campaignId && creators && (
@@ -114,7 +113,7 @@ export function PostGrid({
         endpoint={`/api/campaigns/${campaignId}/posts`}
         bodyKey="postIds"
       />
-      <div className="mt-6">{grid}</div>
+      <div className="mt-3.5">{grid}</div>
     </BulkSelectProvider>
   );
 }
@@ -125,36 +124,36 @@ function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: b
 
   return (
     <article>
-      <div className="relative aspect-[9/16] bg-fb-black overflow-hidden">
+      <div className="relative aspect-[9/16] bg-fb-ink overflow-hidden rounded-control">
         {src ? (
           <iframe
             src={src}
             title={`${PLATFORM_LABEL[post.platform]} post by ${post.creator?.name ?? "creator"}`}
             loading="lazy"
             allow="encrypted-media; fullscreen; picture-in-picture"
-            className="absolute inset-0 h-full w-full border-0 bg-fb-white"
+            className="absolute inset-0 h-full w-full border-0 bg-white"
           />
         ) : (
           <a
             href={post.url}
             target="_blank"
             rel="noreferrer"
-            className="absolute inset-0 flex flex-col justify-between p-5 text-fb-white"
+            className="absolute inset-0 flex flex-col justify-between p-5 text-white"
           >
-            <span className="subtitle text-xs">{PLATFORM_LABEL[post.platform]}</span>
+            <span className="subtitle text-[11px] tracking-[0.08em] text-white/75">{PLATFORM_LABEL[post.platform]}</span>
             <span>
-              <span className="figure block text-6xl text-fb-red">{compact(post.views)}</span>
+              <span className="block font-display text-[44px] font-extrabold leading-none tracking-[-0.015em] text-fb-red">{compact(post.views)}</span>
               <span className="mt-2 block text-sm">views</span>
             </span>
-            {sample && <span className="text-xs text-fb-white/70">Sample post. Real posts play here.</span>}
+            {sample && <span className="text-xs text-white/70">Sample post. Real posts play here.</span>}
           </a>
         )}
       </div>
 
-      <div className="mt-4 flex items-start justify-between gap-3">
+      <div className="mt-3 flex items-start justify-between gap-3 px-1">
         <div className="min-w-0">
           <p className="font-bold truncate">{post.creator?.name ?? "Unassigned creator"}</p>
-          <p className="text-sm truncate">
+          <p className="text-xs text-muted truncate">
             {handle ? `@${handle}` : PLATFORM_LABEL[post.platform]}
             {post.postedAt ? `, posted ${shortDate(post.postedAt)}` : ""}
           </p>
@@ -163,13 +162,13 @@ function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: b
           href={post.url}
           target="_blank"
           rel="noreferrer"
-          className="shrink-0 text-sm underline underline-offset-4 hover:text-fb-red"
+          className="shrink-0 text-xs font-bold underline underline-offset-4 hover:text-fb-red"
         >
           Open post
         </a>
       </div>
 
-      <dl className="mt-3 grid grid-cols-4 border-t-2 border-fb-black pt-3">
+      <dl className="mx-1 mt-3 grid grid-cols-4 border-t border-line pt-3">
         <Stat label="Views" value={post.views} strong />
         <Stat label="Likes" value={post.likes} />
         <Stat label="Comments" value={post.comments} />
@@ -179,9 +178,9 @@ function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: b
       {post.creator?.avgViews ? <VsUsual views={post.views} usual={post.creator.avgViews} name={post.creator.name} /> : null}
       {post.cost && <PostCost post={post} internal={internal} />}
 
-      {internal && post.refreshNote && <p className="mt-2 text-sm text-fb-red">{post.refreshNote}</p>}
+      {internal && post.refreshNote && <p className="mx-1 mt-2 text-xs font-bold text-fb-red">{post.refreshNote}</p>}
       {internal && !post.refreshNote && post.lastRefreshed && (
-        <p className="mt-2 text-xs text-fb-black/60">Updated {timeAgo(post.lastRefreshed)}</p>
+        <p className="mx-1 mt-2 text-xs text-muted">Updated {timeAgo(post.lastRefreshed)}</p>
       )}
     </article>
   );
@@ -196,7 +195,7 @@ function PostCost({ post, internal }: { post: PostWithCreator; internal: boolean
   const now = postCpm(post);
   const avg = post.creator?.avgViews ? (cost.amount / post.creator.avgViews) * 1000 : undefined;
   const vs = cpmVsExpected(now, avg);
-  const tone = vs ? (vs.under ? (internal ? "text-green-700" : "") : "text-fb-red") : "";
+  const tone = vs ? (vs.under ? (internal ? "text-[color:var(--series-4)]" : "") : "text-fb-red") : "";
   const paidNote = [
     cost.basis === "rate" ? "their rate (no fee set)" : "",
     cost.splitAcross > 1 ? `fee split across their ${cost.splitAcross} posts` : "",
@@ -204,18 +203,18 @@ function PostCost({ post, internal }: { post: PostWithCreator; internal: boolean
     .filter(Boolean)
     .join(", ");
   return (
-    <dl className="mt-3 grid grid-cols-3 border-t border-fb-black/20 pt-3 text-sm">
+    <dl className="mx-1 mt-3 grid grid-cols-3 border-t border-line pt-3 text-sm">
       <div title={paidNote || "The creator's fee for this post"}>
-        <dt className="text-xs">Paid{cost.basis === "rate" ? " (rate)" : ""}</dt>
-        <dd className="figure mt-1 text-lg">{money(cost.amount)}</dd>
+        <dt className="tile-label mb-0">Paid{cost.basis === "rate" ? " (rate)" : ""}</dt>
+        <dd className="mt-1 font-display text-[15px] font-extrabold tabular-nums">{money(cost.amount)}</dd>
       </div>
       <div title="Paid ÷ this post's views × 1,000">
-        <dt className="text-xs">CPM now</dt>
-        <dd className={`figure mt-1 text-lg ${tone}`}>{now !== undefined ? money(now, 2) : "—"}</dd>
+        <dt className="tile-label mb-0">CPM now</dt>
+        <dd className={`mt-1 font-display text-[15px] font-extrabold tabular-nums ${tone}`}>{now !== undefined ? money(now, 2) : "—"}</dd>
       </div>
       <div title="Paid ÷ their median views (last 10 posts) × 1,000">
-        <dt className="text-xs">Expected CPM</dt>
-        <dd className="figure mt-1 text-lg">{avg !== undefined ? money(avg, 2) : "—"}</dd>
+        <dt className="tile-label mb-0">Expected CPM</dt>
+        <dd className="mt-1 font-display text-[15px] font-extrabold tabular-nums">{avg !== undefined ? money(avg, 2) : "—"}</dd>
       </div>
       {vs && (
         <p className={`col-span-3 mt-1 text-xs font-bold ${tone}`}>
@@ -232,10 +231,10 @@ function VsUsual({ views, usual, name }: { views: number; usual: number; name: s
   const r = views / usual;
   return (
     <p
-      className={`mt-2 text-sm ${r >= 1.5 ? "font-bold text-fb-red" : r < 0.5 ? "text-fb-black/60" : ""}`}
+      className={`mx-1 mt-2 text-xs ${r >= 1.5 ? "font-bold text-fb-red" : r < 0.5 ? "text-muted" : "text-secondary"}`}
       title={`${name} usually gets ${compact(usual)} views (median of their last 10 posts)`}
     >
-      {times(views, usual)} their usual <span className="font-normal text-fb-black/60">({compact(usual)} median, last 10 posts)</span>
+      {times(views, usual)} their usual <span className="font-normal text-muted">({compact(usual)} median, last 10 posts)</span>
     </p>
   );
 }
@@ -243,8 +242,8 @@ function VsUsual({ views, usual, name }: { views: number; usual: number; name: s
 function Stat({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
   return (
     <div>
-      <dt className="text-xs">{label}</dt>
-      <dd className={`figure mt-1 text-lg ${strong ? "text-fb-red" : ""}`}>{compact(value)}</dd>
+      <dt className="tile-label mb-0">{label}</dt>
+      <dd className={`mt-1 font-display text-[15px] font-extrabold tabular-nums ${strong ? "text-fb-red" : ""}`}>{compact(value)}</dd>
     </div>
   );
 }

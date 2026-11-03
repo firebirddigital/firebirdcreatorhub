@@ -118,8 +118,7 @@ export function TeamDraftForm({
     }
   }
 
-  const field =
-    "mt-2 w-full border-b-2 border-fb-black bg-transparent py-2.5 outline-none focus:border-fb-red disabled:opacity-50";
+  const field = "field";
 
   return (
     <form onSubmit={submit} className="space-y-5">
@@ -127,9 +126,9 @@ export function TeamDraftForm({
         <div>
           {who ? (
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <span className="text-sm font-bold">Creator</span>
-              <span className="subtitle text-lg">{who.kind === "new" ? who.name || "New creator" : who.name}</span>
-              <span className="text-xs">
+              <span className="field-label mb-0">Creator</span>
+              <span className="font-display text-[15px] font-bold tracking-[0.02em]">{who.kind === "new" ? who.name || "New creator" : who.name}</span>
+              <span className="text-xs text-muted">
                 {who.kind === "assignment"
                   ? "On this campaign"
                   : who.kind === "creator"
@@ -140,14 +139,14 @@ export function TeamDraftForm({
                 type="button"
                 onClick={() => setWho(undefined)}
                 disabled={busy}
-                className="text-sm font-bold underline underline-offset-4 hover:text-fb-red"
+                className="btn btn-quiet btn-sm"
               >
                 Change
               </button>
             </div>
           ) : (
             <label className="block">
-              <span className="text-sm font-bold">Whose draft is it?</span>
+              <span className="field-label">Whose draft is it?</span>
               <input
                 type="search"
                 value={query}
@@ -159,7 +158,7 @@ export function TeamDraftForm({
             </label>
           )}
           {!who && query.trim() && (
-            <ul className="mt-2 divide-y divide-fb-black/15 border-x-2 border-b-2 border-fb-black">
+            <ul className="mt-1.5 divide-y divide-line overflow-hidden rounded-control border border-line-strong bg-surface shadow-lift">
               {options.map((c) => (
                 <li key={c.id}>
                   <button
@@ -171,15 +170,15 @@ export function TeamDraftForm({
                           : { kind: "creator", creatorId: c.id, name: c.name, instagram: c.instagram, tiktok: c.tiktok },
                       )
                     }
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-fb-black/5"
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-wash-neutral"
                   >
                     <span className="font-bold">{c.name}</span>
-                    <span className="text-sm truncate">
+                    <span className="text-[13px] text-secondary truncate">
                       {[c.instagram && `@${c.instagram}`, c.tiktok && c.tiktok !== c.instagram && `@${c.tiktok}`]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
-                    <span className="ml-auto shrink-0 text-xs">
+                    <span className="ml-auto shrink-0 text-xs text-muted">
                       {c.assignment ? `On campaign · ${c.assignment.status}` : "Roster"}
                     </span>
                   </button>
@@ -193,7 +192,7 @@ export function TeamDraftForm({
                     const handle = q.startsWith("@") ? q.slice(1) : "";
                     setWho({ kind: "new", name: handle ? "" : q, instagram: handle, tiktok: "" });
                   }}
-                  className="w-full px-3 py-2.5 text-left font-bold hover:bg-fb-black/5"
+                  className="w-full px-3 py-2.5 text-left font-bold text-fb-red transition-colors hover:bg-wash"
                 >
                   + Add “{query.trim()}” as a new creator
                 </button>
@@ -203,7 +202,7 @@ export function TeamDraftForm({
           {who?.kind === "new" && (
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <label className="block">
-                <span className="text-xs font-bold">Name</span>
+                <span className="field-label">Name</span>
                 <input
                   value={who.name}
                   onChange={(e) => setWho({ ...who, name: e.target.value })}
@@ -213,7 +212,7 @@ export function TeamDraftForm({
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-bold">Instagram handle</span>
+                <span className="field-label">Instagram handle</span>
                 <input
                   value={who.instagram}
                   onChange={(e) => setWho({ ...who, instagram: e.target.value })}
@@ -223,7 +222,7 @@ export function TeamDraftForm({
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-bold">TikTok handle</span>
+                <span className="field-label">TikTok handle</span>
                 <input
                   value={who.tiktok}
                   onChange={(e) => setWho({ ...who, tiktok: e.target.value })}
@@ -238,22 +237,27 @@ export function TeamDraftForm({
       )}
 
       <fieldset>
-        <legend className="text-sm font-bold">Where will it be posted?</legend>
-        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+        <legend className="field-label">Where will it be posted?</legend>
+        <div className="flex flex-wrap gap-2">
           {DRAFT_PLATFORMS.map((p) => {
             const handle = p === "TikTok" ? who?.tiktok : p === "Instagram" ? who?.instagram : undefined;
             const on = platforms.includes(p);
             return (
-              <label key={p} className="inline-flex cursor-pointer items-center gap-2">
+              <label
+                key={p}
+                className={`inline-flex cursor-pointer items-center gap-2 rounded-control border px-3 py-2 shadow-tile transition-colors has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-55 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-fb-red ${
+                  on ? "border-fb-red bg-wash" : "border-line-strong bg-surface hover:bg-wash-neutral"
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={on}
                   onChange={() => setPlatforms((cur) => (on ? cur.filter((x) => x !== p) : DRAFT_PLATFORMS.filter((x) => x === p || cur.includes(x))))}
                   disabled={busy}
-                  className="accent-fb-red size-4"
+                  className="accent-fb-red size-4 focus-visible:outline-none"
                 />
-                <span className="font-bold">{p}</span>
-                {handle && <span className="text-sm">@{handle.replace(/^@/, "")}</span>}
+                <span className="text-[13px] font-bold">{p}</span>
+                {handle && <span className="text-xs text-muted">@{handle.replace(/^@/, "")}</span>}
               </label>
             );
           })}
@@ -263,31 +267,31 @@ export function TeamDraftForm({
       <DraftSourceInput value={choice} onChange={setChoice} disabled={busy} audience="team" />
 
       <label className="block">
-        <span className="text-sm font-bold">Caption they plan to post</span>
+        <span className="field-label">Caption they plan to post</span>
         <textarea
           rows={2}
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           disabled={busy}
-          className="mt-2 w-full border-2 border-fb-black p-2 outline-none focus:border-fb-red disabled:opacity-50"
+          className="field"
         />
       </label>
 
       <UploadProgress progress={progress} />
 
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-4">
         <button
           disabled={busy || !ready}
-          className="subtitle bg-fb-red text-fb-white px-6 py-3 text-sm hover:bg-fb-black transition-colors disabled:opacity-50"
+          className="btn btn-primary"
         >
           {progress !== undefined ? "Uploading" : saving ? "Saving" : "Add draft"}
         </button>
-        <span className="text-xs">Saved as the creator's next version, marked “Added by Firebird team”.</span>
+        <span className="text-xs text-muted">Saved as the creator's next version, marked “Added by Firebird team”.</span>
       </div>
 
-      {sample && <p className="text-sm">Adding drafts turns on once Airtable is connected.</p>}
+      {sample && <p className="banner">Adding drafts turns on once Airtable is connected.</p>}
       {message && (
-        <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : ""}`}>
+        <p role="status" className={`text-sm ${message.error ? "text-fb-red font-bold" : "text-secondary"}`}>
           {message.text}
         </p>
       )}

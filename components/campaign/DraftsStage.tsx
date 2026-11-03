@@ -59,22 +59,22 @@ function CreatorMeta({ assignment: a, showCost, showCpm }: { assignment: Assignm
   // Median views and CPM always show, as a dash when they can't be worked out yet, so every creator lines up.
   const cpmMissing = !(a.fee ?? c?.rate) ? "Needs a fee or rate" : "Needs their median views (stats not pulled yet)";
   return (
-    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-secondary">
       {handles.map((h) => (
-        <a key={h.href} href={h.href} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-fb-red">
+        <a key={h.href} href={h.href} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-fb-red transition-colors">
           {h.label}
         </a>
       ))}
-      <span className="font-bold" title={c?.avgViews ? "Median views across their last 10 posts" : "Stats not pulled yet"}>
+      <span className="font-bold text-fb-black" title={c?.avgViews ? "Median views across their last 10 posts" : "Stats not pulled yet"}>
         {c?.avgViews ? compact(c.avgViews) : "—"} median views
       </span>
       {showCost && cost && (
-        <span className="font-bold" title={a.fee ? "Fee for this campaign" : "No fee set yet; their general rate"}>
+        <span className="font-bold text-fb-black" title={a.fee ? "Fee for this campaign" : "No fee set yet; their general rate"}>
           {cost}
         </span>
       )}
       {showCpm && (
-        <span className="font-bold" title={cpm !== undefined ? "Cost ÷ their median views (last 10 posts) × 1,000" : cpmMissing}>
+        <span className="font-bold text-fb-black" title={cpm !== undefined ? "Cost ÷ their median views (last 10 posts) × 1,000" : cpmMissing}>
           {cpm !== undefined ? money(cpm, 2) : "—"} CPM
         </span>
       )}
@@ -83,9 +83,9 @@ function CreatorMeta({ assignment: a, showCost, showCpm }: { assignment: Assignm
 }
 
 const STATUS: Record<DraftStatus, { label: string; className: string }> = {
-  "Pending review": { label: "Awaiting review", className: "border-2 border-fb-black bg-fb-white" },
-  Approved: { label: "Approved", className: "bg-fb-red text-fb-white" },
-  "Changes requested": { label: "Changes requested", className: "bg-fb-black text-fb-white" },
+  "Pending review": { label: "Awaiting review", className: "border-line-strong bg-fb-white text-fb-black" },
+  Approved: { label: "Approved", className: "border-fb-red bg-fb-red text-white" },
+  "Changes requested": { label: "Changes requested", className: "border-white/60 bg-fb-ink text-white" },
 };
 
 /** Plays a draft in place: our own files and Dropbox in a video tag, YouTube, Vimeo and Drive in their player. */
@@ -99,7 +99,7 @@ function DraftPlayer({ url }: { url: string }) {
         controls
         playsInline
         preload="metadata"
-        className="absolute inset-0 h-full w-full object-contain bg-fb-black"
+        className="absolute inset-0 h-full w-full object-contain bg-fb-ink"
       />
     );
   }
@@ -111,18 +111,18 @@ function DraftPlayer({ url }: { url: string }) {
         allow="autoplay; fullscreen; picture-in-picture"
         allowFullScreen
         loading="lazy"
-        className="absolute inset-0 h-full w-full border-0 bg-fb-black"
+        className="absolute inset-0 h-full w-full border-0 bg-fb-ink"
       />
     );
   }
   return (
-    <div className="absolute inset-0 flex flex-col items-start justify-end gap-3 p-5 text-fb-white">
-      <span className="text-sm text-fb-white/75">This draft is on {source.label}.</span>
+    <div className="absolute inset-0 flex flex-col items-start justify-end gap-3 p-5 text-white">
+      <span className="text-sm text-white/75">This draft is on {source.label}.</span>
       <a
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="subtitle bg-fb-red px-5 py-3 text-sm hover:bg-fb-white hover:text-fb-black transition-colors"
+        className="btn border-fb-red bg-fb-red text-white hover:border-white hover:bg-white hover:text-fb-ink"
       >
         Open draft
       </a>
@@ -157,35 +157,35 @@ function VersionCard({
   const source = d?.videoUrl ? draftSource(d.videoUrl) : undefined;
   return (
     <>
-      <div className="relative aspect-[9/16] bg-fb-black overflow-hidden">
+      <div className="relative aspect-[9/16] overflow-hidden rounded-control bg-fb-ink">
         {d?.videoUrl ? (
           <DraftPlayer url={d.videoUrl} />
         ) : (
-          <div className="absolute inset-0 flex flex-col justify-end p-5 text-fb-white">
-            <span className="subtitle text-xs">{d ? `Version ${d.version}` : "Waiting on draft"}</span>
-            <span className="mt-2 text-sm text-fb-white/75">
+          <div className="absolute inset-0 flex flex-col justify-end p-5 text-white">
+            <span className="subtitle text-[11px] tracking-[0.11em]">{d ? `Version ${d.version}` : "Waiting on draft"}</span>
+            <span className="mt-2 text-sm text-white/75">
               {d ? "Sample draft. Real uploads play here." : "The creator hasn't uploaded yet."}
             </span>
           </div>
         )}
         {d && (
-          <span className={`absolute left-0 top-0 px-2.5 py-1 text-xs font-bold ${STATUS[d.status].className}`}>
+          <span className={`pill absolute left-2 top-2 ${STATUS[d.status].className}`}>
             {STATUS[d.status].label}
           </span>
         )}
       </div>
 
-      <div className="mt-4 flex items-baseline justify-between gap-3">
+      <div className="mt-3.5 flex items-baseline justify-between gap-3">
         {name ? (
-          <h3 className="subtitle text-xl truncate">{name}</h3>
+          <h3 className="font-display text-[15px] font-bold tracking-[0.02em] truncate">{name}</h3>
         ) : (
-          <p className="subtitle text-xl">
+          <p className="font-display text-[15px] font-bold tracking-[0.02em]">
             Version {d?.version}
-            {latest && <span className="ml-2 align-middle text-xs bg-fb-black text-fb-white px-1.5 py-0.5">Latest</span>}
+            {latest && <span className="pill ml-2 align-middle text-secondary">Latest</span>}
           </p>
         )}
         {d && (
-          <span className="text-sm shrink-0">
+          <span className="text-xs text-muted shrink-0">
             {name ? `v${d.version}, ` : ""}
             {shortDate(d.submittedAt)}
           </span>
@@ -194,24 +194,24 @@ function VersionCard({
       {meta}
       {d?.platforms?.length ? <PostingOn platforms={d.platforms} creator={d.creator} /> : null}
       {(d?.submittedBy || (source && !source.hosted)) && (
-        <p className="mt-1 text-xs">
+        <p className="mt-1 text-xs text-muted">
           {d?.submittedBy && <>Added by {d.submittedBy}. </>}
           {d?.videoUrl && source && !source.hosted && (
-            <a href={d.videoUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+            <a href={d.videoUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-fb-red transition-colors">
               Open on {source.label}
             </a>
           )}
         </p>
       )}
-      {d?.caption && <p className="mt-2 text-sm border-l-4 border-fb-black pl-3">{d.caption}</p>}
+      {d?.caption && <p className="mt-2.5 border-l-2 border-line-strong pl-3 text-sm text-secondary">{d.caption}</p>}
       {d?.partnerComment && (
-        <blockquote className="mt-3 border-l-4 border-fb-red pl-3 text-sm">
+        <blockquote className="mt-3 rounded-r-control border-l-[3px] border-fb-red bg-wash-neutral py-2 pl-3 pr-3 text-sm">
           {d.partnerComment}
-          {d.reviewedBy && <footer className="mt-1 text-xs">{d.reviewedBy}</footer>}
+          {d.reviewedBy && <footer className="mt-1 text-xs text-muted">{d.reviewedBy}</footer>}
         </blockquote>
       )}
       {teamCampaignId && d && (
-        <div className="mt-4">
+        <div className="mt-4 border-t border-line pt-3.5">
           <TeamDraftReview campaignId={teamCampaignId} draftId={d.id} decided={d.status !== "Pending review"} />
         </div>
       )}
@@ -225,7 +225,7 @@ function VersionCard({
         </p>
       )}
       {partner && d && (
-        <div className="mt-4">
+        <div className="mt-4 border-t border-line pt-3.5">
           <ReviewControls
             endpoint={partner.reviewEndpoint}
             kind="draft"
@@ -272,7 +272,7 @@ function TeamLaneControls({
       <ModalButton
         label={`Add a draft for ${name.split(" ")[0]}`}
         title={`Add a draft for ${name}`}
-        className={`text-sm font-bold underline underline-offset-4 hover:text-fb-red ${compact ? "" : "mt-3 block"}`}
+        className={`btn btn-sm ${compact ? "" : "mt-3 flex w-fit"}`}
       >
         <TeamDraftForm campaignId={campaignId} fixed={fixed} sample={sample} />
       </ModalButton>
@@ -284,8 +284,8 @@ function TeamLaneControls({
 function PostingOn({ platforms, creator }: { platforms: DraftPlatform[]; creator?: Creator }) {
   const handle = (p: DraftPlatform) => (p === "TikTok" ? creator?.tiktok : p === "Instagram" ? creator?.instagram : undefined);
   return (
-    <p className="mt-1 text-sm">
-      <span className="font-bold">Posting on </span>
+    <p className="mt-1 text-[13px] text-secondary">
+      <span className="font-bold text-fb-black">Posting on </span>
       {platforms.map((p, i) => (
         <span key={p}>
           {i > 0 && (i === platforms.length - 1 ? " and " : ", ")}
@@ -319,29 +319,29 @@ export function DraftsBody({
     <>
       {team?.tools}
       <section>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 className="headline text-3xl">{toReview.length ? "To review" : "The drafts"}</h2>
-          {partner && lanes.some((l) => l.drafts.some((d) => d.status === "Pending review")) && (
-            <p className="max-w-md text-sm">
-              Watch each draft, then approve it or request a change. Creators see your notes and send a new version.
-            </p>
-          )}
-        </div>
+        <h2 className="section-title">{toReview.length ? "To review" : "The drafts"}</h2>
+        {partner && lanes.some((l) => l.drafts.some((d) => d.status === "Pending review")) && (
+          <p className="-mt-1 mb-3.5 max-w-md text-sm text-secondary">
+            Watch each draft, then approve it or request a change. Creators see your notes and send a new version.
+          </p>
+        )}
 
         {lanes.length ? (
           <MaybeSelectable team={team} ids={lanes.flatMap((l) => l.drafts.map((d) => d.id))}>
             {toReview.length ? (
               <LaneGrid lanes={toReview} {...props} />
             ) : (
-              <p className="mt-6 max-w-prose">
-                {approved.length ? "Nothing waiting for review. Every draft sent so far is approved." : "No drafts yet."}
-              </p>
+              <div className="card">
+                <p className="empty">
+                  {approved.length ? "Nothing waiting for review. Every draft sent so far is approved." : "No drafts yet."}
+                </p>
+              </div>
             )}
 
             {approved.length > 0 && (
-              <div className="mt-16">
-                <h2 className="headline text-3xl">Approved</h2>
-                <p className="mt-1 text-sm">
+              <div>
+                <h2 className="section-title">Approved</h2>
+                <p className="-mt-1 text-sm text-secondary">
                   {approved.length} {approved.length === 1 ? "creator's draft is" : "creators' drafts are"} approved and ready to post.
                 </p>
                 <LaneGrid lanes={approved} {...props} />
@@ -349,27 +349,29 @@ export function DraftsBody({
             )}
           </MaybeSelectable>
         ) : (
-          <p className="mt-8 max-w-prose">
-            {team
-              ? "Drafts show up here once creators are approved and send them, or when you add one with “Add a draft”."
-              : "Drafts show up here once creators are approved and start uploading."}
-          </p>
+          <div className="card">
+            <p className="empty">
+              {team
+                ? "Drafts show up here once creators are approved and send them, or when you add one with “Add a draft”."
+                : "Drafts show up here once creators are approved and start uploading."}
+            </p>
+          </div>
         )}
 
         {waiting.length > 0 && (
-          <div className="mt-16">
-            <h2 className="subtitle text-xl">Waiting on drafts</h2>
-            <ul className="mt-4 border-t-2 border-fb-black">
+          <div>
+            <h2 className="section-title">Waiting on drafts</h2>
+            <ul className="card py-1">
               {waiting.map(({ assignment: a }) => {
                 const name = a.creator?.name ?? "Creator";
                 return (
-                  <li key={a.id} className="border-b border-fb-black/20 py-4">
+                  <li key={a.id} className="border-b border-line py-4 last:border-b-0">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
                       <div>
-                        <p className="font-bold">{name}</p>
+                        <p className="font-display text-[15px] font-bold tracking-[0.02em]">{name}</p>
                         <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />
                       </div>
-                      <span className="text-sm">Hasn&apos;t sent a draft yet</span>
+                      <span className="text-xs text-muted">Hasn&apos;t sent a draft yet</span>
                     </div>
                     {team && (
                       <div className="mt-3">
@@ -387,7 +389,7 @@ export function DraftsBody({
                 );
               })}
             </ul>
-            {team && <p className="mt-3 text-xs">To take someone off the campaign, select them on the Creators tab and remove them.</p>}
+            {team && <p className="mt-3 text-xs text-muted">To take someone off the campaign, select them on the Creators tab and remove them.</p>}
           </div>
         )}
       </section>
@@ -407,7 +409,7 @@ function LaneGrid({
   showFees: boolean;
 }) {
   return (
-    <ul className="mt-8 grid gap-x-8 gap-y-14 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
+    <ul className="mt-3.5 grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
       {lanes.map(({ assignment: a, drafts }) => {
         const name = a.creator?.name ?? "Creator";
         const teamControls = team && (
@@ -425,20 +427,20 @@ function LaneGrid({
         // Several versions: the creator gets a full-width row with every version side by side.
         if (drafts.length > 1) {
           return (
-            <li key={a.id} className="col-span-full border-t-2 border-fb-black pt-5">
+            <li key={a.id} className="card col-span-full">
               <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                 <div>
-                  <h3 className="subtitle text-2xl">{name}</h3>
+                  <h3 className="font-display text-[17px] font-bold tracking-[0.02em]">{name}</h3>
                   {meta}
                 </div>
-                <span className="text-sm">
+                <span className="text-xs text-muted">
                   {drafts.length} versions, newest first
                   {drafts.slice(1).some((d) => d.status === "Pending review") && (
-                    <span className="font-bold"> · an earlier version is still awaiting review</span>
+                    <span className="font-bold text-fb-black"> · an earlier version is still awaiting review</span>
                   )}
                 </span>
               </div>
-              <ol className="mt-5 flex gap-8 overflow-x-auto pb-4 snap-x">
+              <ol className="mt-4 flex gap-5 overflow-x-auto pb-3 snap-x">
                 {drafts.map((d, i) => (
                   <li key={d.id} className="relative w-[280px] shrink-0 snap-start">
                     {team && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
@@ -446,18 +448,18 @@ function LaneGrid({
                   </li>
                 ))}
               </ol>
-              {teamControls && <div className="mt-2">{teamControls}</div>}
+              {teamControls && <div className="mt-2 border-t border-line pt-3.5">{teamControls}</div>}
             </li>
           );
         }
 
         const d = drafts[0];
         return (
-          <li key={a.id} className="relative">
+          <li key={a.id} className="card relative">
             {team && d && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
             <article>
               <VersionCard draft={d} name={name} meta={meta} partner={partner} teamCampaignId={team?.campaignId} />
-              {teamControls && <div className="mt-4">{teamControls}</div>}
+              {teamControls && <div className="mt-4 border-t border-line pt-3.5">{teamControls}</div>}
             </article>
           </li>
         );

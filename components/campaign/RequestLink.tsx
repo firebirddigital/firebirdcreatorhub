@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { shortDate } from "@/lib/format";
-import { BUTTON } from "./TeamControls";
 
 export interface RequestOption {
   id: string;
@@ -62,10 +61,10 @@ export function RequestLink({ campaignId, artist, requests, sample }: { campaign
   if (!linked.length && !options.length) return null;
 
   return (
-    <section aria-label="Airtable request" className="-mt-10 text-sm">
+    <section aria-label="Airtable request" className="card mt-3.5 text-sm">
       {linked.map((r) => (
         <p key={r.id}>
-          <span className="text-xs font-bold">From the Airtable request</span> {r.name}, submitted {shortDate(r.createdTime)}
+          <span className="field-label inline">From the Airtable request</span> {r.name}, submitted {shortDate(r.createdTime)}
         </p>
       ))}
       {options.length > 0 && (
@@ -78,7 +77,7 @@ export function RequestLink({ campaignId, artist, requests, sample }: { campaign
               value={pick}
               onChange={(e) => setPick(e.target.value)}
               disabled={busy || sample}
-              className="max-w-full border-b-2 border-fb-black bg-transparent py-1.5 font-bold outline-none focus:border-fb-red"
+              className="field w-auto max-w-full"
             >
               <option value="">Pick a request…</option>
               {options.map((r) => (
@@ -88,19 +87,19 @@ export function RequestLink({ campaignId, artist, requests, sample }: { campaign
                 </option>
               ))}
             </select>
-            <button onClick={link} disabled={!pick || busy || sample} className={BUTTON}>
+            <button onClick={link} disabled={!pick || busy || sample} className="btn btn-primary">
               {busy ? "Pulling in" : "Pull in details"}
             </button>
           </div>
-          <p className="mt-2 text-xs">
+          <p className="mt-2 text-xs text-muted">
             Adds the request&apos;s partner contacts and fills in the brief, dates, budget, song and type where they&apos;re blank. Nothing you&apos;ve
             already entered is overwritten.
           </p>
-          {sample && <p className="mt-1 text-xs">Sample requests. Linking turns on once Airtable is connected.</p>}
+          {sample && <p className="mt-1 text-xs text-muted">Sample requests. Linking turns on once Airtable is connected.</p>}
         </details>
       )}
       {message && (
-        <p role="status" className={`mt-2 ${message.error ? "font-bold text-fb-red" : ""}`}>
+        <p role="status" className={`mt-2 ${message.error ? "font-bold text-fb-red" : "text-secondary"}`}>
           {message.text}
         </p>
       )}

@@ -89,7 +89,7 @@ export function DraftSourceInput({
 
   return (
     <div>
-      <div role="tablist" aria-label="How to send the draft" className="flex gap-6 text-sm">
+      <div role="tablist" aria-label="How to send the draft" className="tabs mt-0">
         {(["link", "file"] as const).map((m) => (
           <button
             key={m}
@@ -98,9 +98,7 @@ export function DraftSourceInput({
             aria-selected={value.mode === m}
             disabled={disabled}
             onClick={() => onChange({ ...value, mode: m })}
-            className={`pb-1 font-bold border-b-2 ${
-              value.mode === m ? "border-fb-red text-fb-black" : "border-transparent text-fb-black/60 hover:text-fb-black"
-            } disabled:opacity-50`}
+            className="disabled:cursor-not-allowed disabled:opacity-50"
           >
             {m === "link" ? "Paste a link" : "Upload a file"}
           </button>
@@ -109,8 +107,8 @@ export function DraftSourceInput({
 
       {value.mode === "link" ? (
         <label className="mt-4 block">
-          <span className="text-sm font-bold">Link to the video</span>
-          <span className="block text-xs">
+          <span className="field-label">Link to the video</span>
+          <span className="-mt-0.5 mb-2 block text-xs text-muted">
             {LINK_SERVICES}. Set sharing to “Anyone with the link”{audience === "creator" ? " and don't change the file after you send it" : ""}.
           </span>
           <input
@@ -120,11 +118,11 @@ export function DraftSourceInput({
             value={value.link}
             onChange={(e) => onChange({ ...value, link: e.target.value })}
             disabled={disabled}
-            className="mt-2 w-full border-b-2 border-fb-black bg-transparent py-2.5 outline-none focus:border-fb-red disabled:opacity-50"
+            className="field"
           />
           {checked && !checked.ok && <span className="mt-2 block text-xs text-fb-red font-bold">{checked.error}</span>}
           {source && (
-            <span className="mt-2 block text-xs">
+            <span className="mt-2 block text-xs text-muted">
               {source.label} link.{" "}
               {source.player.kind === "link"
                 ? "Reviewers will open it in a new tab."
@@ -134,16 +132,16 @@ export function DraftSourceInput({
         </label>
       ) : (
         <label className="mt-4 block">
-          <span className="text-sm font-bold">Video file</span>
-          <span className="block text-xs">MP4 or MOV, up to {MAX_MB}MB. Vertical 9:16 works best.</span>
+          <span className="field-label">Video file</span>
+          <span className="-mt-0.5 mb-2 block text-xs text-muted">MP4 or MOV, up to {MAX_MB}MB. Vertical 9:16 works best.</span>
           <input
             type="file"
             accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.m4v"
             disabled={disabled}
             onChange={(e) => onChange({ ...value, file: e.target.files?.[0] ?? null })}
-            className="mt-3 block w-full text-sm file:mr-4 file:border-2 file:border-fb-black file:bg-fb-white file:px-4 file:py-2 file:font-bold hover:file:bg-fb-black hover:file:text-fb-white disabled:opacity-50"
+            className="block w-full cursor-pointer rounded-control border border-dashed border-line-strong bg-wash-neutral p-2 text-sm text-secondary file:mr-4 file:cursor-pointer file:rounded-control file:border file:border-solid file:border-line-strong file:bg-surface file:px-3.5 file:py-2 file:text-[13px] file:font-bold file:text-fb-black file:shadow-tile file:transition-colors hover:file:bg-wash-neutral focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-fb-red disabled:cursor-not-allowed disabled:opacity-50"
           />
-          {value.file && <span className="mt-2 block text-xs">Selected: {value.file.name}</span>}
+          {value.file && <span className="mt-2 block text-xs text-muted">Selected: {value.file.name}</span>}
         </label>
       )}
     </div>
@@ -154,10 +152,10 @@ export function UploadProgress({ progress }: { progress?: number }) {
   if (progress === undefined) return null;
   return (
     <div aria-live="polite">
-      <div className="h-2 bg-fb-black/10">
-        <div className="h-full bg-fb-red transition-[width]" style={{ width: `${progress}%` }} />
+      <div className="h-2 overflow-hidden rounded-full bg-wash-neutral">
+        <div className="h-full rounded-full bg-fb-red transition-[width]" style={{ width: `${progress}%` }} />
       </div>
-      <p className="mt-2 text-sm">Uploading {progress}%. Keep this page open.</p>
+      <p className="mt-2 text-sm text-secondary">Uploading {progress}%. Keep this page open.</p>
     </div>
   );
 }

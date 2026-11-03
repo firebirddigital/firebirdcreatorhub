@@ -28,23 +28,21 @@ export function CampaignFilters({ partners }: { partners: { name: string; portfo
 
   const portfolio = partners.filter((p) => p.portfolio);
   const others = partners.filter((p) => !p.portfolio);
-  const field = "border-2 border-fb-black bg-fb-white px-3 py-2 text-sm max-sm:w-full";
-
   return (
-    <div className="mt-8 flex flex-wrap items-end gap-4">
-      <label className="block grow max-w-md max-sm:w-full">
-        <span className="subtitle block text-xs mb-1">Search</span>
+    <div className="filter-row">
+      <label className="grow max-w-md">
+        Search
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Campaign, artist or song"
-          className={`${field} w-full`}
+          className="w-full"
         />
       </label>
-      <label className="block max-sm:w-full">
-        <span className="subtitle block text-xs mb-1">Partner</span>
-        <select className={`${field} min-w-[220px]`} value={partner} onChange={(e) => go({ partner: e.target.value })}>
+      <label>
+        Partner
+        <select className="min-w-[220px] max-sm:min-w-0" value={partner} onChange={(e) => go({ partner: e.target.value })}>
           <option value="">All partners</option>
           {portfolio.length > 0 && (
             <optgroup label="Portfolio companies">
@@ -73,7 +71,7 @@ export function CampaignFilters({ partners }: { partners: { name: string; portfo
             setQ("");
             go({ q: "", partner: "" });
           }}
-          className="pb-2 text-sm font-bold underline underline-offset-4 hover:text-fb-red"
+          className="btn btn-quiet btn-sm"
         >
           Clear
         </button>
