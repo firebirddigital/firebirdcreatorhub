@@ -414,6 +414,8 @@
   letter-spacing: normal; text-transform: none;
   box-shadow: var(--shadow-raised);
 }
+/* Folded down to the search box and the Show filters button. */
+.filter-row.is-collapsed { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
 .filter-row select { padding-right: 26px; cursor: pointer; }
 .filter-row input[type='search'] { min-width: 170px; }
 .filter-row select:focus-visible,
