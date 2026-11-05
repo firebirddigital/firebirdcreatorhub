@@ -20,6 +20,7 @@ import {
   samplePosts,
   sampleSnapshots,
 } from "./sample-data";
+import { getCampaignSettings } from "./campaign-settings";
 import type {
   TrackRecord,
   Benchmark,
@@ -283,12 +284,13 @@ export async function getCampaignSummaries() {
 }
 
 export async function getCampaignView(campaign: Campaign): Promise<CampaignView> {
-  const [creators, allPosts, snapshots, roster, drafts] = await Promise.all([
+  const [creators, allPosts, snapshots, roster, drafts, settings] = await Promise.all([
     getCreators(),
     getPosts(),
     getSnapshots(campaign.id),
     getAssignments(campaign.id),
     getDrafts(campaign.id),
+    getCampaignSettings(campaign.id),
   ]);
   const feeByCreator = new Map(
     roster.filter((a) => a.status === "Approved" && a.creatorId && a.fee).map((a) => [a.creatorId!, a.fee!]),
@@ -348,6 +350,7 @@ export async function getCampaignView(campaign: Campaign): Promise<CampaignView>
     spent: spentSoFar(roster, campaign.budget),
     expected: expected.total ? expected : undefined,
     incoming: incomingPosts(roster, drafts, posts, byId),
+    showCurrentCpm: settings.showCurrentCpm,
   };
 }
 

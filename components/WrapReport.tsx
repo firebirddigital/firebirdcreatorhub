@@ -42,7 +42,7 @@ export function WrapReport({
     { label: "Comments", value: compact(totals.comments) },
     { label: "Shares", value: compact(totals.shares) },
     ...(vsUsual ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-10-post median" }] : []),
-    ...(cpm !== undefined
+    ...(view.showCurrentCpm && cpm !== undefined
       ? [
           {
             label: "Current CPM",

@@ -19,10 +19,13 @@ export function PostGrid({
   internal,
   campaignId,
   creators,
+  showCurrentCpm = true,
 }: {
   posts: PostWithCreator[];
   sample: boolean;
   internal: boolean;
+  /** False when the team has hidden current CPM for this campaign: no CPM-so-far per post, no CPM sort. */
+  showCurrentCpm?: boolean;
   /** Team view: lets the team select posts and delete them. */
   campaignId?: string;
   /** Team view: creators to choose from when editing a post. */
@@ -39,11 +42,11 @@ export function PostGrid({
         ? b.views - a.views
         : sort === "newest"
           ? (b.postedAt ?? "").localeCompare(a.postedAt ?? "")
-          : sort === "cpm"
+          : sort === "cpm" && showCurrentCpm
             ? (postCpm(a) ?? Infinity) - (postCpm(b) ?? Infinity)
             : er(b) - er(a),
     );
-  }, [posts, platform, sort]);
+  }, [posts, platform, sort, showCurrentCpm]);
 
   const counts = {
     all: posts.length,
@@ -77,14 +80,14 @@ export function PostGrid({
         <label className="flex items-center gap-2">
           <span className="field-label mb-0">Sort by</span>
           <select
-            value={sort}
+            value={sort === "cpm" && !showCurrentCpm ? "views" : sort}
             onChange={(e) => setSort(e.target.value as Sort)}
             className="field w-auto min-w-[190px]"
           >
             <option value="views">Most views</option>
             <option value="engagement">Highest engagement</option>
             <option value="newest">Newest</option>
-            {posts.some((p) => p.cost) && <option value="cpm">Lowest CPM</option>}
+            {showCurrentCpm && posts.some((p) => p.cost) && <option value="cpm">Lowest CPM</option>}
           </select>
         </label>
       </div>
@@ -93,7 +96,7 @@ export function PostGrid({
         {shown.map((p) => (
           <li key={p.id} className="card relative flex flex-col p-3">
             <SelectBox id={p.id} label={`post by ${p.creator?.name ?? "creator"}`} />
-            <PostCard post={p} sample={sample} internal={internal} />
+            <PostCard post={p} sample={sample} internal={internal} showCurrentCpm={showCurrentCpm} />
             {internal && campaignId && creators && (
               <PostEditor campaignId={campaignId} postId={p.id} creatorId={p.creatorId} postedAt={p.postedAt} creators={creators} />
             )}
@@ -118,7 +121,17 @@ export function PostGrid({
   );
 }
 
-function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: boolean; internal: boolean }) {
+function PostCard({
+  post,
+  sample,
+  internal,
+  showCurrentCpm,
+}: {
+  post: PostWithCreator;
+  sample: boolean;
+  internal: boolean;
+  showCurrentCpm: boolean;
+}) {
   const src = sample ? undefined : embedUrl(post.url);
   const handle = post.platform === "instagram" ? post.creator?.instagram : post.creator?.tiktok;
 
@@ -176,7 +189,7 @@ function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: b
       </dl>
 
       {post.creator?.avgViews ? <VsUsual views={post.views} usual={post.creator.avgViews} name={post.creator.name} /> : null}
-      {post.cost && <PostCost post={post} internal={internal} />}
+      {post.cost && <PostCost post={post} internal={internal} showCurrentCpm={showCurrentCpm} />}
 
       {internal && post.refreshNote && <p className="mx-1 mt-2 text-xs font-bold text-fb-red">{post.refreshNote}</p>}
       {internal && !post.refreshNote && post.lastRefreshed && (
@@ -190,9 +203,9 @@ function PostCard({ post, sample, internal }: { post: PostWithCreator; sample: b
  * What this post cost and its CPM so far, against its expected CPM (cost ÷ their median views, last 10 posts).
  * Team pages mark a better-than-expected CPM green; partner pages stay red, black and white.
  */
-function PostCost({ post, internal }: { post: PostWithCreator; internal: boolean }) {
+function PostCost({ post, internal, showCurrentCpm }: { post: PostWithCreator; internal: boolean; showCurrentCpm: boolean }) {
   const cost = post.cost!;
-  const now = postCpm(post);
+  const now = showCurrentCpm ? postCpm(post) : undefined;
   const avg = post.creator?.avgViews ? (cost.amount / post.creator.avgViews) * 1000 : undefined;
   const vs = cpmVsExpected(now, avg);
   const tone = vs ? (vs.under ? (internal ? "text-[color:var(--series-4)]" : "") : "text-fb-red") : "";
@@ -203,15 +216,17 @@ function PostCost({ post, internal }: { post: PostWithCreator; internal: boolean
     .filter(Boolean)
     .join(", ");
   return (
-    <dl className="mx-1 mt-3 grid grid-cols-3 border-t border-line pt-3 text-sm">
+    <dl className={`mx-1 mt-3 grid ${showCurrentCpm ? "grid-cols-3" : "grid-cols-2"} border-t border-line pt-3 text-sm`}>
       <div title={paidNote || "The creator's fee for this post"}>
         <dt className="tile-label mb-0">Paid{cost.basis === "rate" ? " (rate)" : ""}</dt>
         <dd className="mt-1 font-display text-[15px] font-extrabold tabular-nums">{money(cost.amount)}</dd>
       </div>
-      <div title="Paid ÷ this post's views × 1,000">
-        <dt className="tile-label mb-0">CPM now</dt>
-        <dd className={`mt-1 font-display text-[15px] font-extrabold tabular-nums ${tone}`}>{now !== undefined ? money(now, 2) : "—"}</dd>
-      </div>
+      {showCurrentCpm && (
+        <div title="Paid ÷ this post's views × 1,000">
+          <dt className="tile-label mb-0">CPM now</dt>
+          <dd className={`mt-1 font-display text-[15px] font-extrabold tabular-nums ${tone}`}>{now !== undefined ? money(now, 2) : "—"}</dd>
+        </div>
+      )}
       <div title="Paid ÷ their median views (last 10 posts) × 1,000">
         <dt className="tile-label mb-0">Expected CPM</dt>
         <dd className="mt-1 font-display text-[15px] font-extrabold tabular-nums">{avg !== undefined ? money(avg, 2) : "—"}</dd>

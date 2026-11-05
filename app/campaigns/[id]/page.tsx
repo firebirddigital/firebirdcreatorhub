@@ -7,6 +7,7 @@ import { CampaignBriefButton } from "@/components/campaign/CampaignBriefButton";
 import { RosterTools } from "@/components/campaign/TeamControls";
 import { TeamDraftForm, type PickerCreator } from "@/components/campaign/TeamDraftForm";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
+import { CurrentCpmSwitch } from "@/components/campaign/CurrentCpmSwitch";
 import { CampaignTools } from "@/components/CampaignTools";
 import { StreamsUpload } from "@/components/StreamsUpload";
 import { TeamShell } from "@/components/Header";
@@ -117,7 +118,12 @@ export default async function CampaignPage({
       ...creators.filter((c) => onCampaign.has(c.id)),
       ...creators.filter((c) => !onCampaign.has(c.id)),
     ].map(({ id, name }) => ({ id, name }));
-    hero = <LiveHero view={view} internal />;
+    hero = (
+      <>
+        <LiveHero view={view} internal />
+        <CurrentCpmSwitch campaignId={campaign.id} on={view.showCurrentCpm} sample={sample} />
+      </>
+    );
     body = (
       <LiveBody
         view={view}

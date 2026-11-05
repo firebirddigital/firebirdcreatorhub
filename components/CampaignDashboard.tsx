@@ -16,6 +16,8 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
   const { totals, spend } = view;
   const cpm = spend && totals.views ? (spend.amount / totals.views) * 1000 : undefined;
   const vsUsual = typicalVsUsual(view.posts);
+  // The team can hide current CPM per campaign (it reads high before views catch up).
+  const showCpm = view.showCurrentCpm && (internal || spend);
   // Current against expected CPM. The team sees green (cheaper) or red (dearer); partner pages keep to
   // brand colours: red when dearer, white with ↓ when cheaper.
   const vs = cpmVsExpected(cpm, view.expected?.cpm);
@@ -41,7 +43,7 @@ export function LiveHero({ view, internal }: { view: CampaignView; internal: boo
           ...(vsUsual
             ? [{ label: "Typical post vs usual", value: vsUsual, note: "Middle post against its creator's last-10-post median" }]
             : []),
-          internal || spend
+          showCpm
             ? {
                 label: "Current CPM",
                 value: cpm !== undefined ? money(cpm, 2) : "—",
@@ -195,7 +197,7 @@ export function LiveBody({
                         {times(c.benchmark.views, c.benchmark.expected)} usual
                       </p>
                     )}
-                    {c.fee && c.views ? (
+                    {view.showCurrentCpm && c.fee && c.views ? (
                       <p className="text-xs text-muted" title={internal ? "Fee ÷ views × 1,000. Team only." : "Fee ÷ views × 1,000"}>
                         {money((c.fee / c.views) * 1000, 2)} CPM
                         {c.creator?.avgViews ? (
@@ -244,6 +246,7 @@ export function LiveBody({
             internal={internal}
             campaignId={internal ? view.campaign.id : undefined}
             creators={internal ? creators : undefined}
+            showCurrentCpm={view.showCurrentCpm}
           />
         </div>
       </section>
