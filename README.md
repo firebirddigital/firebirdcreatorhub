@@ -59,9 +59,11 @@ Create a base with these four tables. Names must match exactly (or change them i
 | Start Date | Date |
 | End Date | Date |
 | Budget | Currency |
-| Status | Single select: Planning, Live, Wrapped |
+| Status | Single select: Live, Awaiting approval, Paused, Complete, Canceled (older Planning / Wrapped values read as Awaiting approval / Complete) |
 | Creators | Link to Creators |
 | Sharing Enabled | Checkbox (tick to allow a client share link) |
+| Brief Link | URL (optional: the Google Doc behind the Campaign Brief button; partners see it) |
+| Last Modified | Last modified time (optional: sorts the campaigns list by recently edited) |
 
 ### Posts
 
@@ -107,6 +109,7 @@ One row per creator per campaign. The hub writes these when you add creators to 
 | Reviewed By | Single line text |
 | Reviewed At | Date (include time) |
 | Campaign Record ID | Single line text |
+| Rates | Long text (optional: rates per deliverable type, written by the hub as JSON) |
 
 ### Drafts
 

@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isSampleMode } from "@/lib/config";
-import { getAssignment, getCampaign } from "@/lib/data";
+import { getAssignment, getAssignments, getCampaign } from "@/lib/data";
 import {
   addCreatorsToCampaign,
   findOrCreateCreator,
@@ -12,7 +12,7 @@ import {
   updateAssignment,
   UserError,
 } from "@/lib/roster";
-import type { AssignmentStatus } from "@/lib/types";
+import { parseRateCard, type AssignmentStatus } from "@/lib/types";
 
 export const maxDuration = 300;
 
@@ -25,7 +25,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   // Check the campaign first so a new creator isn't saved for a campaign that doesn't exist.
   if (!(await getCampaign(id))) return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { creatorIds?: string[]; newCreator?: Partial<NewCreatorInput> };
+  const body = (await req.json().catch(() => ({}))) as {
+    creatorIds?: string[];
+    newCreator?: Partial<NewCreatorInput>;
+    /** Rates per deliverable type, set on every creator added in this request. */
+    rates?: unknown;
+  };
   const creatorIds = (body.creatorIds ?? []).filter((c) => typeof c === "string" && /^rec[A-Za-z0-9]{14}$/.test(c));
 
   let created: { id: string; created: boolean; name: string } | undefined;
@@ -56,6 +61,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!creatorIds.length) return NextResponse.json({ error: "Pick at least one creator." }, { status: 400 });
 
   const added = await addCreatorsToCampaign(id, creatorIds);
+
+  // Rates entered while adding go on the new roster entries.
+  const rates = parseRateCard(body.rates);
+  let ratesError: string | undefined;
+  if (rates && added) {
+    const wanted = new Set(creatorIds);
+    const entries = (await getAssignments(id, { fresh: true })).filter((a) => a.creatorId && wanted.has(a.creatorId) && !a.rates);
+    try {
+      for (const a of entries) await updateAssignment(a.id, { rates });
+    } catch (e) {
+      if (!(e instanceof UserError)) throw e;
+      ratesError = e.message;
+    }
+  }
   revalidateTag("airtable");
 
   // Pull followers and average views (last 10 posts) after responding, unless the profile link
@@ -78,16 +97,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       revalidateTag("airtable");
     });
   }
-  return NextResponse.json({ ok: true, added, newCreator: created, pullingStats: Boolean(created && hasHandle && !lookedUp) });
+  return NextResponse.json({
+    ok: true,
+    added,
+    newCreator: created,
+    pullingStats: Boolean(created && hasHandle && !lookedUp),
+    ...(ratesError ? { ratesError } : {}),
+  });
 }
 
 const STATUSES: AssignmentStatus[] = ["Proposed", "Approved", "Changes requested", "Declined"];
 
-// Change a roster entry's status or fee.
+// Change a roster entry's status, fee, paid mark or rates per deliverable type.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (isSampleMode()) return sampleBlock();
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as { assignmentId?: string; status?: string; fee?: number | null; paid?: unknown };
+  const body = (await req.json().catch(() => ({}))) as {
+    assignmentId?: string;
+    status?: string;
+    fee?: number | null;
+    paid?: unknown;
+    rates?: unknown;
+  };
   const assignment = body.assignmentId ? await getAssignment(body.assignmentId) : undefined;
   if (!assignment || assignment.campaignId !== id) {
     return NextResponse.json({ error: "That creator isn't on this campaign." }, { status: 404 });
@@ -95,8 +126,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const status = STATUSES.find((s) => s === body.status);
   const fee = body.fee === null ? null : typeof body.fee === "number" && body.fee >= 0 ? body.fee : undefined;
   const paid = typeof body.paid === "boolean" ? body.paid : undefined;
+  // An object (even an empty one) replaces the rate card; leaving `rates` out keeps it.
+  const rates = body.rates && typeof body.rates === "object" ? (parseRateCard(body.rates) ?? null) : undefined;
   try {
-    await updateAssignment(assignment.id, { status, fee, paid });
+    await updateAssignment(assignment.id, { status, fee, paid, rates });
   } catch (e) {
     if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 });
     throw e;

@@ -1,7 +1,9 @@
 // Create and edit campaigns from the hub. Server-side only.
-import { createRecords, updateRecords } from "./airtable";
+import { createRecords, deleteRecords, updateRecords } from "./airtable";
+import { getAssignments, getDrafts, getPosts, getSnapshots } from "./data";
+import { removeCampaignFromFolders } from "./folders";
 import { CAMPAIGN_FIELDS as CF, TABLES } from "./config";
-import { CAMPAIGN_TYPES, type CampaignStatus, type CampaignType, type Stage } from "./types";
+import { CAMPAIGN_STATUSES, CAMPAIGN_TYPES, type CampaignStatus, type CampaignType, type Stage } from "./types";
 
 export interface CampaignInput {
   name?: string;
@@ -13,12 +15,12 @@ export interface CampaignInput {
   status?: CampaignStatus;
   stage?: Stage;
   brief?: string;
+  briefUrl?: string;
   sharingEnabled?: boolean;
   showRates?: boolean;
   type?: CampaignType;
 }
 
-const STATUSES: CampaignStatus[] = ["Planning", "Live", "Wrapped"];
 const STAGE_LABEL: Record<Stage, string> = { creators: "Creators", drafts: "Drafts", live: "Live" };
 const isDate = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : undefined);
@@ -34,6 +36,11 @@ export function toFields(input: Record<string, unknown>): { fields: Record<strin
   if ("artist" in input) f[CF.artist] = text(input.artist, 120) ?? "";
   if ("song" in input) f[CF.song] = text(input.song, 120) ?? "";
   if ("brief" in input) f[CF.brief] = text(input.brief, 10_000) ?? "";
+  if ("briefUrl" in input) {
+    const url = text(input.briefUrl, 2_000) ?? "";
+    if (url && !/^https?:\/\/\S+$/i.test(url)) return { fields: f, error: "The brief link should start with https://" };
+    f[CF.briefUrl] = url || null;
+  }
   for (const [key, field] of [
     ["startDate", CF.startDate],
     ["endDate", CF.endDate],
@@ -44,7 +51,7 @@ export function toFields(input: Record<string, unknown>): { fields: Record<strin
     const b = input.budget;
     f[CF.budget] = typeof b === "number" && isFinite(b) && b >= 0 ? Math.round(b) : null;
   }
-  if ("status" in input && STATUSES.includes(input.status as CampaignStatus)) f[CF.status] = input.status;
+  if ("status" in input && CAMPAIGN_STATUSES.includes(input.status as CampaignStatus)) f[CF.status] = input.status;
   if ("stage" in input && typeof input.stage === "string" && input.stage in STAGE_LABEL) {
     f[CF.stage] = STAGE_LABEL[input.stage as Stage];
   }
@@ -57,29 +64,57 @@ export function toFields(input: Record<string, unknown>): { fields: Record<strin
   return { fields: f };
 }
 
-/**
- * Type is optional in Airtable. If the base doesn't have the field yet, save everything else
- * and report typeSaved: false so the team knows to add it.
- */
-async function withoutMissingType<T>(fields: Record<string, unknown>, write: (f: Record<string, unknown>) => Promise<T>) {
-  try {
-    return { result: await write(fields), typeSaved: CF.type in fields };
-  } catch (e) {
-    if (!(CF.type in fields) || !String(e).includes("UNKNOWN_FIELD_NAME")) throw e;
-    const { [CF.type]: _type, ...rest } = fields;
-    return { result: await write(rest), typeSaved: false };
+// Fields the team may not have added to Airtable yet. A write that names one of these and fails with
+// UNKNOWN_FIELD_NAME is retried without it, and the caller is told which were skipped.
+const OPTIONAL_FIELDS = [CF.type, CF.briefUrl];
+
+async function withoutMissingFields<T>(fields: Record<string, unknown>, write: (f: Record<string, unknown>) => Promise<T>) {
+  const skipped: string[] = [];
+  let current = { ...fields };
+  for (;;) {
+    try {
+      return { result: await write(current), skipped };
+    } catch (e) {
+      const msg = String(e);
+      const missing = OPTIONAL_FIELDS.find((name) => name in current && msg.includes("UNKNOWN_FIELD_NAME") && msg.includes(name));
+      if (!missing) throw e;
+      const { [missing]: _drop, ...rest } = current;
+      current = rest;
+      skipped.push(missing);
+    }
   }
 }
 
 export async function updateCampaign(id: string, fields: Record<string, unknown>) {
-  const { typeSaved } = await withoutMissingType(fields, (f) => updateRecords(TABLES.campaigns, [{ id, fields: f }]));
-  return { typeSaved };
+  const { skipped } = await withoutMissingFields(fields, (f) => updateRecords(TABLES.campaigns, [{ id, fields: f }]));
+  return { typeSaved: CF.type in fields && !skipped.includes(CF.type), skipped };
 }
 
-export async function createCampaign(fields: Record<string, unknown>): Promise<{ id: string; typeSaved: boolean }> {
-  const { result, typeSaved } = await withoutMissingType(
-    { [CF.status]: "Planning", [CF.stage]: "Creators", ...fields },
+export async function createCampaign(fields: Record<string, unknown>): Promise<{ id: string; typeSaved: boolean; skipped: string[] }> {
+  const { result, skipped } = await withoutMissingFields(
+    { [CF.status]: "Awaiting approval", [CF.stage]: "Creators", ...fields },
     (f) => createRecords(TABLES.campaigns, [{ fields: f }]),
   );
-  return { id: result[0].id, typeSaved };
+  return { id: result[0].id, typeSaved: CF.type in fields && !skipped.includes(CF.type), skipped };
+}
+
+/**
+ * Deletes a campaign and everything that belongs to it in Airtable: its roster, drafts, live posts and
+ * their stats history. Airtable keeps deleted records in the base's trash for a limited time.
+ */
+export async function deleteCampaign(id: string): Promise<{ assignments: number; drafts: number; posts: number; snapshots: number }> {
+  const [roster, drafts, posts, snapshots] = await Promise.all([
+    getAssignments(id, { fresh: true }),
+    getDrafts(id, { fresh: true }),
+    getPosts({ fresh: true }).then((all) => all.filter((p) => p.campaignId === id)),
+    getSnapshots(id),
+  ]);
+  // Children first, so a failure part-way never leaves records pointing at a campaign that's gone.
+  await deleteRecords(TABLES.snapshots, snapshots.map((s) => s.id));
+  await deleteRecords(TABLES.posts, posts.map((p) => p.id));
+  await deleteRecords(TABLES.drafts, drafts.map((d) => d.id));
+  await deleteRecords(TABLES.assignments, roster.map((a) => a.id));
+  await deleteRecords(TABLES.campaigns, [id]);
+  await removeCampaignFromFolders(id);
+  return { assignments: roster.length, drafts: drafts.length, posts: posts.length, snapshots: snapshots.length };
 }

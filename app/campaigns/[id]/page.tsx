@@ -3,6 +3,7 @@ import { buildLanes, DraftsBody, DraftsHero } from "@/components/campaign/Drafts
 import { CreatorsBody, CreatorsHero } from "@/components/campaign/CreatorsStage";
 import { CampaignEditor } from "@/components/campaign/CampaignEditor";
 import { CampaignShell, parseTab } from "@/components/campaign/Shell";
+import { CampaignBriefButton } from "@/components/campaign/CampaignBriefButton";
 import { RosterTools } from "@/components/campaign/TeamControls";
 import { TeamDraftForm, type PickerCreator } from "@/components/campaign/TeamDraftForm";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
@@ -149,7 +150,10 @@ export default async function CampaignPage({
 
   return (
     <TeamShell active="campaigns">
-      <CampaignShell campaign={campaign} tab={tab} current={current} basePath={`/campaigns/${id}`} hero={hero}>
+      <CampaignShell campaign={campaign} tab={tab} current={current} basePath={`/campaigns/${id}`}
+        hero={hero}
+        actions={<CampaignBriefButton key={campaign.briefUrl ?? ""} url={campaign.briefUrl} campaignId={sample ? undefined : campaign.id} />}
+      >
         <CampaignEditor key={JSON.stringify(campaign)} campaign={campaign} stage={current} sample={sample} />
         {campaign.partnerContacts && (
           <section aria-label="Partner contacts" className="card text-sm">

@@ -11,7 +11,7 @@ import {
 } from "./config";
 import { detectPlatform } from "./social";
 import { expectedCpm } from "./format";
-import { CAMPAIGN_TYPES, parsePlatforms } from "./types";
+import { CAMPAIGN_TYPES, parseCampaignStatus, parsePlatforms, parseRateCard } from "./types";
 import {
   sampleAssignments,
   sampleCampaigns,
@@ -26,7 +26,6 @@ import type {
   Assignment,
   AssignmentStatus,
   Campaign,
-  CampaignStatus,
   CampaignView,
   Creator,
   CreatorPerformance,
@@ -77,11 +76,14 @@ export async function getCampaigns(opts: { fresh?: boolean } = {}): Promise<Camp
     startDate: str(r.fields[CF.startDate]),
     endDate: str(r.fields[CF.endDate]),
     budget: num(r.fields[CF.budget]) || undefined,
-    status: (str(r.fields[CF.status]) as CampaignStatus) ?? "Planning",
+    status: parseCampaignStatus(str(r.fields[CF.status])),
     creatorIds: ids(r.fields[CF.creators]),
     sharingEnabled: r.fields[CF.sharingEnabled] === true,
     stage: toStage(str(r.fields[CF.stage])),
     brief: str(r.fields[CF.brief]),
+    briefUrl: str(r.fields[CF.briefUrl]),
+    createdAt: r.createdTime,
+    updatedAt: str(r.fields[CF.lastModified]),
     showRates: r.fields[CF.showRates] === true,
     type: CAMPAIGN_TYPES.find((t) => t.toLowerCase() === str(r.fields[CF.type])?.toLowerCase()),
     partnerContacts: str(r.fields[CF.partnerContacts]),
@@ -95,7 +97,7 @@ function toStage(v?: string): Stage | undefined {
 
 /** Which tab a campaign opens on: the Stage field if set, otherwise inferred from Status. */
 export function campaignStage(c: Campaign): Stage {
-  return c.stage ?? (c.status === "Planning" ? "creators" : "live");
+  return c.stage ?? (c.status === "Awaiting approval" ? "creators" : "live");
 }
 
 // ---------- Roster (Campaign Creators) and drafts ----------
@@ -111,6 +113,7 @@ function mapAssignment(r: AirtableRecord): Assignment {
     reviewedBy: str(r.fields[AF.reviewedBy]),
     reviewedAt: str(r.fields[AF.reviewedAt]),
     paid: r.fields[AF.paid] === true || undefined,
+    rates: parseRateCard(r.fields[AF.rates]),
   };
 }
 
@@ -265,20 +268,18 @@ export function sumStats(items: Stats[]): Stats {
   );
 }
 
+/** When a campaign was last edited: the Last Modified field, or when it was created. */
+export const lastEdited = (c: Campaign) => c.updatedAt ?? c.createdAt;
+
 export async function getCampaignSummaries() {
   const [campaigns, posts] = await Promise.all([getCampaigns(), getPosts()]);
-  const order: Record<CampaignStatus, number> = { Live: 0, Planning: 1, Wrapped: 2 };
   return campaigns
     .map((campaign) => {
       const cp = posts.filter((p) => p.campaignId === campaign.id && p.status === "Live");
       const totals = sumStats(cp);
       return { campaign, totals, posts: cp.length, engagementRate: engagementRate(totals) };
     })
-    .sort(
-      (a, b) =>
-        (order[a.campaign.status] ?? 3) - (order[b.campaign.status] ?? 3) ||
-        (b.campaign.startDate ?? "").localeCompare(a.campaign.startDate ?? ""),
-    );
+    .sort((a, b) => lastEdited(b.campaign).localeCompare(lastEdited(a.campaign)));
 }
 
 export async function getCampaignView(campaign: Campaign): Promise<CampaignView> {

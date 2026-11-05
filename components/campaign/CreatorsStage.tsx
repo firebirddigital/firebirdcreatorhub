@@ -5,6 +5,7 @@ import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
 import { AssignmentControls } from "./TeamControls";
 import { CreatorEditButton } from "./CreatorEditButton";
+import { RateCardEditor } from "./RateCardEditor";
 import { BulkBar, BulkSelectProvider, SelectBox } from "./BulkSelect";
 
 const reach = (a: Assignment) => (a.creator ? a.creator.instagramFollowers + a.creator.tiktokFollowers : 0);
@@ -99,6 +100,17 @@ export function CreatorsBody({
                     showPaid={Boolean(team)}
                     trackRecord={team && a.creatorId ? trackRecordText(team.trackRecords?.[a.creatorId]) ?? "First Firebird campaign" : undefined}
                   />
+                  {(team || showFees) && (
+                    <div className="mt-3 border-t border-line px-1 pt-3 empty:hidden">
+                      <RateCardEditor
+                        key={JSON.stringify(a.rates ?? {})}
+                        campaignId={a.campaignId}
+                        assignmentId={a.id}
+                        rates={a.rates}
+                        editable={Boolean(team)}
+                      />
+                    </div>
+                  )}
                   <div className="mt-4 px-1 empty:hidden">
                     {partner && a.status !== "Declined" && (
                       <ReviewControls

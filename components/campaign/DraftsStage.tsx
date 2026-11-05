@@ -1,4 +1,5 @@
 import { draftSource } from "@/lib/draft-links";
+import { RateCardEditor } from "./RateCardEditor";
 import { compact, creatorCpm, money, shortDate } from "@/lib/format";
 import type { Assignment, Creator, Draft, DraftPlatform, DraftStatus } from "@/lib/types";
 import { HeroFigure, HeroStats } from "./Shell";
@@ -373,6 +374,17 @@ export function DraftsBody({
                       </div>
                       <span className="text-xs text-muted">Hasn&apos;t sent a draft yet</span>
                     </div>
+                    {(team || showFees) && (
+                      <div className="mt-3 max-w-md empty:hidden">
+                        <RateCardEditor
+                          key={JSON.stringify(a.rates ?? {})}
+                          campaignId={a.campaignId}
+                          assignmentId={a.id}
+                          rates={a.rates}
+                          editable={Boolean(team)}
+                        />
+                      </div>
+                    )}
                     {team && (
                       <div className="mt-3">
                         <TeamLaneControls
@@ -421,6 +433,18 @@ function LaneGrid({
             sample={team.sample}
           />
         );
+        // Rates per deliverable: editable by the team, read-only for partners when the campaign shows rates.
+        const rates = (team || showFees) && (
+          <div className="mt-4 border-t border-line pt-3.5 empty:hidden">
+            <RateCardEditor
+              key={JSON.stringify(a.rates ?? {})}
+              campaignId={a.campaignId}
+              assignmentId={a.id}
+              rates={a.rates}
+              editable={Boolean(team)}
+            />
+          </div>
+        );
         // The team edits the fee in its own box, so the read-only cost is for partners.
         const meta = <CreatorMeta assignment={a} showCost={!team && showFees} showCpm={Boolean(team) || showFees} />;
 
@@ -448,6 +472,7 @@ function LaneGrid({
                   </li>
                 ))}
               </ol>
+              {rates}
               {teamControls && <div className="mt-2 border-t border-line pt-3.5">{teamControls}</div>}
             </li>
           );
@@ -459,6 +484,7 @@ function LaneGrid({
             {team && d && <SelectBox id={d.id} label={`${name}'s version ${d.version}`} />}
             <article>
               <VersionCard draft={d} name={name} meta={meta} partner={partner} teamCampaignId={team?.campaignId} />
+              {rates}
               {teamControls && <div className="mt-4 border-t border-line pt-3.5">{teamControls}</div>}
             </article>
           </li>
