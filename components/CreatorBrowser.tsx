@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { compact, CPM_OPTIONS, creatorCpm, money, timeAgo } from "@/lib/format";
 import { pullStatsInBatches } from "@/lib/pull-stats";
 import type { Creator, TrackRecord } from "@/lib/types";
 import { trackRecordRatio, trackRecordText } from "./TrackRecordLine";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
+const COLLAPSE_KEY = "creators.filtersCollapsed";
 type Sort = "reach" | "avgViews" | "track" | "stale" | "name" | "rate" | "cpm";
 type View = "cards" | "table";
 
@@ -91,6 +92,21 @@ export function CreatorBrowser({
   const [selected, setSelected] = useState<string[]>([]);
   const [pulling, setPulling] = useState<{ done: number; total: number }>();
   const [message, setMessage] = useState<{ text: string; error?: boolean }>();
+  // The filter bar sticks to the top on wider screens, so it can be folded down to
+  // just the search box. The choice is remembered per browser.
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(COLLAPSE_KEY) === "1") setFiltersCollapsed(true);
+    } catch {}
+  }, []);
+  const toggleFilters = () =>
+    setFiltersCollapsed((cur) => {
+      try {
+        localStorage.setItem(COLLAPSE_KEY, cur ? "0" : "1");
+      } catch {}
+      return !cur;
+    });
 
   const allTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -148,6 +164,16 @@ export function CreatorBrowser({
   const filtersOn = Boolean(
     query || tags.length || untaggedOnly || platform !== "any" || minReach || minAvgViews || maxRate || maxCpm || location,
   );
+  // Filters hidden while the bar is folded (search stays visible, so it isn't counted).
+  const hiddenFilterCount = [
+    tags.length || untaggedOnly,
+    platform !== "any",
+    minReach,
+    minAvgViews,
+    maxRate,
+    maxCpm,
+    location,
+  ].filter(Boolean).length;
   const clearFilters = () => {
     setQuery("");
     setTags([]);
@@ -206,8 +232,8 @@ export function CreatorBrowser({
   return (
     <div className="mt-3.5">
       <section aria-label="Filter creators" className="card md:sticky md:top-0 z-10">
-        <div className="filter-row">
-          <label className="basis-full">
+        <div className={`filter-row${filtersCollapsed ? " is-collapsed" : ""}`}>
+          <label className="min-w-0 flex-1">
             <span className="sr-only">Search creators</span>
             <input
               type="search"
@@ -217,115 +243,133 @@ export function CreatorBrowser({
               className="w-full"
             />
           </label>
-          <Select
-            label="Platform"
-            value={platform}
-            onChange={(v) => setPlatform(v as PlatformFilter)}
-            options={[
-              { label: "Any platform", value: "any" },
-              { label: "Instagram", value: "instagram" },
-              { label: "TikTok", value: "tiktok" },
-            ]}
-          />
-          <Select
-            label="Followers"
-            value={String(minReach)}
-            onChange={(v) => setMinReach(Number(v))}
-            options={REACH_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
-          />
-          <Select
-            label="Median views (last 10)"
-            value={String(minAvgViews)}
-            onChange={(v) => setMinAvgViews(Number(v))}
-            options={AVG_VIEWS_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
-          />
-          {team && (
-            <Select
-              label="Rate"
-              value={String(maxRate)}
-              onChange={(v) => setMaxRate(Number(v))}
-              options={RATE_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
-            />
+          <button
+            type="button"
+            onClick={toggleFilters}
+            aria-expanded={!filtersCollapsed}
+            aria-controls="creator-filters"
+            className={`btn btn-sm${filtersCollapsed && hiddenFilterCount ? " btn-primary" : ""}`}
+          >
+            {filtersCollapsed
+              ? `Show filters${hiddenFilterCount ? ` (${hiddenFilterCount} on)` : ""}`
+              : "Hide filters"}
+          </button>
+          {!filtersCollapsed && (
+            <div id="creator-filters" className="contents">
+              <div aria-hidden className="-mt-2.5 basis-full" />
+              <Select
+                label="Platform"
+                value={platform}
+                onChange={(v) => setPlatform(v as PlatformFilter)}
+                options={[
+                  { label: "Any platform", value: "any" },
+                  { label: "Instagram", value: "instagram" },
+                  { label: "TikTok", value: "tiktok" },
+                ]}
+              />
+              <Select
+                label="Followers"
+                value={String(minReach)}
+                onChange={(v) => setMinReach(Number(v))}
+                options={REACH_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
+              />
+              <Select
+                label="Median views (last 10)"
+                value={String(minAvgViews)}
+                onChange={(v) => setMinAvgViews(Number(v))}
+                options={AVG_VIEWS_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
+              />
+              {team && (
+                <Select
+                  label="Rate"
+                  value={String(maxRate)}
+                  onChange={(v) => setMaxRate(Number(v))}
+                  options={RATE_OPTIONS.map((o) => ({ label: o.label, value: String(o.value) }))}
+                />
+              )}
+              {team && (
+                <Select
+                  label="CPM"
+                  value={String(maxCpm)}
+                  onChange={(v) => setMaxCpm(Number(v))}
+                  options={CPM_OPTIONS.map((v) => ({ label: v ? `Up to $${v}` : "Any CPM", value: String(v) }))}
+                />
+              )}
+              {locations.length > 0 && (
+                <Select
+                  label="Location"
+                  value={location}
+                  onChange={setLocation}
+                  options={[{ label: "Anywhere", value: "" }, ...locations.map((l) => ({ label: l, value: l }))]}
+                />
+              )}
+              <Select
+                label="Sort"
+                value={sort}
+                onChange={(v) => setSort(v as Sort)}
+                options={[
+                  { label: "Biggest reach", value: "reach" },
+                  { label: "Most median views", value: "avgViews" },
+                  ...(team
+                    ? [
+                        { label: "Best track record", value: "track" },
+                        { label: "Oldest stats first", value: "stale" },
+                        { label: "Lowest rate", value: "rate" },
+                        { label: "Lowest CPM", value: "cpm" },
+                      ]
+                    : []),
+                  { label: "Name", value: "name" },
+                ]}
+              />
+            </div>
           )}
-          {team && (
-            <Select
-              label="CPM"
-              value={String(maxCpm)}
-              onChange={(v) => setMaxCpm(Number(v))}
-              options={CPM_OPTIONS.map((v) => ({ label: v ? `Up to $${v}` : "Any CPM", value: String(v) }))}
-            />
-          )}
-          {locations.length > 0 && (
-            <Select
-              label="Location"
-              value={location}
-              onChange={setLocation}
-              options={[{ label: "Anywhere", value: "" }, ...locations.map((l) => ({ label: l, value: l }))]}
-            />
-          )}
-          <Select
-            label="Sort"
-            value={sort}
-            onChange={(v) => setSort(v as Sort)}
-            options={[
-              { label: "Biggest reach", value: "reach" },
-              { label: "Most median views", value: "avgViews" },
-              ...(team
-                ? [
-                    { label: "Best track record", value: "track" },
-                    { label: "Oldest stats first", value: "stale" },
-                    { label: "Lowest rate", value: "rate" },
-                    { label: "Lowest CPM", value: "cpm" },
-                  ]
-                : []),
-              { label: "Name", value: "name" },
-            ]}
-          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div role="group" aria-label="Filter by tag" className="flex flex-wrap gap-1.5">
-            {allTags.map(([t, count]) => {
-              const on = tags.includes(t);
-              return (
+        {!filtersCollapsed && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div role="group" aria-label="Filter by tag" className="flex flex-wrap gap-1.5">
+              {allTags.map(([t, count]) => {
+                const on = tags.includes(t);
+                return (
+                  <button
+                    key={t}
+                    onClick={() => toggleTag(t)}
+                    aria-pressed={on}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${
+                      on
+                        ? "border-fb-red bg-fb-red text-white"
+                        : "border-line-strong bg-surface text-secondary hover:bg-wash-neutral hover:text-fb-black"
+                    }`}
+                  >
+                    {t} <span className={`font-normal ${on ? "text-white/80" : "text-muted"}`}>{count}</span>
+                  </button>
+                );
+              })}
+              {untaggedCount > 0 && (
                 <button
-                  key={t}
-                  onClick={() => toggleTag(t)}
-                  aria-pressed={on}
-                  className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${
-                    on
-                      ? "border-fb-red bg-fb-red text-white"
-                      : "border-line-strong bg-surface text-secondary hover:bg-wash-neutral hover:text-fb-black"
+                  onClick={() => {
+                    setTags([]);
+                    setUntaggedOnly((v) => !v);
+                  }}
+                  aria-pressed={untaggedOnly}
+                  className={`rounded-full border border-dashed px-3 py-1 text-xs font-bold transition-colors ${
+                    untaggedOnly
+                      ? "border-fb-red bg-wash text-fb-red"
+                      : "border-line-strong text-secondary hover:bg-wash-neutral hover:text-fb-black"
                   }`}
                 >
-                  {t} <span className={`font-normal ${on ? "text-white/80" : "text-muted"}`}>{count}</span>
+                  Needs tags <span className="font-normal text-muted">{untaggedCount}</span>
                 </button>
-              );
-            })}
-            {untaggedCount > 0 && (
-              <button
-                onClick={() => {
-                  setTags([]);
-                  setUntaggedOnly((v) => !v);
-                }}
-                aria-pressed={untaggedOnly}
-                className={`rounded-full border border-dashed px-3 py-1 text-xs font-bold transition-colors ${
-                  untaggedOnly
-                    ? "border-fb-red bg-wash text-fb-red"
-                    : "border-line-strong text-secondary hover:bg-wash-neutral hover:text-fb-black"
-                }`}
-              >
-                Needs tags <span className="font-normal text-muted">{untaggedCount}</span>
-              </button>
+              )}
+            </div>
+            {tags.length > 1 && (
+              <label className="ml-2 flex items-center gap-2 text-xs text-secondary">
+                <input type="checkbox" checked={matchAll} onChange={(e) => setMatchAll(e.target.checked)} className="size-4 accent-fb-red" />
+                Must have all {tags.length}
+              </label>
             )}
           </div>
-          {tags.length > 1 && (
-            <label className="ml-2 flex items-center gap-2 text-xs text-secondary">
-              <input type="checkbox" checked={matchAll} onChange={(e) => setMatchAll(e.target.checked)} className="size-4 accent-fb-red" />
-              Must have all {tags.length}
-            </label>
-          )}
-        </div>
+        )}
       </section>
 
       <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
