@@ -10,7 +10,7 @@ import {
   TABLES,
 } from "./config";
 import { getAssignments, getCampaign, getCreators, getDrafts } from "./data";
-import type { Assignment, AssignmentStatus, DraftPlatform, DraftStatus, Platform, Stage } from "./types";
+import type { Assignment, AssignmentStatus, DraftPlatform, DraftStatus, Platform, RateCard, Stage } from "./types";
 
 const STAGE_LABEL: Record<Stage, string> = { creators: "Creators", drafts: "Drafts", live: "Live" };
 
@@ -80,21 +80,33 @@ export async function removeFromCampaign(campaignId: string, assignmentIds: stri
   return removing.length;
 }
 
-export async function updateAssignment(id: string, patch: { status?: AssignmentStatus; fee?: number | null; paid?: boolean }) {
+export async function updateAssignment(
+  id: string,
+  patch: { status?: AssignmentStatus; fee?: number | null; paid?: boolean; rates?: RateCard | null },
+) {
   const fields: Record<string, unknown> = {};
   if (patch.status) fields[AF.status] = patch.status;
   if (patch.fee !== undefined) fields[AF.fee] = patch.fee;
   if (patch.paid !== undefined) fields[AF.paid] = patch.paid;
+  if (patch.rates !== undefined) fields[AF.rates] = rateCardText(patch.rates);
   try {
     await updateRecords(TABLES.assignments, [{ id, fields }]);
   } catch (e) {
-    // Paid is an optional field the team adds in Airtable.
-    if (patch.paid !== undefined && String(e).includes("UNKNOWN_FIELD_NAME")) {
-      throw new UserError(`Add a checkbox field called “${AF.paid}” to the ${TABLES.assignments} table in Airtable, then try again.`);
+    // Paid and Rates are optional fields the team adds in Airtable.
+    if (String(e).includes("UNKNOWN_FIELD_NAME")) {
+      if (patch.paid !== undefined && String(e).includes(AF.paid)) {
+        throw new UserError(`Add a checkbox field called “${AF.paid}” to the ${TABLES.assignments} table in Airtable, then try again.`);
+      }
+      if (patch.rates !== undefined && String(e).includes(AF.rates)) {
+        throw new UserError(`Add a long text field called “${AF.rates}” to the ${TABLES.assignments} table in Airtable, then try again.`);
+      }
     }
     throw e;
   }
 }
+
+/** A rate card as the JSON text kept in Airtable; empty when no rates are set. */
+const rateCardText = (rates?: RateCard | null) => (rates && Object.keys(rates).length ? JSON.stringify(rates) : "");
 
 const DECISIONS = {
   approve: { creator: "Approved", draft: "Approved" },

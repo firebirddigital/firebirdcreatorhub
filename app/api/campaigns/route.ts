@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const { fields, error } = toFields({ name: "", ...input });
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  const { id, typeSaved } = await createCampaign(fields);
+  const { id, typeSaved, skipped } = await createCampaign(fields);
   revalidateTag("airtable");
-  return NextResponse.json({ ok: true, id, typeSaved });
+  return NextResponse.json({ ok: true, id, typeSaved, skipped });
 }

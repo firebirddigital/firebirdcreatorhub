@@ -5,7 +5,7 @@ import { importNewRequests } from "@/lib/requests";
 export const maxDuration = 60;
 
 // Team only (middleware). Called in the background when the Campaigns page opens: turns new request
-// form submissions into Planning campaigns.
+// form submissions into campaigns awaiting approval.
 export async function POST() {
   try {
     const { created } = await importNewRequests();

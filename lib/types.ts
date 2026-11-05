@@ -17,7 +17,16 @@ export interface Creator {
   statsUpdated?: string;
 }
 
-export type CampaignStatus = "Planning" | "Live" | "Wrapped";
+export type CampaignStatus = "Live" | "Awaiting approval" | "Paused" | "Complete" | "Canceled";
+export const CAMPAIGN_STATUSES: CampaignStatus[] = ["Live", "Awaiting approval", "Paused", "Complete", "Canceled"];
+/** Reads a Status value, including the old ones: Planning is now Awaiting approval, Wrapped is now Complete. */
+export function parseCampaignStatus(v?: string): CampaignStatus {
+  const s = v?.trim().toLowerCase();
+  if (s === "planning") return "Awaiting approval";
+  if (s === "wrapped") return "Complete";
+  if (s === "cancelled") return "Canceled";
+  return CAMPAIGN_STATUSES.find((x) => x.toLowerCase() === s) ?? "Awaiting approval";
+}
 export type Stage = "creators" | "drafts" | "live";
 
 export interface Campaign {
@@ -33,7 +42,13 @@ export interface Campaign {
   sharingEnabled: boolean;
   stage?: Stage;
   brief?: string;
+  /** Link to the campaign brief (a Google Doc). Partners see it too, unlike `brief`. */
+  briefUrl?: string;
   showRates: boolean;
+  /** When the record was created in Airtable. */
+  createdAt: string;
+  /** From the optional Last Modified field; falls back to createdAt. */
+  updatedAt?: string;
   /** From the Type field. Empty when it isn't set (or the field doesn't exist yet); see campaignType(). */
   type?: CampaignType;
   /** Partner names and emails from the request form. Team only: stripped from partner pages. */
@@ -64,6 +79,40 @@ export interface Assignment {
   reviewedAt?: string;
   /** Marked by the team once the creator has been paid. Team only. */
   paid?: boolean;
+  /** Price per deliverable type for this campaign. Shown to partners only when the campaign shows rates. */
+  rates?: RateCard;
+}
+
+export const RATE_TYPES = [
+  "Reel",
+  "TikTok",
+  "Shorts",
+  "Carousel / Feed post",
+  "Sound Use (Instagram)",
+  "Sound Use (TikTok)",
+  "Album Review",
+  "Lyric videos",
+] as const;
+export type RateType = (typeof RATE_TYPES)[number];
+export type RateCard = Partial<Record<RateType, number>>;
+
+/** Keeps only known rate types with a non-negative amount. Accepts the JSON text stored in Airtable. */
+export function parseRateCard(v: unknown): RateCard | undefined {
+  let raw: unknown = v;
+  if (typeof v === "string") {
+    try {
+      raw = JSON.parse(v);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: RateCard = {};
+  for (const t of RATE_TYPES) {
+    const n = (raw as Record<string, unknown>)[t];
+    if (typeof n === "number" && isFinite(n) && n >= 0) out[t] = Math.round(n * 100) / 100;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export type DraftStatus = "Pending review" | "Approved" | "Changes requested";

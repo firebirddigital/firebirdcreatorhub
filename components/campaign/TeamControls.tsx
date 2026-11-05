@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { emptyRateText, RateCardFields, rateCardFromText } from "./RateCardEditor";
+import type { RateType } from "@/lib/types";
 import { compact } from "@/lib/format";
 import { profileFromUrl } from "@/lib/social";
 import { ModalButton } from "./Modal";
@@ -66,9 +68,12 @@ interface NewCreatorDraft {
   instagramFollowers?: number;
   tiktokFollowers?: number;
   avgViews?: number;
+  /** Rates per deliverable type for this campaign, as typed. */
+  rates: Record<RateType, string>;
 }
 
 const EMPTY_NEW: NewCreatorDraft = {
+  rates: emptyRateText(),
   name: "",
   instagram: "",
   tiktok: "",
@@ -296,6 +301,12 @@ function NewCreatorForm({
           />
         </div>
       </div>
+      <details className="rounded-card border border-line p-3">
+        <summary className="cursor-pointer text-xs font-bold">Rates by deliverable for this campaign (optional)</summary>
+        <div className="mt-3">
+          <RateCardFields value={v.rates} onChange={(rates) => set({ rates })} />
+        </div>
+      </details>
       <div className="flex items-center gap-2">
         <button
           disabled={!canSave}
@@ -333,6 +344,7 @@ export function RosterTools({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [pickedRates, setPickedRates] = useState(emptyRateText);
   const [newCreator, setNewCreator] = useState<NewCreatorDraft>();
   const [busy, setBusy] = useState<string>();
   // Messages show next to whatever triggered them: the action buttons or the roster box.
@@ -448,10 +460,12 @@ export function RosterTools({
             onCancel={() => setNewCreator(undefined)}
             onSubmit={() =>
               run("new", async () => {
-                const { link: _link, nameAuto: _auto, ...fields } = newCreator;
+                const { link: _link, nameAuto: _auto, rates, ...fields } = newCreator;
                 const d = (await call(`/api/campaigns/${campaignId}/roster`, "POST", {
                   newCreator: { ...fields, rate: fields.rate ? Number(fields.rate) : undefined },
-                })) as { added?: number; newCreator?: { created: boolean; name: string }; pullingStats?: boolean };
+                  rates: rateCardFromText(rates),
+                })) as { added?: number; newCreator?: { created: boolean; name: string }; pullingStats?: boolean; ratesError?: string };
+                if (d.ratesError) throw new Error(`Added ${d.newCreator?.name ?? newCreator.name}, but the rates didn't save: ${d.ratesError}`);
                 setNewCreator(undefined);
                 const who = d.newCreator?.name ?? newCreator.name;
                 if (d.newCreator && !d.newCreator.created) {
@@ -469,12 +483,27 @@ export function RosterTools({
           />
         )}
         {picked.length > 0 && (
+          <details className="mt-3 rounded-card border border-line p-3">
+            <summary className="cursor-pointer text-xs font-bold">
+              Rates by deliverable for {picked.length === 1 ? "this creator" : `these ${picked.length} creators`} (optional)
+            </summary>
+            <div className="mt-3">
+              <RateCardFields value={pickedRates} onChange={setPickedRates} />
+            </div>
+          </details>
+        )}
+        {picked.length > 0 && (
           <button
             onClick={() =>
               run("add", async () => {
-                const d = await call(`/api/campaigns/${campaignId}/roster`, "POST", { creatorIds: picked });
+                const d = (await call(`/api/campaigns/${campaignId}/roster`, "POST", {
+                  creatorIds: picked,
+                  rates: rateCardFromText(pickedRates),
+                })) as { added?: number; ratesError?: string };
                 setPicked([]);
+                setPickedRates(emptyRateText());
                 setQuery("");
+                if (d.ratesError) throw new Error(`Added ${d.added} to the campaign, but the rates didn't save: ${d.ratesError}`);
                 return `Added ${d.added} to the campaign as Proposed.`;
               })
             }

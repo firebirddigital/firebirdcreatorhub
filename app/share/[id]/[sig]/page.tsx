@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { buildLanes, DraftsBody, DraftsHero } from "@/components/campaign/DraftsStage";
 import { CreatorsBody, CreatorsHero } from "@/components/campaign/CreatorsStage";
 import { CampaignShell, parseTab } from "@/components/campaign/Shell";
+import { CampaignBriefButton } from "@/components/campaign/CampaignBriefButton";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
 import { Logo } from "@/components/Logo";
 import { isValidShare } from "@/lib/auth";
@@ -95,7 +96,14 @@ export default async function SharePage({
           Request a campaign
         </a>
       </header>
-      <CampaignShell campaign={safeCampaign} tab={tab} current={current} basePath={basePath} hero={hero}>
+      <CampaignShell
+        campaign={safeCampaign}
+        tab={tab}
+        current={current}
+        basePath={basePath}
+        hero={hero}
+        actions={<CampaignBriefButton url={safeCampaign.briefUrl} />}
+      >
         {body}
       </CampaignShell>
       <footer className="mt-10 border-t border-line pt-5 text-xs text-muted">

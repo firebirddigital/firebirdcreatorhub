@@ -41,6 +41,10 @@ export const CAMPAIGN_FIELDS = {
   type: "Type",
   // Optional long text: partner names and emails from the request form. Team only.
   partnerContacts: "Partner Contacts",
+  // Optional URL field: link to the campaign brief (a Google Doc). Partners see it on their link.
+  briefUrl: "Brief Link",
+  // Optional "Last modified time" field. Sorts the campaigns list by recently edited.
+  lastModified: "Last Modified",
 } as const;
 
 export const ASSIGNMENT_FIELDS = {
@@ -55,6 +59,8 @@ export const ASSIGNMENT_FIELDS = {
   campaignRecordId: "Campaign Record ID",
   // Optional checkbox: the creator has been paid for this campaign. Team only.
   paid: "Paid",
+  // Optional long text: rates per deliverable type (Reel, TikTok…), stored as JSON by the hub.
+  rates: "Rates",
 } as const;
 
 export const DRAFT_FIELDS = {

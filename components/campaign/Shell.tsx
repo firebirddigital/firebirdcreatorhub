@@ -21,9 +21,12 @@ export function CampaignShell({
   current,
   basePath,
   hero,
+  actions,
   children,
 }: {
   campaign: Campaign;
+  /** Buttons under the title, e.g. Campaign Brief. */
+  actions?: React.ReactNode;
   tab: Stage;
   current: Stage;
   basePath: string;
@@ -44,6 +47,7 @@ export function CampaignShell({
           <StatusTag status={campaign.status} />
           <span>{dateRange(campaign.startDate, campaign.endDate)}</span>
         </div>
+        {actions && <div className="mt-4">{actions}</div>}
       </header>
 
       <div className="mt-5">{hero}</div>

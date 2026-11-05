@@ -31,8 +31,8 @@ export default async function ArtistResultsPage({ params }: { params: Promise<{ 
   if (!row) notFound();
   const t = a.totals;
   const engagements = t.stats.likes + t.stats.comments + t.stats.shares;
-  // Campaigns still in planning with nothing posted aren't results yet.
-  const campaigns = a.campaigns.filter((c) => c.posts > 0 || c.status !== "Planning");
+  // Campaigns awaiting approval (or canceled) with nothing posted aren't results yet.
+  const campaigns = a.campaigns.filter((c) => c.posts > 0 || (c.status !== "Awaiting approval" && c.status !== "Canceled"));
 
   return (
     <main className="app public-page">
@@ -76,7 +76,7 @@ export default async function ArtistResultsPage({ params }: { params: Promise<{ 
                 <div className="min-w-0">
                   <h3 className="font-display text-[15px] font-bold tracking-[0.02em]">{c.name}</h3>
                   <p className="mt-1 text-xs text-muted">
-                    {[c.status === "Live" ? "Live" : c.status === "Wrapped" ? "Wrapped" : "", dateRange(c.startDate)]
+                    {[c.status === "Live" || c.status === "Complete" ? c.status : "", dateRange(c.startDate)]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>

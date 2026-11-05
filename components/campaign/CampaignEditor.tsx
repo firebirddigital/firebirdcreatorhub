@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CAMPAIGN_TYPES, campaignType, type Campaign, type CampaignStatus, type CampaignType, type Stage } from "@/lib/types";
+import { CAMPAIGN_STATUSES, CAMPAIGN_TYPES, campaignType, type Campaign, type CampaignStatus, type CampaignType, type Stage } from "@/lib/types";
 
 interface FormState {
   type: CampaignType;
@@ -27,7 +27,7 @@ const fromCampaign = (c?: Campaign, stage?: Stage, type?: CampaignType): FormSta
   startDate: c?.startDate ?? "",
   endDate: c?.endDate ?? "",
   budget: c?.budget ? String(c.budget) : "",
-  status: c?.status ?? "Planning",
+  status: c?.status ?? "Awaiting approval",
   stage: stage ?? "creators",
   brief: c?.brief ?? "",
   sharingEnabled: c?.sharingEnabled ?? false,
@@ -105,9 +105,9 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
             onChange={(e) => set({ status: e.target.value as CampaignStatus })}
             className={input}
           >
-            <option>Planning</option>
-            <option>Live</option>
-            <option>Wrapped</option>
+            {CAMPAIGN_STATUSES.map((st) => (
+              <option key={st}>{st}</option>
+            ))}
           </select>
         </label>
         <label>

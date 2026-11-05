@@ -37,7 +37,7 @@ export function RequestImport() {
           </a>
         </span>
       ))}
-      . They start in Planning with the partner link off.
+      . They start as Awaiting approval with the partner link off.
     </p>
   );
 }

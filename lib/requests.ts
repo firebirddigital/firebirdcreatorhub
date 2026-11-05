@@ -1,7 +1,7 @@
 // Campaign requests from the operations base's two Airtable forms. Two ways in:
 //   - Direct (REQUESTS_AIRTABLE_TOKEN set): read straight from the operations base with a read-only key.
 //     The hub keeps each request's status in its own ledger (request-ledger.ts), and new requests are
-//     turned into Planning campaigns automatically (importNewRequests).
+//     turned into campaigns awaiting approval automatically (importNewRequests).
 //   - Synced: Airtable Sync copies the tables into the Creator Hub base, and the hub writes its two
 //     fields (Hub Status, Hub Campaign) on the copies.
 //   REQUESTS_AIRTABLE_TOKEN     read-only key, operations base only
@@ -295,7 +295,7 @@ async function saveContacts(campaignId: string, contacts: string): Promise<boole
   }
 }
 
-/** Creates a campaign from a request (as Planning, sharing off), then marks the request Accepted. */
+/** Creates a campaign from a request (as Awaiting approval, sharing off), then marks the request Accepted. */
 export async function acceptAsNewCampaign(
   request: CampaignRequest,
   opts: { auto?: boolean } = {},
@@ -303,7 +303,7 @@ export async function acceptAsNewCampaign(
   const fields: Record<string, unknown> = {
     [CF.name]: request.name.slice(0, 120),
     [CF.artist]: request.artist.slice(0, 120),
-    [CF.status]: "Planning",
+    [CF.status]: "Awaiting approval",
     [CF.stage]: "Creators",
     [CF.brief]: briefText(request).slice(0, 10_000),
     ...(songFromName(request.name) ? { [CF.song]: songFromName(request.name) } : {}),
@@ -327,7 +327,7 @@ export async function acceptAsNewCampaign(
 }
 
 /**
- * Turns new form submissions into Planning campaigns (sharing off), when reading the operations base
+ * Turns new form submissions into campaigns awaiting approval (sharing off), when reading the operations base
  * directly. Runs when the team opens Campaigns (at most every 2 minutes) and with the daily refresh.
  * Only requests submitted after auto-import started; never the same request twice.
  */

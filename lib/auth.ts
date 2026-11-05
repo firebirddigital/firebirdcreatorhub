@@ -43,6 +43,15 @@ export async function isValidShare(campaignId: string, sig: string): Promise<boo
   return safeEqual(sig, await shareSignature(campaignId));
 }
 
+/** Signature for a campaign folder's share link: /share/folder/<folderId>/<sig> */
+export async function folderSignature(folderId: string): Promise<string> {
+  return (await hmac(`folder:${folderId}`)).slice(0, 24);
+}
+
+export async function isValidFolderShare(folderId: string, sig: string): Promise<boolean> {
+  return safeEqual(sig, await folderSignature(folderId));
+}
+
 /** Signature for an artist's results link: /artist/<artistKey>/<sig>, where artistKey is the normalized name. */
 export async function artistSignature(artistKey: string): Promise<string> {
   return (await hmac(`artist:${artistKey}`)).slice(0, 24);
