@@ -7,7 +7,8 @@ import { CampaignBriefButton } from "@/components/campaign/CampaignBriefButton";
 import { RosterTools } from "@/components/campaign/TeamControls";
 import { TeamDraftForm, type PickerCreator } from "@/components/campaign/TeamDraftForm";
 import { LiveBody, LiveHero } from "@/components/CampaignDashboard";
-import { CurrentCpmSwitch } from "@/components/campaign/CurrentCpmSwitch";
+import { CampaignSwitch } from "@/components/campaign/CampaignSwitch";
+import { getCampaignSettings } from "@/lib/campaign-settings";
 import { CampaignTools } from "@/components/CampaignTools";
 import { StreamsUpload } from "@/components/StreamsUpload";
 import { TeamShell } from "@/components/Header";
@@ -121,7 +122,17 @@ export default async function CampaignPage({
     hero = (
       <>
         <LiveHero view={view} internal />
-        <CurrentCpmSwitch campaignId={campaign.id} on={view.showCurrentCpm} sample={sample} />
+        <div className="mt-3.5">
+          <CampaignSwitch
+            campaignId={campaign.id}
+            setting="showCurrentCpm"
+            label="Show current CPM"
+            on={view.showCurrentCpm}
+            onNote="Shown here, on the partner link and in the wrap report."
+            offNote="Hidden everywhere, including the partner link and wrap report. Expected CPM still shows."
+            sample={sample}
+          />
+        </div>
       </>
     );
     body = (
@@ -154,10 +165,30 @@ export default async function CampaignPage({
     );
   }
 
+  const settings = await getCampaignSettings(campaign.id);
+  const engagementSwitch = (
+    <div className="mt-3.5">
+      <CampaignSwitch
+        campaignId={campaign.id}
+        setting="showEngagementToPartners"
+        label="Show engagement rates to partners"
+        on={settings.showEngagementToPartners}
+        onNote="Partners see each creator's engagement rate (last 10 posts) on their link and wrap report."
+        offNote="Team only. Partners don't see creators' engagement rates."
+        sample={sample}
+      />
+    </div>
+  );
+
   return (
     <TeamShell active="campaigns">
       <CampaignShell campaign={campaign} tab={tab} current={current} basePath={`/campaigns/${id}`}
-        hero={hero}
+        hero={
+          <>
+            {hero}
+            {engagementSwitch}
+          </>
+        }
         actions={<CampaignBriefButton key={campaign.briefUrl ?? ""} url={campaign.briefUrl} campaignId={sample ? undefined : campaign.id} />}
       >
         <CampaignEditor key={JSON.stringify(campaign)} campaign={campaign} stage={current} sample={sample} />

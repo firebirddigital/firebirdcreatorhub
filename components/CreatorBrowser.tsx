@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { compact, CPM_OPTIONS, creatorCpm, money, timeAgo } from "@/lib/format";
+import { compact, CPM_OPTIONS, creatorCpm, money, pct, timeAgo } from "@/lib/format";
 import { pullStatsInBatches } from "@/lib/pull-stats";
 import type { Creator, TrackRecord } from "@/lib/types";
 import { trackRecordRatio, trackRecordText } from "./TrackRecordLine";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
 const COLLAPSE_KEY = "creators.filtersCollapsed";
-type Sort = "reach" | "avgViews" | "track" | "stale" | "name" | "rate" | "cpm";
+type Sort = "reach" | "avgViews" | "engagement" | "track" | "stale" | "name" | "rate" | "cpm";
 type View = "cards" | "table";
 
 const REACH_OPTIONS = [
@@ -148,6 +148,8 @@ export function CreatorBrowser({
             ? (creatorCpm(a) ?? Infinity) - (creatorCpm(b) ?? Infinity)
             : sort === "avgViews"
               ? (b.avgViews ?? 0) - (a.avgViews ?? 0)
+            : sort === "engagement"
+              ? (b.engagementRate ?? -1) - (a.engagementRate ?? -1)
               : sort === "track"
                 ? trackRecordRatio(trackRecords[b.id]) - trackRecordRatio(trackRecords[a.id]) ||
                   (trackRecords[b.id]?.views ?? 0) - (trackRecords[a.id]?.views ?? 0)
@@ -203,7 +205,7 @@ export function CreatorBrowser({
 
   function exportCsv() {
     const rows = [
-      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Median views (last 10 posts)", "Tags", "Location", "Rate", "CPM", "Email"],
+      ["Name", "Instagram", "Instagram followers", "TikTok", "TikTok followers", "Median views (last 10 posts)", "Engagement rate (last 10 posts)", "Tags", "Location", "Rate", "CPM", "Email"],
       ...shown.map((c) => [
         c.name,
         c.instagram ? `@${c.instagram}` : "",
@@ -211,6 +213,7 @@ export function CreatorBrowser({
         c.tiktok ? `@${c.tiktok}` : "",
         String(c.tiktokFollowers || ""),
         c.avgViews ? String(c.avgViews) : "",
+        c.engagementRate !== undefined ? `${(c.engagementRate * 100).toFixed(2)}%` : "",
         c.tags.join("; "),
         c.location ?? "",
         c.rate ? String(c.rate) : "",
@@ -312,6 +315,7 @@ export function CreatorBrowser({
                   { label: "Most median views", value: "avgViews" },
                   ...(team
                     ? [
+                        { label: "Highest engagement", value: "engagement" },
                         { label: "Best track record", value: "track" },
                         { label: "Oldest stats first", value: "stale" },
                         { label: "Lowest rate", value: "rate" },
@@ -588,6 +592,11 @@ function CreatorTable({
             <th className="num">TikTok</th>
             <th className="num">Instagram</th>
             <th className="num" title="Median views across their last 10 posts">Median views<span className="cell-sub normal-case tracking-normal">last 10 posts</span></th>
+            {team && (
+              <th className="num" title="Likes, comments and shares ÷ views across their last 10 posts">
+                Engagement<span className="cell-sub normal-case tracking-normal">last 10 posts</span>
+              </th>
+            )}
             {team && <th className="num">Rate</th>}
             {team && (
               <th className="num" title="Rate ÷ median views (last 10 posts) × 1,000">
@@ -642,6 +651,7 @@ function CreatorTable({
                 )}
               </td>
               <td className="num font-bold">{c.avgViews ? compact(c.avgViews) : "—"}</td>
+              {team && <td className="num">{c.engagementRate !== undefined ? pct(c.engagementRate) : "—"}</td>}
               {team && <td className="num">{c.rate ? money(c.rate) : "—"}</td>}
               {team && <td className="num">{creatorCpm(c) !== undefined ? money(creatorCpm(c)!, 2) : "—"}</td>}
               {team && <td className="min-w-48 whitespace-normal text-xs text-secondary">{trackRecordText(trackRecords[c.id]) ?? "No campaigns yet"}</td>}
@@ -795,6 +805,12 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
           <div className="flex items-baseline justify-between gap-3 border-b border-line py-2">
             <dt className="text-xs font-bold">Median views <span className="font-normal text-muted">(last 10 posts)</span></dt>
             <dd className="font-display font-bold tabular-nums">{compact(c.avgViews)}</dd>
+          </div>
+        ) : null}
+        {c.engagementRate !== undefined ? (
+          <div className="flex items-baseline justify-between gap-3 border-b border-line py-2">
+            <dt className="text-xs font-bold">Engagement rate <span className="font-normal text-muted">(last 10 posts)</span></dt>
+            <dd className="font-display font-bold tabular-nums">{pct(c.engagementRate)}</dd>
           </div>
         ) : null}
       </dl>

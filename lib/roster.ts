@@ -2,6 +2,7 @@
 import { createRecords, deleteRecords, updateRecords } from "./airtable";
 import { fetchProfileStats, latest, type ProfileStats } from "./apify";
 import { median } from "./format";
+import { saveEngagement, type CreatorEngagement } from "./creator-engagement";
 import {
   ASSIGNMENT_FIELDS as AF,
   CAMPAIGN_FIELDS as CF,
@@ -345,6 +346,17 @@ export function combinedAvgViews(...platforms: (ProfileStats | undefined)[]): nu
 }
 
 /**
+ * Engagement rate across a creator's last 10 posts (newest across TikTok and Instagram together):
+ * total likes, comments and shares ÷ total views, so one viral post doesn't swing it the way an average
+ * of per-post rates would. Posts without engagement counts (hidden likes) are left out.
+ */
+export function combinedEngagement(...platforms: (ProfileStats | undefined)[]): { rate: number; posts: number } | undefined {
+  const counted = latest(platforms.flatMap((p) => p?.recent ?? [])).filter((p) => p.engagements !== undefined && p.views > 0);
+  const views = counted.reduce((t, p) => t + p.views, 0);
+  return views ? { rate: counted.reduce((t, p) => t + (p.engagements ?? 0), 0) / views, posts: counted.length } : undefined;
+}
+
+/**
  * Pulls followers and average views (last 10 posts) for creators.
  * Creators on both platforms get their 10 newest posts across both.
  */
@@ -370,6 +382,7 @@ export async function refreshCreatorStats(creatorIds: string[]) {
   }
   const stats = await fetchProfileStats(accounts);
   const now = new Date().toISOString();
+  const engagement: Record<string, CreatorEngagement> = {};
 
   const updates = creators
     .map((c) => {
@@ -381,10 +394,13 @@ export async function refreshCreatorStats(creatorIds: string[]) {
       if (tt?.followers) fields[CRF.tiktokFollowers] = tt.followers;
       if (ig?.followers) fields[CRF.instagramFollowers] = ig.followers;
       if (avg) fields[CRF.avgViews] = avg;
+      const eng = combinedEngagement(tt, ig);
+      if (eng) engagement[c.id] = { ...eng, updatedAt: now };
       return { id: c.id, fields };
     })
     .filter((u): u is { id: string; fields: Record<string, unknown> } => Boolean(u));
 
   if (updates.length) await updateRecords(TABLES.creators, updates);
+  await saveEngagement(engagement);
   return { requested: creators.length, updated: updates.length };
 }

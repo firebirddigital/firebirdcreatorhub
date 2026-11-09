@@ -1,4 +1,4 @@
-import { compact, expectedCpm, median, money } from "@/lib/format";
+import { compact, expectedCpm, median, money, pct } from "@/lib/format";
 import type { Assignment, AssignmentStatus, TrackRecord } from "@/lib/types";
 import { trackRecordText } from "../TrackRecordLine";
 import { HeroFigure, HeroStats } from "./Shell";
@@ -8,6 +8,13 @@ import { CreatorEditButton } from "./CreatorEditButton";
 import { RateCardEditor } from "./RateCardEditor";
 import { BulkBar, BulkSelectProvider, SelectBox } from "./BulkSelect";
 
+/** Median without rounding (the shared median() rounds to whole views, which would turn rates into 0). */
+const middle = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
 const reach = (a: Assignment) => (a.creator ? a.creator.instagramFollowers + a.creator.tiktokFollowers : 0);
 
 export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showFees: boolean }) {
@@ -15,6 +22,7 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
   const approved = roster.filter((a) => a.status === "Approved");
   const awaiting = roster.filter((a) => a.status === "Proposed").length;
   const avgs = active.map((a) => a.creator?.avgViews ?? 0).filter(Boolean);
+  const rates = active.map((a) => a.creator?.engagementRate).filter((r): r is number => r !== undefined);
   const fees = approved.reduce((t, a) => t + (a.fee ?? 0), 0);
   // Cost per post is the campaign fee, or the creator's general rate when no fee is set yet.
   const expected = expectedCpm(active.map((a) => ({ cost: a.fee ?? a.creator?.rate, avgViews: a.creator?.avgViews })));
@@ -36,6 +44,10 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
             label: "Median views, last 10 posts",
             value: avgs.length ? compact(median(avgs) ?? 0) : "—",
           },
+          // Only when someone has a rate: on a partner link with engagement switched off, nobody does.
+          ...(rates.length
+            ? [{ label: "Engagement rate, last 10 posts", value: pct(middle(rates)), note: "Median across creators" }]
+            : []),
           ...(showFees
             ? [
                 { label: "Approved fees", value: fees ? money(fees) : "—" },
@@ -213,6 +225,15 @@ function RosterCard({
           <dt className="text-xs text-secondary">Median views (last 10 posts)</dt>
           <dd className="font-display text-[15px] font-extrabold tabular-nums">{c?.avgViews ? compact(c.avgViews) : "—"}</dd>
         </div>
+        {c?.engagementRate !== undefined && (
+          <div
+            className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0"
+            title="Likes, comments and shares ÷ views across their last 10 posts"
+          >
+            <dt className="text-xs text-secondary">Engagement rate (last 10 posts)</dt>
+            <dd className="font-display text-[15px] font-extrabold tabular-nums">{pct(c.engagementRate)}</dd>
+          </div>
+        )}
         {trackRecord && (
           <div className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0" title="Across all Firebird campaigns. Team only.">
             <dt className="text-xs text-secondary">Track record</dt>

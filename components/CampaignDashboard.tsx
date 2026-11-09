@@ -183,9 +183,14 @@ export function LiveBody({
                       {c.platforms.map((p) => PLATFORM_LABEL[p]).join(" and ")}, {c.posts}{" "}
                       {c.posts === 1 ? "post" : "posts"}
                     </p>
-                    {c.creator?.avgViews ? (
-                      <p className="text-xs text-muted" title="Median views across their last 10 posts">
-                        {compact(c.creator.avgViews)} median views, last 10 posts
+                    {c.creator?.avgViews || c.creator?.engagementRate !== undefined ? (
+                      <p className="text-xs text-muted" title="Their usual numbers, across their last 10 posts">
+                        {[
+                          c.creator.avgViews ? `${compact(c.creator.avgViews)} median views` : "",
+                          c.creator.engagementRate !== undefined ? `${pct(c.creator.engagementRate)} engagement` : "",
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}{", last 10 posts"}
                       </p>
                     ) : null}
                   </div>
@@ -283,6 +288,11 @@ function IncomingPosts({ incoming }: { incoming: CampaignView["incoming"] }) {
                   {c?.avgViews ? (
                     <span className="font-bold" title="Median views across their last 10 posts">
                       {compact(c.avgViews)} median views
+                    </span>
+                  ) : null}
+                  {c?.engagementRate !== undefined ? (
+                    <span className="font-bold" title="Likes, comments and shares ÷ views across their last 10 posts">
+                      {pct(c.engagementRate)} engagement
                     </span>
                   ) : null}
                 </p>

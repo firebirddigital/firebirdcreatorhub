@@ -112,6 +112,8 @@ export const RECENT_POSTS = 10;
 
 export interface RecentPost {
   views: number;
+  /** Likes + comments + shares, when the scraper reports them. Feeds the creator's engagement rate. */
+  engagements?: number;
   /** ISO time it was posted, when the scraper gives one. */
   at?: string;
 }
@@ -185,7 +187,13 @@ export async function fetchProfileStats(
     g.name ??= s(meta.nickName, meta.nickname);
     g.followers ??= n(meta.fans, meta.followerCount) || undefined;
     const v = n(it.playCount, ((it.stats ?? {}) as Item).playCount);
-    if (v && it.isPinned !== true) g.posts.push({ views: v, at: iso(it.createTimeISO ?? it.createTime) });
+    const st = (it.stats ?? {}) as Item;
+    if (v && it.isPinned !== true)
+      g.posts.push({
+        views: v,
+        at: iso(it.createTimeISO ?? it.createTime),
+        engagements: n(it.diggCount, st.diggCount) + n(it.commentCount, st.commentCount) + n(it.shareCount, st.shareCount),
+      });
     byAuthor.set(handle, g);
   }
   byAuthor.forEach((g, handle) => {
@@ -207,14 +215,21 @@ export async function fetchProfileStats(
     const handle = s(p.ownerUsername, (p.owner as Item | undefined)?.username)?.toLowerCase();
     const v = n(p.videoPlayCount, p.videoViewCount, p.playCount);
     if (!handle || !v || p.isPinned === true) continue;
-    igPostsBy.set(handle, [...(igPostsBy.get(handle) ?? []), { views: v, at: iso(p.timestamp ?? p.takenAt) }]);
+    // Instagram reports -1 likes when the creator hides like counts: leave that post out of the engagement rate.
+    const likes = n(p.likesCount, p.like_count);
+    const engagements = likes < 0 ? undefined : likes + n(p.commentsCount, p.comment_count) + n(p.sharesCount, p.reshareCount);
+    igPostsBy.set(handle, [...(igPostsBy.get(handle) ?? []), { views: v, at: iso(p.timestamp ?? p.takenAt), engagements }]);
   }
   for (const it of igProfiles) {
     const handle = s(it.username)?.toLowerCase();
     if (!handle) continue;
     // Fall back to the profile's own latest posts if the posts run came back empty
     const fallback = ((Array.isArray(it.latestPosts) ? it.latestPosts : []) as Item[])
-      .map((p) => ({ views: n(p.videoPlayCount, p.videoViewCount), at: iso(p.timestamp) }))
+      .map((p) => ({
+        views: n(p.videoPlayCount, p.videoViewCount),
+        at: iso(p.timestamp),
+        engagements: n(p.likesCount) < 0 ? undefined : n(p.likesCount) + n(p.commentsCount),
+      }))
       .filter((p) => p.views > 0);
     const recent = latest(igPostsBy.get(handle)?.length ? igPostsBy.get(handle)! : fallback);
     out.set(`instagram:${handle}`, {

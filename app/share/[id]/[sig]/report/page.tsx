@@ -5,6 +5,7 @@ import { isValidShare } from "@/lib/auth";
 import { getCampaign, getCampaignView } from "@/lib/data";
 import { getStreams } from "@/lib/streams";
 import { partnerView } from "@/lib/partner-view";
+import { getCampaignSettings } from "@/lib/campaign-settings";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Campaign wrap", robots: { index: false, follow: false } };
@@ -15,11 +16,11 @@ export default async function PartnerReportPage({ params }: { params: Promise<{ 
   if (!(await isValidShare(id, sig))) notFound();
   const campaign = await getCampaign(id);
   if (!campaign || !campaign.sharingEnabled) notFound();
-  const [view, streams] = await Promise.all([getCampaignView(campaign), getStreams(id)]);
+  const [view, streams, settings] = await Promise.all([getCampaignView(campaign), getStreams(id), getCampaignSettings(id)]);
   return (
     <main className="app public-page">
       <WrapReport
-        view={partnerView(view, campaign.showRates)}
+        view={partnerView(view, { fees: campaign.showRates, engagement: settings.showEngagementToPartners })}
         audience="partner"
         streams={streams?.shareWithPartner ? streams : undefined}
       />

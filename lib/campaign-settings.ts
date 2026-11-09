@@ -8,9 +8,14 @@ export interface CampaignSettings {
    * can hide it until it means something. Hidden everywhere: team page, partner link and wrap report.
    */
   showCurrentCpm: boolean;
+  /**
+   * Creators' engagement rate (last 10 posts) on the partner link and wrap report. The team always sees it.
+   * Off until the team turns it on, so nothing new reaches partners unasked.
+   */
+  showEngagementToPartners: boolean;
 }
 
-const DEFAULTS: CampaignSettings = { showCurrentCpm: true };
+const DEFAULTS: CampaignSettings = { showCurrentCpm: true, showEngagementToPartners: false };
 
 const path = (campaignId: string) => `campaign-settings/${campaignId.replace(/[^A-Za-z0-9]/g, "")}.json`;
 

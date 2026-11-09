@@ -5,6 +5,7 @@
 //   - only creators never updated or older than CREATOR_REFRESH_MIN_AGE_DAYS (default 14)
 //   - at most CREATOR_REFRESH_PER_NIGHT creators (default 20, max 40)
 // Server-side only.
+import { getEngagement } from "./creator-engagement";
 import { getCreators } from "./data";
 import { refreshCreatorStats } from "./roster";
 
@@ -51,9 +52,11 @@ export async function refreshOldestCreators(limit = perNight()): Promise<Creator
   const started = Date.now();
   const cutoff = Date.now() - minAgeDays() * 86_400_000;
   const creators = (await getCreators({ fresh: true })).filter((c) => c.tiktok || c.instagram);
-  // Never-updated first, then the longest since their last update.
+  // Creators pulled before engagement rates existed count as due, so they fill in over the next few nights.
+  const engagement = await getEngagement();
   const due = creators
-    .filter((c) => !c.statsUpdated || new Date(c.statsUpdated).getTime() < cutoff)
+    .filter((c) => !c.statsUpdated || new Date(c.statsUpdated).getTime() < cutoff || !engagement[c.id])
+    // Never-updated first, then the longest since their last update.
     .sort((a, b) => (a.statsUpdated ?? "").localeCompare(b.statsUpdated ?? ""));
 
   const result: CreatorRefreshResult = {

@@ -1,6 +1,6 @@
 import { draftSource } from "@/lib/draft-links";
 import { RateCardEditor } from "./RateCardEditor";
-import { compact, creatorCpm, money, shortDate } from "@/lib/format";
+import { compact, creatorCpm, money, pct, shortDate } from "@/lib/format";
 import type { Assignment, Creator, Draft, DraftPlatform, DraftStatus } from "@/lib/types";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
@@ -69,6 +69,11 @@ function CreatorMeta({ assignment: a, showCost, showCpm }: { assignment: Assignm
       <span className="font-bold text-fb-black" title={c?.avgViews ? "Median views across their last 10 posts" : "Stats not pulled yet"}>
         {c?.avgViews ? compact(c.avgViews) : "—"} median views
       </span>
+      {c?.engagementRate !== undefined && (
+        <span className="font-bold text-fb-black" title="Likes, comments and shares ÷ views across their last 10 posts">
+          {pct(c.engagementRate)} engagement
+        </span>
+      )}
       {showCost && cost && (
         <span className="font-bold text-fb-black" title={a.fee ? "Fee for this campaign" : "No fee set yet; their general rate"}>
           {cost}

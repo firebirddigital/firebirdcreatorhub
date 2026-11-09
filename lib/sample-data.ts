@@ -23,6 +23,8 @@ const c = (
   rate,
   // Made-up average views: 4–12% of followers, varied by creator, so CPM figures have something to show.
   avgViews: Math.round((igF + ttF) * (0.04 + (Number(id.slice(2)) % 5) * 0.02)),
+  // Made-up engagement rate: 3–9%.
+  engagementRate: 0.03 + (Number(id.slice(2)) % 7) * 0.01,
   email: `${id}@example.com`,
 });
 

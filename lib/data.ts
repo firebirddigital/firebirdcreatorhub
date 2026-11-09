@@ -21,6 +21,7 @@ import {
   sampleSnapshots,
 } from "./sample-data";
 import { getCampaignSettings } from "./campaign-settings";
+import { getEngagement } from "./creator-engagement";
 import type {
   TrackRecord,
   Benchmark,
@@ -45,7 +46,7 @@ import type {
 
 export async function getCreators(opts: { fresh?: boolean } = {}): Promise<Creator[]> {
   if (isSampleMode()) return sampleCreators;
-  const rows = await listAll(TABLES.creators, {}, opts);
+  const [rows, engagement] = await Promise.all([listAll(TABLES.creators, {}, opts), getEngagement()]);
   return rows
     .map((r) => ({
       id: r.id,
@@ -61,6 +62,7 @@ export async function getCreators(opts: { fresh?: boolean } = {}): Promise<Creat
       email: str(r.fields[CRF.email]),
       notes: str(r.fields[CRF.notes]),
       avgViews: num(r.fields[CRF.avgViews]) || undefined,
+      engagementRate: engagement[r.id]?.rate,
       statsUpdated: str(r.fields[CRF.statsUpdated]),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));

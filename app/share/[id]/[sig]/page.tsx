@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getCampaignSettings } from "@/lib/campaign-settings";
 import { buildLanes, DraftsBody, DraftsHero } from "@/components/campaign/DraftsStage";
 import { CreatorsBody, CreatorsHero } from "@/components/campaign/CreatorsStage";
 import { CampaignShell, parseTab } from "@/components/campaign/Shell";
@@ -44,8 +45,9 @@ export default async function SharePage({
   if (!campaign || !campaign.sharingEnabled) notFound();
 
   const showFees = campaign.showRates;
-  const cleanCreator = (c?: Creator) => partnerCreator(c, showFees);
-  const cleanAssignment = (a: Assignment) => partnerAssignment(a, showFees);
+  const shows = { fees: showFees, engagement: (await getCampaignSettings(id)).showEngagementToPartners };
+  const cleanCreator = (c?: Creator) => partnerCreator(c, shows);
+  const cleanAssignment = (a: Assignment) => partnerAssignment(a, shows);
 
   const current = campaignStage(campaign);
   const tab = parseTab(sp.tab) ?? current;
@@ -70,7 +72,7 @@ export default async function SharePage({
     body = <DraftsBody lanes={lanes} partner={partner} showFees={showFees} />;
   } else {
     const [view, streams] = await Promise.all([getCampaignView(campaign), getStreams(id)]);
-    const safe = partnerView(view, showFees);
+    const safe = partnerView(view, shows);
     hero = <LiveHero view={safe} internal={false} />;
     body = (
       <>

@@ -14,6 +14,8 @@ export interface Creator {
   email?: string;
   notes?: string;
   avgViews?: number;
+  /** (Likes + comments + shares) ÷ views across their last 10 posts. Partners see it only when the campaign allows. */
+  engagementRate?: number;
   statsUpdated?: string;
 }
 
