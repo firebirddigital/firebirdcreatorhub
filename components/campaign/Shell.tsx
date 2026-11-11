@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { dateRange } from "@/lib/format";
-import type { Campaign, Stage } from "@/lib/types";
+import { isSeeding, type Campaign, type Stage } from "@/lib/types";
 import { StatusTag } from "../StatusTag";
 
 export const STAGES: { key: Stage; label: string; action: string }[] = [
@@ -52,8 +52,8 @@ export function CampaignShell({
 
       <div className="mt-5">{hero}</div>
 
-      {/* The campaign is a sequence: numbered phase cards, each saying what to do there. */}
-      <nav aria-label="Campaign phases" className="grid cards-3 mt-3.5">
+      {/* The campaign is a sequence: numbered phase cards, each saying what to do there. Content Seeding is Live only. */}
+      {!isSeeding(campaign) && <nav aria-label="Campaign phases" className="grid cards-3 mt-3.5">
         {STAGES.map((s, i) => {
           const active = s.key === tab;
           const done = i < currentIndex;
@@ -90,7 +90,7 @@ export function CampaignShell({
             </Link>
           );
         })}
-      </nav>
+      </nav>}
       <div className="mt-3.5 flex flex-col gap-3.5 [&>*]:min-w-0">{children}</div>
     </>
   );

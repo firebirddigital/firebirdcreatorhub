@@ -43,6 +43,8 @@ const toPayload = (f: FormState) => ({
 
 function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => void }) {
   const input = "field";
+  // Content Seeding is Live only and always shared, so its stage and partner link aren't choices.
+  const seeding = f.type === "Content Seeding";
   return (
     <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
       <fieldset className="md:col-span-2">
@@ -60,7 +62,7 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
                 name="campaign-type"
                 value={t}
                 checked={f.type === t}
-                onChange={() => set({ type: t })}
+                onChange={() => set(t === "Content Seeding" ? { type: t, stage: "live", sharingEnabled: true } : { type: t })}
                 className="sr-only"
               />
               {t}
@@ -97,7 +99,7 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
           className={input}
         />
       </label>
-      <div className="grid grid-cols-2 gap-3.5">
+      <div className={seeding ? "" : "grid grid-cols-2 gap-3.5"}>
         <label>
           <span className="field-label">Status</span>
           <select
@@ -110,14 +112,14 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
             ))}
           </select>
         </label>
-        <label>
+        {!seeding && <label>
           <span className="field-label">Stage</span>
           <select value={f.stage} onChange={(e) => set({ stage: e.target.value as Stage })} className={input}>
             <option value="creators">Creators</option>
             <option value="drafts">Drafts</option>
             <option value="live">Live</option>
           </select>
-        </label>
+        </label>}
       </div>
       <label className="md:col-span-2">
         <span className="field-label">Brief</span>
@@ -133,12 +135,14 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
-            checked={f.sharingEnabled}
+            checked={seeding || f.sharingEnabled}
+            disabled={seeding}
             onChange={(e) => set({ sharingEnabled: e.target.checked })}
             className="size-4 accent-fb-red"
           />
           <span className="text-sm">
-            <span className="font-bold">Partner link on.</span> Untick to switch the share link off.
+            <span className="font-bold">Partner link on.</span>{" "}
+            {seeding ? "Always on for Content Seeding." : "Untick to switch the share link off."}
           </span>
         </label>
         <label className="flex items-center gap-3">
@@ -241,7 +245,8 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
  */
 export function ManualCampaign({ sample, type }: { sample: boolean; type?: CampaignType }) {
   const router = useRouter();
-  const blank = () => ({ ...fromCampaign(undefined, "live", type), status: "Live" as CampaignStatus });
+  // Partner link starts on: untick it in the form to keep a new campaign private.
+  const blank = () => ({ ...fromCampaign(undefined, "live", type), status: "Live" as CampaignStatus, sharingEnabled: true });
   const [open, setOpen] = useState(false);
   const [f, setF] = useState<FormState>(blank);
   const [busy, setBusy] = useState(false);

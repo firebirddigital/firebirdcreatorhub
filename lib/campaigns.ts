@@ -2,6 +2,7 @@
 import { createRecords, deleteRecords, updateRecords } from "./airtable";
 import { getAssignments, getDrafts, getPosts, getSnapshots } from "./data";
 import { removeCampaignFromFolders } from "./folders";
+import { saveCampaignType } from "./campaign-settings";
 import { CAMPAIGN_FIELDS as CF, TABLES } from "./config";
 import { CAMPAIGN_STATUSES, CAMPAIGN_TYPES, type CampaignStatus, type CampaignType, type Stage } from "./types";
 
@@ -87,7 +88,9 @@ async function withoutMissingFields<T>(fields: Record<string, unknown>, write: (
 
 export async function updateCampaign(id: string, fields: Record<string, unknown>) {
   const { skipped } = await withoutMissingFields(fields, (f) => updateRecords(TABLES.campaigns, [{ id, fields: f }]));
-  return { typeSaved: CF.type in fields && !skipped.includes(CF.type), skipped };
+  // Saved on the hub's disk as well, so the Type sticks even without a Type field in Airtable.
+  if (CF.type in fields) await saveCampaignType(id, fields[CF.type] as CampaignType);
+  return { typeSaved: CF.type in fields, skipped };
 }
 
 export async function createCampaign(fields: Record<string, unknown>): Promise<{ id: string; typeSaved: boolean; skipped: string[] }> {
@@ -95,7 +98,8 @@ export async function createCampaign(fields: Record<string, unknown>): Promise<{
     { [CF.status]: "Awaiting approval", [CF.stage]: "Creators", ...fields },
     (f) => createRecords(TABLES.campaigns, [{ fields: f }]),
   );
-  return { id: result[0].id, typeSaved: CF.type in fields && !skipped.includes(CF.type), skipped };
+  if (CF.type in fields) await saveCampaignType(result[0].id, fields[CF.type] as CampaignType);
+  return { id: result[0].id, typeSaved: CF.type in fields, skipped };
 }
 
 /**

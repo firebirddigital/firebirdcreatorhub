@@ -7,7 +7,9 @@ import { isSampleMode } from "@/lib/config";
 export async function POST(req: Request) {
   if (isSampleMode()) return NextResponse.json({ error: "Connect Airtable to create campaigns." }, { status: 400 });
   const input = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const { fields, error } = toFields({ name: "", ...input });
+  // Content Seeding is Live only and always shared.
+  const seeding = input.type === "Content Seeding";
+  const { fields, error } = toFields({ name: "", ...input, ...(seeding ? { stage: "live", sharingEnabled: true } : {}) });
   if (error) return NextResponse.json({ error }, { status: 400 });
 
   const { id, typeSaved, skipped } = await createCampaign(fields);

@@ -6,6 +6,7 @@ import { compact, CPM_OPTIONS, creatorCpm, money, pct, timeAgo } from "@/lib/for
 import { pullStatsInBatches } from "@/lib/pull-stats";
 import type { Creator, TrackRecord } from "@/lib/types";
 import { trackRecordRatio, trackRecordText } from "./TrackRecordLine";
+import { CreatorProfile } from "./CreatorProfile";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
 const COLLAPSE_KEY = "creators.filtersCollapsed";
@@ -70,6 +71,9 @@ export function CreatorBrowser({
 }) {
   const team = audience === "team";
   const router = useRouter();
+  // The creator whose profile popup is open (team only). Looked up by id so it shows fresh data after a save.
+  const [profileId, setProfileId] = useState<string>();
+  const openProfile = team ? (c: Creator) => setProfileId(c.id) : undefined;
   // Tag edits show straight away; the server copy catches up on the next refresh.
   const [tagEdits, setTagEdits] = useState<Record<string, string[]>>({});
   const creators = useMemo(
@@ -469,19 +473,36 @@ export function CreatorBrowser({
             setSelected((cur) => (on ? [...new Set([...cur, ...ids])] : cur.filter((id) => !ids.includes(id))))
           }
           onTags={(c, next) => applyTags([{ id: c.id, tags: next }], `Saved tags for ${c.name}.`)}
+          onOpen={openProfile}
         />
       ) : (
         <ul className="mt-3.5 grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
           {shown.map((c) => (
             <li key={c.id}>
-              <CreatorCard creator={c} activeTags={tags} trackRecord={team ? trackRecordText(trackRecords[c.id]) : undefined} />
+              <CreatorCard
+                creator={c}
+                activeTags={tags}
+                trackRecord={team ? trackRecordText(trackRecords[c.id]) : undefined}
+                onOpen={openProfile}
+              />
             </li>
           ))}
         </ul>
       )}
+      {team && (
+        <CreatorProfile
+          creator={creators.find((c) => c.id === profileId)}
+          trackRecord={profileId ? trackRecordText(trackRecords[profileId]) : undefined}
+          editable={editable}
+          onClose={() => setProfileId(undefined)}
+        />
+      )}
     </div>
   );
 }
+
+/** Clicks on links, buttons and form controls inside a card or row do their own thing, not open the profile. */
+const ownClick = (e: React.MouseEvent) => (e.target as HTMLElement).closest("a, button, input, select, textarea, label");
 
 function BulkTagBar({
   count,
@@ -559,6 +580,7 @@ function CreatorTable({
   selected,
   onSelect,
   onTags,
+  onOpen,
 }: {
   creators: Creator[];
   team: boolean;
@@ -569,6 +591,7 @@ function CreatorTable({
   selected: string[];
   onSelect: (ids: string[], on: boolean) => void;
   onTags: (c: Creator, tags: string[]) => void;
+  onOpen?: (c: Creator) => void;
 }) {
   const allOn = creators.every((c) => selected.includes(c.id));
   return (
@@ -614,7 +637,11 @@ function CreatorTable({
         </thead>
         <tbody>
           {creators.map((c) => (
-            <tr key={c.id} className={`align-top ${selected.includes(c.id) ? "bg-wash" : ""}`}>
+            <tr
+              key={c.id}
+              className={`align-top ${selected.includes(c.id) ? "bg-wash" : ""} ${onOpen ? "cursor-pointer hover:bg-wash-neutral" : ""}`}
+              onClick={onOpen ? (e) => !ownClick(e) && onOpen(c) : undefined}
+            >
               {editable && (
                 <td>
                   <input
@@ -627,7 +654,13 @@ function CreatorTable({
                 </td>
               )}
               <td>
-                <p className="font-bold">{c.name}</p>
+                {onOpen ? (
+                  <button type="button" onClick={() => onOpen(c)} className="text-left font-bold hover:text-fb-red">
+                    {c.name}
+                  </button>
+                ) : (
+                  <p className="font-bold">{c.name}</p>
+                )}
                 {c.location && <p className="text-xs text-muted">{c.location}</p>}
               </td>
               <td className="num">
@@ -773,7 +806,17 @@ function TagCell({
   );
 }
 
-function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator; activeTags: string[]; trackRecord?: string }) {
+function CreatorCard({
+  creator: c,
+  activeTags,
+  trackRecord,
+  onOpen,
+}: {
+  creator: Creator;
+  activeTags: string[];
+  trackRecord?: string;
+  onOpen?: (c: Creator) => void;
+}) {
   const initials = c.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -781,7 +824,10 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
     .join("");
 
   return (
-    <article className="card h-full overflow-hidden p-0">
+    <article
+      className={`card h-full overflow-hidden p-0 ${onOpen ? "cursor-pointer transition-shadow hover:shadow-lift" : ""}`}
+      onClick={onOpen ? (e) => !ownClick(e) && onOpen(c) : undefined}
+    >
       <div className="relative aspect-[4/5] overflow-hidden bg-fb-ink">
         {c.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -793,7 +839,15 @@ function CreatorCard({ creator: c, activeTags, trackRecord }: { creator: Creator
         )}
       </div>
       <div className="p-4">
-      <h3 className="font-display text-[15px] font-bold tracking-[0.02em]">{c.name}</h3>
+      <h3 className="font-display text-[15px] font-bold tracking-[0.02em]">
+        {onOpen ? (
+          <button type="button" onClick={() => onOpen(c)} className="text-left hover:text-fb-red">
+            {c.name}
+          </button>
+        ) : (
+          c.name
+        )}
+      </h3>
       {c.location && <p className="text-xs text-muted">{c.location}</p>}
 
       <dl className="mt-3 border-t border-line">

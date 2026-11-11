@@ -23,7 +23,7 @@ import { EmailDashboard } from "@/components/campaign/EmailDashboard";
 import { getStreams } from "@/lib/streams";
 import { getRequests } from "@/lib/requests";
 import { RequestLink } from "@/components/campaign/RequestLink";
-import type { Assignment } from "@/lib/types";
+import { isSeeding, type Assignment } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,8 @@ export default async function CampaignPage({
 
   const sample = isSampleMode();
   const current = campaignStage(campaign);
-  const tab = parseTab(sp.tab) ?? current;
+  // Content Seeding has no Creators or Drafts phase: always the Live tab.
+  const tab = isSeeding(campaign) ? "live" : (parseTab(sp.tab) ?? current);
   const origin = await siteOrigin();
   const shareUrl = campaign.sharingEnabled
     ? `${origin}/share/${campaign.id}/${await shareSignature(campaign.id)}`

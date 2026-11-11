@@ -38,7 +38,8 @@ export default async function CreatorsPage() {
       </p>
       <p className="max-w-prose text-sm text-secondary">
         Every influencer we work with, tagged and filterable. Tag creators right here: click + Tag on a row, or tick
-        several and add a tag to all of them. Edit everything else in Airtable; changes show here within five minutes.
+        several and add a tag to all of them. Click any creator to open their profile and edit their rate, email,
+        notes and the rest.
       </p>
       <CreatorBrowser creators={creators} trackRecords={trackRecords} editable={!isSampleMode()} />
     </TeamShell>

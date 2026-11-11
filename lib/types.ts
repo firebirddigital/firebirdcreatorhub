@@ -66,6 +66,9 @@ export function campaignType(c: Pick<Campaign, "type" | "name" | "song">): Campa
   return /seed/i.test(`${c.name} ${c.song ?? ""}`) ? "Content Seeding" : "Influencer";
 }
 
+/** Content Seeding campaigns skip the Creators and Drafts phases: they're only ever Live, and always shared. */
+export const isSeeding = (c: Pick<Campaign, "type" | "name" | "song">) => campaignType(c) === "Content Seeding";
+
 export type AssignmentStatus = "Proposed" | "Approved" | "Changes requested" | "Declined";
 
 /** A creator proposed for (or booked on) a campaign. */

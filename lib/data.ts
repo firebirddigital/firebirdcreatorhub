@@ -11,7 +11,7 @@ import {
 } from "./config";
 import { detectPlatform } from "./social";
 import { expectedCpm } from "./format";
-import { CAMPAIGN_TYPES, parseCampaignStatus, parsePlatforms, parseRateCard } from "./types";
+import { CAMPAIGN_TYPES, isSeeding, parseCampaignStatus, parsePlatforms, parseRateCard } from "./types";
 import {
   sampleAssignments,
   sampleCampaigns,
@@ -20,7 +20,7 @@ import {
   samplePosts,
   sampleSnapshots,
 } from "./sample-data";
-import { getCampaignSettings } from "./campaign-settings";
+import { getCampaignSettings, getSavedTypes } from "./campaign-settings";
 import { getEngagement } from "./creator-engagement";
 import type {
   TrackRecord,
@@ -70,7 +70,7 @@ export async function getCreators(opts: { fresh?: boolean } = {}): Promise<Creat
 
 export async function getCampaigns(opts: { fresh?: boolean } = {}): Promise<Campaign[]> {
   if (isSampleMode()) return sampleCampaigns;
-  const rows = await listAll(TABLES.campaigns, {}, opts);
+  const [rows, savedTypes] = await Promise.all([listAll(TABLES.campaigns, {}, opts), getSavedTypes()]);
   return rows.map((r) => ({
     id: r.id,
     name: str(r.fields[CF.name]) ?? "Untitled campaign",
@@ -88,9 +88,11 @@ export async function getCampaigns(opts: { fresh?: boolean } = {}): Promise<Camp
     createdAt: r.createdTime,
     updatedAt: str(r.fields[CF.lastModified]),
     showRates: r.fields[CF.showRates] === true,
-    type: CAMPAIGN_TYPES.find((t) => t.toLowerCase() === str(r.fields[CF.type])?.toLowerCase()),
+    type: CAMPAIGN_TYPES.find((t) => t.toLowerCase() === str(r.fields[CF.type])?.toLowerCase()) ?? savedTypes[r.id],
     partnerContacts: str(r.fields[CF.partnerContacts]),
-  }));
+  }))
+    // Content Seeding campaigns always have their partner link on.
+    .map((c) => (isSeeding(c) ? { ...c, sharingEnabled: true } : c));
 }
 
 function toStage(v?: string): Stage | undefined {
@@ -100,6 +102,7 @@ function toStage(v?: string): Stage | undefined {
 
 /** Which tab a campaign opens on: the Stage field if set, otherwise inferred from Status. */
 export function campaignStage(c: Campaign): Stage {
+  if (isSeeding(c)) return "live";
   return c.stage ?? (c.status === "Awaiting approval" ? "creators" : "live");
 }
 

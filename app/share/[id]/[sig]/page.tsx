@@ -13,7 +13,7 @@ import { isSampleMode, REQUEST_FORM_URL } from "@/lib/config";
 import { campaignStage, getAssignments, getCampaign, getCampaignView, getDrafts } from "@/lib/data";
 import { partnerAssignment, partnerCampaign, partnerCreator, partnerView, reviewerName } from "@/lib/partner-view";
 import { getStreams } from "@/lib/streams";
-import type { Assignment, Creator } from "@/lib/types";
+import { isSeeding, type Assignment, type Creator } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 // The link preview's title is the campaign's name; only for valid links to campaigns that are shared.
@@ -50,7 +50,8 @@ export default async function SharePage({
   const cleanAssignment = (a: Assignment) => partnerAssignment(a, shows);
 
   const current = campaignStage(campaign);
-  const tab = parseTab(sp.tab) ?? current;
+  // Content Seeding has no Creators or Drafts phase: always the Live tab.
+  const tab = isSeeding(campaign) ? "live" : (parseTab(sp.tab) ?? current);
   const basePath = `/share/${id}/${sig}`;
   const partner = { reviewEndpoint: `/api/share/${id}/${sig}/review` };
   const safeCampaign = partnerCampaign(campaign);

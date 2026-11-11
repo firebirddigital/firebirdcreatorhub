@@ -1,6 +1,7 @@
 // Display switches the team sets per campaign, kept as one small JSON file per campaign on the hub's disk.
 // Server-side only.
 import { readJson, writeJson } from "./storage";
+import type { CampaignType } from "./types";
 
 export interface CampaignSettings {
   /**
@@ -28,4 +29,16 @@ export async function updateCampaignSettings(campaignId: string, change: Partial
   const next = { ...(await getCampaignSettings(campaignId)), ...change };
   await writeJson(path(campaignId), next);
   return next;
+}
+
+// Each campaign's Type (Influencer or Content Seeding), kept here too because the Campaigns table may not
+// have a Type field yet. Airtable's value wins when it has one.
+const TYPES = "campaign-types.json";
+
+export async function getSavedTypes(): Promise<Record<string, CampaignType>> {
+  return (await readJson<Record<string, CampaignType>>(TYPES).catch(() => undefined)) ?? {};
+}
+
+export async function saveCampaignType(campaignId: string, type: CampaignType) {
+  await writeJson(TYPES, { ...(await getSavedTypes()), [campaignId]: type });
 }
