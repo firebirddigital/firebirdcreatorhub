@@ -210,13 +210,16 @@ export function ReviewControls({
           </>
         ) : (
           <>
-            <button
-              onClick={() => setMode("changes")}
-              disabled={busy}
-              className="btn btn-sm"
-            >
-              Request changes
-            </button>
+            {/* Creators are approved or passed on; only drafts get change requests. */}
+            {kind === "draft" && (
+              <button
+                onClick={() => setMode("changes")}
+                disabled={busy}
+                className="btn btn-sm"
+              >
+                Request changes
+              </button>
+            )}
             {allowDecline && (
               <button onClick={() => setMode("decline")} disabled={busy} className="btn btn-quiet btn-sm text-secondary">
                 Pass

@@ -13,6 +13,7 @@ import { createRecords, listAll, num, updateRecords, type AirtableRecord, type O
 import { CAMPAIGN_FIELDS as CF, isSampleMode, TABLES } from "./config";
 import { getCampaign, getCampaigns } from "./data";
 import { readLedger, updateLedger, type RequestLedger } from "./request-ledger";
+import { getSavedTypes, saveCampaignType } from "./campaign-settings";
 import type { CampaignType } from "./types";
 
 export type RequestSource = "influencer" | "seeding";
@@ -304,7 +305,8 @@ export async function acceptAsNewCampaign(
     [CF.name]: request.name.slice(0, 120),
     [CF.artist]: request.artist.slice(0, 120),
     [CF.status]: "Awaiting approval",
-    [CF.stage]: "Creators",
+    // Content Seeding has no Creators or Drafts phase.
+    [CF.stage]: request.source === "seeding" ? "Live" : "Creators",
     [CF.brief]: briefText(request).slice(0, 10_000),
     ...(songFromName(request.name) ? { [CF.song]: songFromName(request.name) } : {}),
     ...(request.launchDate ? { [CF.startDate]: request.launchDate } : {}),
@@ -321,6 +323,9 @@ export async function acceptAsNewCampaign(
     const { [CF.type]: _t, ...rest } = fields;
     [rec] = await createRecords(TABLES.campaigns, [{ fields: rest }]);
   }
+  // The Campaigns table may have no Type field, so the hub keeps the type too: seeding requests land on the
+  // Content Seeding tab even when "seeding" isn't in the name.
+  await saveCampaignType(rec.id, REQUEST_SOURCES[request.source].type);
   const contactsSaved = await saveContacts(rec.id, contactsText(request));
   await writeHub(request, { [HUB_FIELDS.status]: "Accepted", [HUB_FIELDS.campaign]: [rec.id] }, opts.auto);
   return { campaignId: rec.id, contactsSaved };
@@ -339,7 +344,19 @@ export async function importNewRequests(opts: { force?: boolean } = {}): Promise
     l.lastImportAt = new Date().toISOString();
   });
 
-  const [{ requests }, campaigns] = await Promise.all([getRequests({ fresh: true }), getCampaigns({ fresh: true })]);
+  const [{ requests }, campaigns, savedTypes] = await Promise.all([getRequests({ fresh: true }), getCampaigns({ fresh: true }), getSavedTypes()]);
+
+  // Campaigns made from a request before the hub kept types: give them their form's type (Influencer form →
+  // Influencer tab, Content Seeding form → Content Seeding tab), unless Airtable or the team already set one.
+  const airtableTyped = new Set(campaigns.filter((c) => c.type && !savedTypes[c.id]).map((c) => c.id));
+  for (const r of requests.filter((x) => x.hubStatus === "Accepted")) {
+    for (const id of r.hubCampaignIds) {
+      if (!savedTypes[id] && !airtableTyped.has(id) && campaigns.some((c) => c.id === id)) {
+        await saveCampaignType(id, REQUEST_SOURCES[r.source].type);
+        savedTypes[id] = REQUEST_SOURCES[r.source].type;
+      }
+    }
+  }
   const existing = new Set(campaigns.map((c) => `${c.name.trim().toLowerCase()}|${c.artist.trim().toLowerCase()}`));
   const created: { requestId: string; campaignId: string; name: string }[] = [];
   for (const r of requests.filter((x) => x.hubStatus === "New" && x.createdTime >= ledger.startedAt)) {
@@ -388,6 +405,7 @@ export async function acceptIntoCampaign(
       if (t >= 0) fill.splice(t, 1);
     }
   }
+  if (!campaign.type) await saveCampaignType(campaignId, REQUEST_SOURCES[request.source].type);
   const contactsSaved = await saveContacts(campaignId, contactsText(request));
   await writeHub(request, {
     [HUB_FIELDS.status]: "Accepted",

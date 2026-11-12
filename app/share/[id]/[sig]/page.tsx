@@ -48,6 +48,8 @@ export default async function SharePage({
   const shows = { fees: showFees, engagement: (await getCampaignSettings(id)).showEngagementToPartners };
   const cleanCreator = (c?: Creator) => partnerCreator(c, shows);
   const cleanAssignment = (a: Assignment) => partnerAssignment(a, shows);
+  // Creators the team has only reached out to aren't proposed yet, so partners don't see them.
+  const proposed = (roster: Assignment[]) => roster.filter((a) => a.status !== "Reached Out");
 
   const current = campaignStage(campaign);
   // Content Seeding has no Creators or Drafts phase: always the Live tab.
@@ -60,13 +62,13 @@ export default async function SharePage({
   let body: React.ReactNode;
 
   if (tab === "creators") {
-    const roster = (await getAssignments(id)).map(cleanAssignment);
+    const roster = proposed(await getAssignments(id)).map(cleanAssignment);
     hero = <CreatorsHero roster={roster} showFees={showFees} />;
     body = <CreatorsBody roster={roster} showFees={showFees} partner={partner} />;
   } else if (tab === "drafts") {
     const [roster, drafts] = await Promise.all([getAssignments(id), getDrafts(id).then(signDraftUrls)]);
     const lanes = buildLanes(
-      roster.map(cleanAssignment),
+      proposed(roster).map(cleanAssignment),
       drafts.map((d) => ({ ...d, creator: cleanCreator(d.creator), reviewedBy: reviewerName(d.reviewedBy) })),
     );
     hero = <DraftsHero lanes={lanes} />;

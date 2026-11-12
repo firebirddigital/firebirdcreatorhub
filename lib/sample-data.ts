@@ -26,6 +26,8 @@ const c = (
   // Made-up engagement rate: 3–9%.
   engagementRate: 0.03 + (Number(id.slice(2)) % 7) * 0.01,
   email: `${id}@example.com`,
+  // Added a few days apart, newest last.
+  createdAt: new Date(Date.now() - (30 - Number(id.slice(2))) * 2 * 86_400_000).toISOString(),
 });
 
 export const sampleCreators: Creator[] = [
@@ -93,7 +95,7 @@ export const sampleCampaigns: Campaign[] = [
   },
   {
     id: "cmp03",
-    name: "Holiday Single Seeding",
+    name: "Holiday Single Creators",
     artist: "Ivy Lane",
     song: "Snow Globe",
     startDate: daysAgo(-10),
@@ -201,7 +203,7 @@ export const sampleAssignments: Assignment[] = [
   assign("cmp03", "cr15", "Approved", { reviewedBy: "Label team" }),
   assign("cmp03", "cr17", "Proposed"),
   assign("cmp03", "cr07", "Proposed"),
-  assign("cmp03", "cr10", "Changes requested", {
+  assign("cmp03", "cr10", "Reached Out", {
     partnerComment: "Love the energy, but can we see a softer option for a holiday ballad?",
     reviewedBy: "Label team",
   }),

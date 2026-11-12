@@ -22,11 +22,14 @@ export function CampaignShell({
   basePath,
   hero,
   actions,
+  edit,
   children,
 }: {
   campaign: Campaign;
-  /** Buttons under the title, e.g. Campaign Brief. */
+  /** The Campaign Brief row, under the phase buttons. */
   actions?: React.ReactNode;
+  /** Team only: the Edit campaign button, top right. */
+  edit?: React.ReactNode;
   tab: Stage;
   current: Stage;
   basePath: string;
@@ -38,16 +41,20 @@ export function CampaignShell({
   return (
     <>
       <header className="pt-1">
-        <p className="subtitle text-[11px] tracking-[0.08em] text-muted">
-          {campaign.artist}
-          {campaign.song ? `, “${campaign.song}”` : ""}
-        </p>
-        <h1 className="headline mt-2 text-4xl max-sm:text-3xl max-w-5xl">{campaign.name}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="subtitle text-[11px] tracking-[0.08em] text-muted">
+              {campaign.artist}
+              {campaign.song ? `, “${campaign.song}”` : ""}
+            </p>
+            <h1 className="headline mt-2 text-4xl max-sm:text-3xl max-w-5xl">{campaign.name}</h1>
+          </div>
+          {edit && <div className="shrink-0">{edit}</div>}
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
           <StatusTag status={campaign.status} />
           <span>{dateRange(campaign.startDate, campaign.endDate)}</span>
         </div>
-        {actions && <div className="mt-4">{actions}</div>}
       </header>
 
       <div className="mt-5">{hero}</div>
@@ -91,6 +98,7 @@ export function CampaignShell({
           );
         })}
       </nav>}
+      {actions && <div className="mt-3.5">{actions}</div>}
       <div className="mt-3.5 flex flex-col gap-3.5 [&>*]:min-w-0">{children}</div>
     </>
   );

@@ -12,7 +12,7 @@ import {
   updateAssignment,
   UserError,
 } from "@/lib/roster";
-import { parseRateCard, type AssignmentStatus } from "@/lib/types";
+import { ASSIGNMENT_STATUSES, parseRateCard } from "@/lib/types";
 
 export const maxDuration = 300;
 
@@ -30,6 +30,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     newCreator?: Partial<NewCreatorInput>;
     /** Rates per deliverable type, set on every creator added in this request. */
     rates?: unknown;
+    /** Reached Out or Proposed (the default). */
+    status?: string;
   };
   const creatorIds = (body.creatorIds ?? []).filter((c) => typeof c === "string" && /^rec[A-Za-z0-9]{14}$/.test(c));
 
@@ -60,7 +62,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   if (!creatorIds.length) return NextResponse.json({ error: "Pick at least one creator." }, { status: 400 });
 
-  const added = await addCreatorsToCampaign(id, creatorIds);
+  const status = body.status === "Reached Out" ? "Reached Out" : "Proposed";
+  const added = await addCreatorsToCampaign(id, creatorIds, status);
 
   // Rates entered while adding go on the new roster entries.
   const rates = parseRateCard(body.rates);
@@ -106,7 +109,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
 }
 
-const STATUSES: AssignmentStatus[] = ["Proposed", "Approved", "Changes requested", "Declined"];
+const STATUSES = ASSIGNMENT_STATUSES;
 
 // Change a roster entry's status, fee, paid mark or rates per deliverable type.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

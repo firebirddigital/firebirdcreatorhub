@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CAMPAIGN_STATUSES, CAMPAIGN_TYPES, campaignType, type Campaign, type CampaignStatus, type CampaignType, type Stage } from "@/lib/types";
 
 interface FormState {
@@ -17,6 +17,8 @@ interface FormState {
   brief: string;
   sharingEnabled: boolean;
   showRates: boolean;
+  /** Edit only: partners see creators' engagement rates. Saved as a hub setting, not in Airtable. */
+  showEngagementToPartners?: boolean;
 }
 
 const fromCampaign = (c?: Campaign, stage?: Stage, type?: CampaignType): FormState => ({
@@ -34,7 +36,7 @@ const fromCampaign = (c?: Campaign, stage?: Stage, type?: CampaignType): FormSta
   showRates: c?.showRates ?? false,
 });
 
-const toPayload = (f: FormState) => ({
+const toPayload = ({ showEngagementToPartners: _eng, ...f }: FormState) => ({
   ...f,
   startDate: f.startDate || null,
   endDate: f.endDate || null,
@@ -156,19 +158,51 @@ function Fields({ f, set }: { f: FormState; set: (patch: Partial<FormState>) => 
             <span className="font-bold">Show fees to partner.</span> Off by default.
           </span>
         </label>
+        {f.showEngagementToPartners !== undefined && (
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={f.showEngagementToPartners}
+              onChange={(e) => set({ showEngagementToPartners: e.target.checked })}
+              className="size-4 accent-fb-red"
+            />
+            <span className="text-sm">
+              <span className="font-bold">Show engagement rates to partner.</span> Each creator&apos;s rate over their last 10 posts.
+            </span>
+          </label>
+        )}
       </div>
     </div>
   );
 }
 
-/** Team-only panel for editing a campaign's details in place. */
-export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign; stage: Stage; sample: boolean }) {
+/** Team only: "Edit campaign" at the top right of a campaign, opening the details in a popup. */
+export function CampaignEditor({
+  campaign,
+  stage,
+  sample,
+  engagementToPartners,
+}: {
+  campaign: Campaign;
+  stage: Stage;
+  sample: boolean;
+  engagementToPartners: boolean;
+}) {
   const router = useRouter();
+  const ref = useRef<HTMLDialogElement>(null);
+  const initial = () => ({ ...fromCampaign(campaign, stage), showEngagementToPartners: engagementToPartners });
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState<FormState>(() => fromCampaign(campaign, stage));
+  const [f, setF] = useState<FormState>(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const [saved, setSaved] = useState<boolean | "type-missing">(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal();
+    if (!open && d.open) d.close();
+  }, [open]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -178,25 +212,39 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(toPayload(f)),
-    });
-    const data = (await res.json().catch(() => ({}))) as { error?: string; typeSaved?: boolean };
+    }).catch(() => undefined);
+    const data = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+    if (res?.ok && f.showEngagementToPartners !== engagementToPartners) {
+      const s = await fetch(`/api/campaigns/${campaign.id}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showEngagementToPartners: f.showEngagementToPartners }),
+      }).catch(() => undefined);
+      if (!s?.ok) {
+        setBusy(false);
+        setError("Campaign saved, but the engagement rate setting didn't. Try again.");
+        router.refresh();
+        return;
+      }
+    }
     setBusy(false);
-    if (!res.ok) {
-      setError(data.error ?? "Changes didn't save. Try again.");
+    if (!res?.ok) {
+      setError(data?.error ?? "Changes didn't save. Try again.");
       return;
     }
     setOpen(false);
-    setSaved(data.typeSaved === false ? "type-missing" : true);
-    setTimeout(() => setSaved(false), data.typeSaved === false ? 8000 : 3000);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
     router.refresh();
   }
 
-  if (!open) {
-    return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+  return (
+    <>
+      <div className="flex flex-col items-end gap-1">
         <button
           onClick={() => {
-            setF(fromCampaign(campaign, stage));
+            setF(initial());
+            setError(undefined);
             setOpen(true);
           }}
           className="btn"
@@ -204,38 +252,47 @@ export function CampaignEditor({ campaign, stage, sample }: { campaign: Campaign
           Edit campaign
         </button>
         {saved && (
-          <span role="status" className="text-sm text-secondary">
-            {saved === "type-missing"
-              ? "Campaign saved, except Type: add a single select field called Type to the Campaigns table in Airtable."
-              : "Campaign saved."}
+          <span role="status" className="text-xs text-secondary">
+            Campaign saved.
           </span>
         )}
       </div>
-    );
-  }
-
-  return (
-    <form onSubmit={save} className="card space-y-4">
-      <h2>Edit campaign</h2>
-      <Fields f={f} set={(p) => setF((cur) => ({ ...cur, ...p }))} />
-      {sample && <p className="text-xs text-muted">Editing turns on once Airtable is connected.</p>}
-      {error && (
-        <p role="alert" className="text-sm font-bold text-fb-red">
-          {error}
-        </p>
-      )}
-      <div className="flex items-center gap-2.5 border-t border-line pt-4">
-        <button
-          disabled={busy || sample}
-          className="btn btn-primary"
-        >
-          {busy ? "Saving" : "Save campaign"}
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="btn btn-quiet">
-          Cancel
-        </button>
-      </div>
-    </form>
+      <dialog
+        ref={ref}
+        onClose={() => setOpen(false)}
+        onClick={(e) => e.target === ref.current && setOpen(false)}
+        aria-label="Edit campaign"
+        className="sheet m-auto w-[min(44rem,calc(100vw-2rem))] max-h-[calc(100vh-4rem)] overflow-y-auto"
+      >
+        {open && (
+          <form onSubmit={save}>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-surface px-5 py-3.5">
+              <h2 className="font-display text-xs font-bold uppercase tracking-[0.08em]">Edit campaign</h2>
+              <button type="button" onClick={() => setOpen(false)} className="btn btn-quiet btn-sm">
+                Close
+              </button>
+            </div>
+            <div className="space-y-4 p-5 max-sm:p-4">
+              <Fields f={f} set={(p) => setF((cur) => ({ ...cur, ...p }))} />
+              {sample && <p className="text-xs text-muted">Editing turns on once Airtable is connected.</p>}
+              {error && (
+                <p role="alert" className="text-sm font-bold text-fb-red">
+                  {error}
+                </p>
+              )}
+              <div className="flex items-center gap-2.5 border-t border-line pt-4">
+                <button disabled={busy || sample} className="btn btn-primary">
+                  {busy ? "Saving" : "Save campaign"}
+                </button>
+                <button type="button" onClick={() => setOpen(false)} className="btn btn-quiet">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+      </dialog>
+    </>
   );
 }
 

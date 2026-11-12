@@ -111,7 +111,8 @@ const rateCardText = (rates?: RateCard | null) => (rates && Object.keys(rates).l
 
 const DECISIONS = {
   approve: { creator: "Approved", draft: "Approved" },
-  changes: { creator: "Changes requested", draft: "Changes requested" },
+  // Feedback on a creator keeps them Proposed (waiting on the partner), with the comment saved.
+  changes: { creator: "Proposed", draft: "Changes requested" },
   decline: { creator: "Declined", draft: "Changes requested" },
 } as const;
 
@@ -370,7 +371,8 @@ export async function pullMissingStats(creatorIds: string[]) {
   const missing = (await getCreators({ fresh: true }))
     .filter((c) => creatorIds.includes(c.id) && !c.statsUpdated && !c.avgViews && (c.tiktok || c.instagram))
     .map((c) => c.id);
-  if (missing.length) await refreshCreatorStats(missing);
+  // Ten at a time, so a big pasted list or CSV doesn't overrun a single scraper run.
+  for (let i = 0; i < missing.length; i += 10) await refreshCreatorStats(missing.slice(i, i + 10)).catch(() => undefined);
 }
 
 export async function refreshCreatorStats(creatorIds: string[]) {

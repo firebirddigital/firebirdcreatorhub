@@ -3,6 +3,7 @@ import type { Assignment, AssignmentStatus, TrackRecord } from "@/lib/types";
 import { trackRecordText } from "../TrackRecordLine";
 import { HeroFigure, HeroStats } from "./Shell";
 import { ReviewControls } from "./ReviewControls";
+import { RosterSearch } from "./RosterSearch";
 import { AssignmentControls } from "./TeamControls";
 import { CreatorEditButton } from "./CreatorEditButton";
 import { RateCardEditor } from "./RateCardEditor";
@@ -72,7 +73,7 @@ export function CreatorsHero({ roster, showFees }: { roster: Assignment[]; showF
 const STATUS_STYLE: Record<AssignmentStatus, { label: string; className: string }> = {
   Approved: { label: "Approved", className: "border-fb-red bg-fb-red text-white" },
   Proposed: { label: "Awaiting review", className: "bg-surface text-fb-black" },
-  "Changes requested": { label: "Changes requested", className: "border-white/40 bg-fb-ink text-white" },
+  "Reached Out": { label: "Reached out", className: "border-white/40 bg-fb-ink text-white" },
   Declined: { label: "Passed", className: "bg-surface text-muted" },
 };
 
@@ -95,16 +96,21 @@ export function CreatorsBody({
           <h2 className="section-title flex-1">The creators</h2>
           {partner && roster.some((a) => a.status === "Proposed") && (
             <p className="mb-3 max-w-md text-sm text-secondary">
-              Approve the creators you&apos;re happy with, or request a change and tell us why. We&apos;ll update this
+              Approve the creators you&apos;re happy with, or pass and tell us why. We&apos;ll update this
               page as we go.
             </p>
           )}
         </div>
         {roster.length ? (
+          <RosterSearch count={roster.length}>
           <MaybeSelectable team={team} ids={roster.map((a) => a.id)}>
             <ul className="mt-3.5 grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
               {roster.map((a) => (
-                <li key={a.id} className={`card relative flex flex-col p-3 ${a.status === "Declined" ? "opacity-60" : ""}`}>
+                <li
+                  key={a.id}
+                  data-search={[a.creator?.name, a.creator?.tiktok, a.creator?.instagram].filter(Boolean).join(" ").toLowerCase()}
+                  className={`card relative flex flex-col p-3 ${a.status === "Declined" ? "opacity-60" : ""}`}
+                >
                   {team && <SelectBox id={a.id} label={a.creator?.name ?? "creator"} />}
                   <RosterCard
                     assignment={a}
@@ -153,6 +159,7 @@ export function CreatorsBody({
               ))}
             </ul>
           </MaybeSelectable>
+          </RosterSearch>
         ) : (
           <p className="empty card">
             {team

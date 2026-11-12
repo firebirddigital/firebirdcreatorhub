@@ -41,10 +41,32 @@ async function post(rows: RawCreatorRow[], dryRun: boolean, firstRow: number) {
   return { results: data.results, counts: data.counts };
 }
 
-/** "Import CSV" on the Creators page: pick a file, check the columns, preview, then import. */
-export function CreatorImport() {
+/** Adds creators (by Airtable ID) to a campaign's roster, 100 at a time. Returns how many were new to it. */
+export async function addToCampaign(campaignId: string, creatorIds: string[], status: "Reached Out" | "Proposed") {
+  let added = 0;
+  const ids = [...new Set(creatorIds)];
+  for (let i = 0; i < ids.length; i += 100) {
+    const res = await fetch(`/api/campaigns/${campaignId}/roster`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creatorIds: ids.slice(i, i + 100), status }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; added?: number };
+    if (!res.ok) throw new Error(`${data.error ?? "Adding them to the campaign didn't work."}${added ? ` ${added} were added before it stopped.` : ""}`);
+    added += data.added ?? 0;
+  }
+  return added;
+}
+
+/**
+ * "Import CSV" on the Creators page: pick a file, check the columns, preview, then import.
+ * With `campaign`, it sits inside a campaign's Add creators popup: everyone in the file also goes onto
+ * that campaign (and their stats are pulled automatically).
+ */
+export function CreatorImport({ campaign }: { campaign?: { id: string; status: "Reached Out" | "Proposed" } } = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(campaign));
+  const [onCampaign, setOnCampaign] = useState<{ added: number; total: number }>();
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
   const [body, setBody] = useState<string[][]>([]);
@@ -73,6 +95,7 @@ export function CreatorImport() {
     setStats(undefined);
     setProgress(0);
     setFilter("all");
+    setOnCampaign(undefined);
   }
 
   async function readFile(file: File) {
@@ -132,13 +155,19 @@ export function CreatorImport() {
     setProgress(0);
     const total: Counts = { create: 0, update: 0, unchanged: 0, duplicate: 0, skip: 0 };
     const created: string[] = [];
+    const everyone: string[] = [];
     try {
       for (let i = 0; i < rawRows.length; i += BATCH) {
         const { counts, results } = await post(rawRows.slice(i, i + BATCH), false, i + 2);
         (Object.keys(total) as ImportAction[]).forEach((k) => (total[k] += counts[k]));
         results.forEach((r) => r.action === "create" && r.id && created.push(r.id));
+        results.forEach((r) => r.id && everyone.push(r.id));
         setNewIds([...created]);
         setProgress(Math.min(rawRows.length, i + BATCH));
+      }
+      if (campaign) {
+        const added = await addToCampaign(campaign.id, everyone, campaign.status);
+        setOnCampaign({ added, total: new Set(everyone).size });
       }
       setDone(total);
       setPreview(undefined);
@@ -178,11 +207,12 @@ export function CreatorImport() {
   const toWrite = preview ? preview.counts.create + preview.counts.update : 0;
 
   return (
-    <section aria-label="Import creators" className="card basis-full w-full mt-3.5 space-y-5 text-left">
+    <section aria-label="Import creators" className={campaign ? "space-y-5 text-left" : "card basis-full w-full mt-3.5 space-y-5 text-left"}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2>Import creators</h2>
+          {!campaign && <h2>Import creators</h2>}
           <p className="caption mb-0 max-w-prose">
+            {campaign && "Everyone in the file goes onto this campaign and into the Creators database. "}
             Upload a CSV with one creator per row: name, TikTok and Instagram links or handles, email, tags, location, rate.
             Anyone already in the database is matched by handle, so they get your new tags and any missing details added,
             never overwritten. Nothing saves until you click Import.
@@ -192,15 +222,17 @@ export function CreatorImport() {
           <button onClick={downloadTemplate} className="btn btn-sm">
             Download a template
           </button>
-          <button
-            onClick={() => {
-              reset();
-              setOpen(false);
-            }}
-            className="btn btn-quiet btn-sm"
-          >
-            Close
-          </button>
+          {!campaign && (
+            <button
+              onClick={() => {
+                reset();
+                setOpen(false);
+              }}
+              className="btn btn-quiet btn-sm"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
 
@@ -352,12 +384,14 @@ export function CreatorImport() {
             {shown.length > 500 && <p className="py-2 text-xs text-muted">Showing the first 500 of {shown.length}.</p>}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-4">
-            <button onClick={runImport} disabled={!toWrite || Boolean(busy)} className={BUTTON_PRIMARY}>
+            <button onClick={runImport} disabled={(!toWrite && !campaign) || Boolean(busy)} className={BUTTON_PRIMARY}>
               {busy === "importing"
                 ? `Importing ${progress.toLocaleString()} of ${rawRows.length.toLocaleString()}`
-                : toWrite
-                  ? `Import: ${preview.counts.create} new, ${preview.counts.update} updated`
-                  : "Nothing new to import"}
+                : campaign
+                  ? `Add ${preview.results.filter((r) => r.action !== "skip" && r.action !== "duplicate").length} to this campaign`
+                  : toWrite
+                    ? `Import: ${preview.counts.create} new, ${preview.counts.update} updated`
+                    : "Nothing new to import"}
             </button>
             <span className="text-xs text-muted">Rows marked Skipped or Already there aren&apos;t changed.</span>
           </div>
@@ -373,10 +407,15 @@ export function CreatorImport() {
         <div role="status">
           <p className="tile-label">Import finished</p>
           <p className="text-sm">
-            Added {done.create} new {done.create === 1 ? "creator" : "creators"}, updated {done.update}
-            {done.skip ? `, skipped ${done.skip}` : ""}. They&apos;re in the list below. Use Needs tags to find anyone still untagged.
+            Added {done.create} new {done.create === 1 ? "creator" : "creators"} to the database, updated {done.update}
+            {done.skip ? `, skipped ${done.skip}` : ""}.
+            {onCampaign
+              ? ` Added ${onCampaign.added} to this campaign as ${campaign?.status}${
+                  onCampaign.total > onCampaign.added ? ` (${onCampaign.total - onCampaign.added} were already on it)` : ""
+                }. Their followers, median views and engagement are being pulled now; reload in a few minutes to see them.`
+              : " They're in the list below. Use Needs tags to find anyone still untagged."}
           </p>
-          {newIds.length > 0 && (
+          {!campaign && newIds.length > 0 && (
             <div className="banner mt-4 mb-0">
               <p>
                 Pull followers and median views (last 10 posts) for the {newIds.length} new{" "}

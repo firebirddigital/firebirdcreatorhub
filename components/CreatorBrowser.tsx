@@ -10,7 +10,7 @@ import { CreatorProfile } from "./CreatorProfile";
 
 type PlatformFilter = "any" | "instagram" | "tiktok";
 const COLLAPSE_KEY = "creators.filtersCollapsed";
-type Sort = "reach" | "avgViews" | "engagement" | "track" | "stale" | "name" | "rate" | "cpm";
+type Sort = "reach" | "recent" | "avgViews" | "engagement" | "track" | "stale" | "name" | "rate" | "cpm";
 type View = "cards" | "table";
 
 const REACH_OPTIONS = [
@@ -92,6 +92,8 @@ export function CreatorBrowser({
   const [maxRate, setMaxRate] = useState(0);
   const [maxCpm, setMaxCpm] = useState(0);
   const [location, setLocation] = useState("");
+  /** Only creators added in the last this-many days (0 = any time). */
+  const [addedWithin, setAddedWithin] = useState(0);
   const [sort, setSort] = useState<Sort>("reach");
   const [selected, setSelected] = useState<string[]>([]);
   const [pulling, setPulling] = useState<{ done: number; total: number }>();
@@ -138,6 +140,7 @@ export function CreatorBrowser({
         if (maxRate && (!c.rate || c.rate > maxRate)) return false;
         if (maxCpm && !((creatorCpm(c) ?? Infinity) <= maxCpm)) return false;
         if (location && c.location !== location) return false;
+        if (addedWithin && !(c.createdAt && Date.now() - new Date(c.createdAt).getTime() <= addedWithin * 86_400_000)) return false;
         if (!q) return true;
         return [c.name, c.instagram, c.tiktok, c.location, c.notes, ...c.tags]
           .filter(Boolean)
@@ -146,6 +149,8 @@ export function CreatorBrowser({
       .sort((a, b) =>
         sort === "name"
           ? a.name.localeCompare(b.name)
+          : sort === "recent"
+            ? (b.createdAt ?? "").localeCompare(a.createdAt ?? "")
           : sort === "rate"
             ? (a.rate ?? Infinity) - (b.rate ?? Infinity)
             : sort === "cpm"
@@ -161,7 +166,7 @@ export function CreatorBrowser({
                   ? (a.statsUpdated ?? "").localeCompare(b.statsUpdated ?? "")
                   : reach(b, platform) - reach(a, platform),
       );
-  }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, maxCpm, location, sort, trackRecords]);
+  }, [creators, query, tags, matchAll, untaggedOnly, platform, minReach, minAvgViews, maxRate, maxCpm, location, addedWithin, sort, trackRecords]);
 
   const toggleTag = (t: string) => {
     setUntaggedOnly(false);
@@ -179,6 +184,7 @@ export function CreatorBrowser({
     maxRate,
     maxCpm,
     location,
+    addedWithin,
   ].filter(Boolean).length;
   const clearFilters = () => {
     setQuery("");
@@ -190,6 +196,7 @@ export function CreatorBrowser({
     setMaxRate(0);
     setMaxCpm(0);
     setLocation("");
+    setAddedWithin(0);
   };
 
   /** Applies tag changes locally, saves them, and rolls back if the save fails. */
@@ -310,12 +317,26 @@ export function CreatorBrowser({
                   options={[{ label: "Anywhere", value: "" }, ...locations.map((l) => ({ label: l, value: l }))]}
                 />
               )}
+              {team && (
+                <Select
+                  label="Added"
+                  value={String(addedWithin)}
+                  onChange={(v) => setAddedWithin(Number(v))}
+                  options={[
+                    { label: "Any time", value: "0" },
+                    { label: "Last 7 days", value: "7" },
+                    { label: "Last 30 days", value: "30" },
+                    { label: "Last 90 days", value: "90" },
+                  ]}
+                />
+              )}
               <Select
                 label="Sort"
                 value={sort}
                 onChange={(v) => setSort(v as Sort)}
                 options={[
                   { label: "Biggest reach", value: "reach" },
+                  ...(team ? [{ label: "Recently added", value: "recent" }] : []),
                   { label: "Most median views", value: "avgViews" },
                   ...(team
                     ? [

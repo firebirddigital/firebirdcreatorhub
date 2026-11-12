@@ -17,6 +17,8 @@ export interface Creator {
   /** (Likes + comments + shares) ÷ views across their last 10 posts. Partners see it only when the campaign allows. */
   engagementRate?: number;
   statsUpdated?: string;
+  /** When they were added to the Creators table (Airtable's created time). */
+  createdAt?: string;
 }
 
 export type CampaignStatus = "Live" | "Awaiting approval" | "Paused" | "Complete" | "Canceled";
@@ -69,7 +71,17 @@ export function campaignType(c: Pick<Campaign, "type" | "name" | "song">): Campa
 /** Content Seeding campaigns skip the Creators and Drafts phases: they're only ever Live, and always shared. */
 export const isSeeding = (c: Pick<Campaign, "type" | "name" | "song">) => campaignType(c) === "Content Seeding";
 
-export type AssignmentStatus = "Proposed" | "Approved" | "Changes requested" | "Declined";
+/**
+ * Where a creator stands on a campaign. Reached Out: the team has contacted them (partners don't see them yet).
+ * Proposed: shown to the partner for review. Approved / Declined: decided.
+ */
+export type AssignmentStatus = "Reached Out" | "Proposed" | "Approved" | "Declined";
+export const ASSIGNMENT_STATUSES: AssignmentStatus[] = ["Reached Out", "Proposed", "Approved", "Declined"];
+/** Reads a status from Airtable. The old "Changes requested" now counts as Proposed (still waiting on the partner). */
+export function parseAssignmentStatus(v?: string): AssignmentStatus {
+  const s = v?.trim().toLowerCase();
+  return ASSIGNMENT_STATUSES.find((x) => x.toLowerCase() === s) ?? "Proposed";
+}
 
 /** A creator proposed for (or booked on) a campaign. */
 export interface Assignment {

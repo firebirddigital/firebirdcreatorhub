@@ -201,7 +201,7 @@ async function dashboardEmail(opts: { origin: string; campaign: Campaign; note?:
     headline = proposed ? "Creators ready for you" : "Your creator lineup";
     lines.push(
       proposed
-        ? `We've proposed ${proposed} ${proposed === 1 ? "creator" : "creators"} for ${songLine(campaign)}. Approve the ones you like or ask for changes.`
+        ? `We've proposed ${proposed} ${proposed === 1 ? "creator" : "creators"} for ${songLine(campaign)}. Approve the ones you like or pass on them.`
         : `Here's the creator lineup for ${songLine(campaign)}.`,
     );
   }

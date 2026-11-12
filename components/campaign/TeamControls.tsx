@@ -7,9 +7,20 @@ import type { RateType } from "@/lib/types";
 import { compact } from "@/lib/format";
 import { profileFromUrl } from "@/lib/social";
 import { ModalButton } from "./Modal";
-import type { AssignmentStatus, Creator, Stage } from "@/lib/types";
+import { PasteHandles } from "./PasteHandles";
+import { CreatorImport } from "../CreatorImport";
+import { ASSIGNMENT_STATUSES, type AssignmentStatus, type Creator, type Stage } from "@/lib/types";
 
-const STATUSES: AssignmentStatus[] = ["Proposed", "Approved", "Changes requested", "Declined"];
+const STATUSES = ASSIGNMENT_STATUSES;
+
+/** "today", "yesterday", "5 days ago", or a date. */
+function addedLabel(iso: string) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} days ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 async function call(url: string, method: string, body?: object) {
   const res = await fetch(url, {
@@ -333,7 +344,7 @@ export function RosterTools({
   addDraft,
 }: {
   campaignId: string;
-  roster: Pick<Creator, "id" | "name" | "instagram" | "tiktok" | "instagramFollowers" | "tiktokFollowers" | "tags">[];
+  roster: Pick<Creator, "id" | "name" | "instagram" | "tiktok" | "instagramFollowers" | "tiktokFollowers" | "tags" | "createdAt">[];
   onCampaign: string[];
   current: Stage;
   shareUrl?: string;
@@ -343,6 +354,11 @@ export function RosterTools({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  // The search box is focused: with nothing typed, show the most recently added creators to pick from.
+  const [searching, setSearching] = useState(false);
+  const [addMode, setAddMode] = useState<"search" | "paste" | "csv">("search");
+  /** The status creators get when they're added: Reached Out, or Proposed (shown to the partner). */
+  const [addStatus, setAddStatus] = useState<"Reached Out" | "Proposed">("Proposed");
   const [picked, setPicked] = useState<string[]>([]);
   const [pickedRates, setPickedRates] = useState(emptyRateText);
   const [newCreator, setNewCreator] = useState<NewCreatorDraft>();
@@ -355,8 +371,9 @@ export function RosterTools({
   const options = useMemo(() => {
     // A pasted profile link searches by its handle, so existing creators show up first.
     const q = (profileFromUrl(query)?.handle ?? query.trim().replace(/^@/, "")).toLowerCase();
-    return roster
-      .filter((c) => !onCampaign.includes(c.id))
+    const available = roster.filter((c) => !onCampaign.includes(c.id));
+    if (!q) return [...available].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")).slice(0, 8);
+    return available
       .filter(
         (c) =>
           !q ||
@@ -383,18 +400,78 @@ export function RosterTools({
 
   const addCreators = (
     <div className="space-y-5">
-      <div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div role="group" aria-label="How to add creators" className="seg">
+          {(
+            [
+              ["search", "Search the roster"],
+              ["paste", "Paste handles"],
+              ["csv", "Upload CSV"],
+            ] as const
+          ).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setAddMode(k)} aria-pressed={addMode === k}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 text-xs font-bold">
+          Add as
+          <select value={addStatus} onChange={(e) => setAddStatus(e.target.value as "Reached Out" | "Proposed")} className="field w-auto min-h-0 py-1.5">
+            <option value="Proposed">Proposed (partner reviews)</option>
+            <option value="Reached Out">Reached Out (team only)</option>
+          </select>
+        </label>
+      </div>
+      {addMode === "paste" && <PasteHandles campaignId={campaignId} status={addStatus} sample={sample} />}
+      {addMode === "csv" &&
+        (sample ? (
+          <p className="text-sm text-muted">CSV upload turns on once Airtable is connected.</p>
+        ) : (
+          <CreatorImport campaign={{ id: campaignId, status: addStatus }} />
+        ))}
+      {addMode === "search" && <div>
         <label className="block">
           <span className="field-label">Add creators to this campaign</span>
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setSearching(true)}
             placeholder="Search the roster by name, handle or niche"
             disabled={sample}
             className="field"
           />
         </label>
+        {!query && searching && options.length > 0 && (
+          <div className="mt-2 overflow-hidden rounded-control border border-line bg-surface">
+            <p className="flex items-center justify-between border-b border-line px-3 py-2 text-xs font-bold text-secondary">
+              Recently added
+              <button type="button" onClick={() => setSearching(false)} className="font-normal underline underline-offset-2 hover:text-fb-red">
+                Hide
+              </button>
+            </p>
+            <ul className="divide-y divide-line">
+              {options.map((c) => {
+                const on = picked.includes(c.id);
+                return (
+                  <li key={c.id}>
+                    <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-wash-neutral">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => setPicked((p) => (on ? p.filter((x) => x !== c.id) : [...p, c.id]))}
+                        className="accent-fb-red size-4"
+                      />
+                      <span className="font-bold">{c.name}</span>
+                      <span className="text-sm text-muted truncate">{c.createdAt ? `Added ${addedLabel(c.createdAt)}` : c.tags.join(", ")}</span>
+                      <span className="ml-auto text-sm font-bold tabular-nums">{compact(c.instagramFollowers + c.tiktokFollowers)}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         {query && (
           <ul className="mt-2 overflow-hidden rounded-control border border-line divide-y divide-line bg-surface">
             {options.length ? (
@@ -441,7 +518,7 @@ export function RosterTools({
             </li>
           </ul>
         )}
-        {!query && !newCreator && (
+        {!query && !searching && !newCreator && (
           <button
             type="button"
             onClick={() => setNewCreator({ ...EMPTY_NEW })}
@@ -464,16 +541,17 @@ export function RosterTools({
                 const d = (await call(`/api/campaigns/${campaignId}/roster`, "POST", {
                   newCreator: { ...fields, rate: fields.rate ? Number(fields.rate) : undefined },
                   rates: rateCardFromText(rates),
+                  status: addStatus,
                 })) as { added?: number; newCreator?: { created: boolean; name: string }; pullingStats?: boolean; ratesError?: string };
                 if (d.ratesError) throw new Error(`Added ${d.newCreator?.name ?? newCreator.name}, but the rates didn't save: ${d.ratesError}`);
                 setNewCreator(undefined);
                 const who = d.newCreator?.name ?? newCreator.name;
                 if (d.newCreator && !d.newCreator.created) {
                   return d.added
-                    ? `${who} was already in the database (same handle), so we added them to this campaign as Proposed.`
+                    ? `${who} was already in the database (same handle), so we added them to this campaign as ${addStatus}.`
                     : `${who} is already in the database and on this campaign.`;
                 }
-                return `Added ${who} to the Creators database and to this campaign as Proposed.${
+                return `Added ${who} to the Creators database and to this campaign as ${addStatus}.${
                   d.pullingStats
                     ? " Pulling their followers and median views (last 10 posts) now; reload in a minute to see them."
                     : ""
@@ -499,12 +577,13 @@ export function RosterTools({
                 const d = (await call(`/api/campaigns/${campaignId}/roster`, "POST", {
                   creatorIds: picked,
                   rates: rateCardFromText(pickedRates),
+                  status: addStatus,
                 })) as { added?: number; ratesError?: string };
                 setPicked([]);
                 setPickedRates(emptyRateText());
                 setQuery("");
                 if (d.ratesError) throw new Error(`Added ${d.added} to the campaign, but the rates didn't save: ${d.ratesError}`);
-                return `Added ${d.added} to the campaign as Proposed.`;
+                return `Added ${d.added} to the campaign as ${addStatus}.`;
               })
             }
             disabled={busy === "add"}
@@ -513,7 +592,7 @@ export function RosterTools({
             {busy === "add" ? "Adding" : `Add ${picked.length} ${picked.length === 1 ? "creator" : "creators"}`}
           </button>
         )}
-      </div>
+      </div>}
 
       {sample && <p className="text-sm text-muted">These tools turn on once Airtable and Apify are connected.</p>}
       {message && message.at === "box" && (

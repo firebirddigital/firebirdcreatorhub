@@ -65,6 +65,6 @@ export function partnerView(view: CampaignView, shows: PartnerShows): CampaignVi
  */
 export function rosterCreator(c: Creator, opts: { rates?: boolean } = {}): Creator {
   // Leave the fields out entirely rather than sending them blank.
-  const { email: _email, notes: _notes, rate, statsUpdated: _updated, engagementRate: _eng, ...rest } = c;
+  const { email: _email, notes: _notes, rate, statsUpdated: _updated, engagementRate: _eng, createdAt: _created, ...rest } = c;
   return opts.rates && rate ? { ...rest, rate } : rest;
 }

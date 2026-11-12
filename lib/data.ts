@@ -11,7 +11,7 @@ import {
 } from "./config";
 import { detectPlatform } from "./social";
 import { expectedCpm } from "./format";
-import { CAMPAIGN_TYPES, isSeeding, parseCampaignStatus, parsePlatforms, parseRateCard } from "./types";
+import { CAMPAIGN_TYPES, isSeeding, parseAssignmentStatus, parseCampaignStatus, parsePlatforms, parseRateCard } from "./types";
 import {
   sampleAssignments,
   sampleCampaigns,
@@ -63,6 +63,7 @@ export async function getCreators(opts: { fresh?: boolean } = {}): Promise<Creat
       notes: str(r.fields[CRF.notes]),
       avgViews: num(r.fields[CRF.avgViews]) || undefined,
       engagementRate: engagement[r.id]?.rate,
+      createdAt: r.createdTime,
       statsUpdated: str(r.fields[CRF.statsUpdated]),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -113,7 +114,7 @@ function mapAssignment(r: AirtableRecord): Assignment {
     id: r.id,
     campaignId: ids(r.fields[AF.campaign])[0] ?? str(r.fields[AF.campaignRecordId]) ?? "",
     creatorId: ids(r.fields[AF.creator])[0],
-    status: (str(r.fields[AF.status]) as AssignmentStatus) ?? "Proposed",
+    status: parseAssignmentStatus(str(r.fields[AF.status])),
     fee: num(r.fields[AF.fee]) || undefined,
     partnerComment: str(r.fields[AF.partnerComment]),
     reviewedBy: str(r.fields[AF.reviewedBy]),
@@ -133,7 +134,7 @@ export async function getAssignments(campaignId: string, opts: { fresh?: boolean
     getCreators(opts),
   ]);
   const byId = new Map(creators.map((c) => [c.id, c]));
-  const order: Record<AssignmentStatus, number> = { Approved: 0, Proposed: 1, "Changes requested": 2, Declined: 3 };
+  const order: Record<AssignmentStatus, number> = { Approved: 0, Proposed: 1, "Reached Out": 2, Declined: 3 };
   return rows
     .map((a) => ({ ...a, creator: a.creatorId ? byId.get(a.creatorId) : undefined }))
     .sort(

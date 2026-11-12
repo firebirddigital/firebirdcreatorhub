@@ -57,7 +57,7 @@ export default async function CampaignPage({
     return (
       <RosterTools
         campaignId={campaign.id}
-        roster={creators.map(({ id, name, instagram, tiktok, instagramFollowers, tiktokFollowers, tags }) => ({
+        roster={creators.map(({ id, name, instagram, tiktok, instagramFollowers, tiktokFollowers, tags, createdAt }) => ({
           id,
           name,
           instagram,
@@ -65,6 +65,7 @@ export default async function CampaignPage({
           instagramFollowers,
           tiktokFollowers,
           tags,
+          createdAt,
         }))}
         onCampaign={roster.map((a) => a.creatorId).filter((x): x is string => Boolean(x))}
         current={current}
@@ -167,32 +168,21 @@ export default async function CampaignPage({
   }
 
   const settings = await getCampaignSettings(campaign.id);
-  const engagementSwitch = (
-    <div className="mt-3.5">
-      <CampaignSwitch
-        campaignId={campaign.id}
-        setting="showEngagementToPartners"
-        label="Show engagement rates to partners"
-        on={settings.showEngagementToPartners}
-        onNote="Partners see each creator's engagement rate (last 10 posts) on their link and wrap report."
-        offNote="Team only. Partners don't see creators' engagement rates."
-        sample={sample}
-      />
-    </div>
-  );
 
   return (
     <TeamShell active="campaigns">
       <CampaignShell campaign={campaign} tab={tab} current={current} basePath={`/campaigns/${id}`}
-        hero={
-          <>
-            {hero}
-            {engagementSwitch}
-          </>
+        hero={hero}
+        edit={
+          <CampaignEditor
+            campaign={campaign}
+            stage={current}
+            sample={sample}
+            engagementToPartners={settings.showEngagementToPartners}
+          />
         }
         actions={<CampaignBriefButton key={campaign.briefUrl ?? ""} url={campaign.briefUrl} campaignId={sample ? undefined : campaign.id} />}
       >
-        <CampaignEditor key={JSON.stringify(campaign)} campaign={campaign} stage={current} sample={sample} />
         {campaign.partnerContacts && (
           <section aria-label="Partner contacts" className="card text-sm">
             <h2>Partner contacts (team only)</h2>
