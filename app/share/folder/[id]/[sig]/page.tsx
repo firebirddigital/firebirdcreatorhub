@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/Logo";
-import { StatusTag } from "@/components/StatusTag";
 import { isValidFolderShare, shareSignature } from "@/lib/auth";
 import { REQUEST_FORM_URL } from "@/lib/config";
 import { getCampaignSummaries } from "@/lib/data";
@@ -27,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-// Partner-facing folder: names, artists, status, dates and views only. Each campaign opens its own
+// Partner-facing folder: names, artists, dates and views only. Each campaign opens its own
 // share link, which does its own stripping; campaigns with sharing off are listed but not linked.
 export default async function FolderSharePage({ params }: { params: Promise<{ id: string; sig: string }> }) {
   const { id, sig } = await params;
@@ -76,7 +75,6 @@ export default async function FolderSharePage({ params }: { params: Promise<{ id
                       {campaign.name}
                     </h2>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
-                      <StatusTag status={campaign.status} />
                       <span>{dateRange(campaign.startDate, campaign.endDate)}</span>
                       {!href && <span>· Not shared yet</span>}
                     </div>

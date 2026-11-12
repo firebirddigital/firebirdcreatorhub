@@ -102,6 +102,7 @@ export default async function SharePage({
         </a>
       </header>
       <CampaignShell
+        partner
         campaign={safeCampaign}
         tab={tab}
         current={current}

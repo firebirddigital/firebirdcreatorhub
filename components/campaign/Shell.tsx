@@ -23,6 +23,7 @@ export function CampaignShell({
   hero,
   actions,
   edit,
+  partner,
   children,
 }: {
   campaign: Campaign;
@@ -30,6 +31,8 @@ export function CampaignShell({
   actions?: React.ReactNode;
   /** Team only: the Edit campaign button, top right. */
   edit?: React.ReactNode;
+  /** Partner pages leave out the campaign status (Awaiting approval, Live…). */
+  partner?: boolean;
   tab: Stage;
   current: Stage;
   basePath: string;
@@ -52,7 +55,7 @@ export function CampaignShell({
           {edit && <div className="shrink-0">{edit}</div>}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <StatusTag status={campaign.status} />
+          {!partner && <StatusTag status={campaign.status} />}
           <span>{dateRange(campaign.startDate, campaign.endDate)}</span>
         </div>
       </header>
